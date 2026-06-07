@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Security Model · DeskPilot</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../index.html">DeskPilot</a>
+    <nav><a href="product-spec.html">Product Spec</a>
+<a href="architecture.html">Architecture</a>
+<a href="mcp-tools.html">MCP Tools</a>
+<a href="windows-automation.html">Windows Automation</a>
+<a href="security-model.html">Security Model</a>
+<a href="threat-model.html">Threat Model</a>
+<a href="voice-ux.html">Voice UX</a>
+<a href="data-model.html">Data Model</a>
+<a href="test-plan.html">Test Plan</a>
+<a href="deployment.html">Deployment</a>
+<a href="roadmap.html">Roadmap</a>
+<a href="burndown.html">Burndown</a>
+<a href="github-pages.html">GitHub Pages</a></nav>
+  </header>
+  <main class="doc-shell">
+    <aside class="doc-sidebar">
+      <strong>Docs</strong>
+      <a href="product-spec.html">Product Spec</a>
+<a href="architecture.html">Architecture</a>
+<a href="mcp-tools.html">MCP Tools</a>
+<a href="windows-automation.html">Windows Automation</a>
+<a href="security-model.html">Security Model</a>
+<a href="threat-model.html">Threat Model</a>
+<a href="voice-ux.html">Voice UX</a>
+<a href="data-model.html">Data Model</a>
+<a href="test-plan.html">Test Plan</a>
+<a href="deployment.html">Deployment</a>
+<a href="roadmap.html">Roadmap</a>
+<a href="burndown.html">Burndown</a>
+<a href="github-pages.html">GitHub Pages</a>
+    </aside>
+    <article class="doc-content">
+      <h1>Security Model</h1>
+<h2>Summary</h2>
+<p>DeskPilot operates a user’s desktop. That is powerful. The security model therefore treats the LLM as an untrusted planner and the MCP server as a guarded capability provider.</p>
+<p>The model may request actions. The policy engine decides whether they are allowed.</p>
+<h2>Security goals</h2>
+<ul>
+<li>Preserve user control.</li>
+<li>Prevent silent high-impact actions.</li>
+<li>Prevent credential handling.</li>
+<li>Minimize data exposure.</li>
+<li>Avoid arbitrary code execution.</li>
+<li>Make actions visible and auditable.</li>
+<li>Provide immediate stop mechanisms.</li>
+<li>Keep the local MCP server from becoming a remote-control backdoor.</li>
+</ul>
+<h2>Trust boundaries</h2>
+<pre><code class="language-text">User
+  ↓ trusted intent, but may be ambiguous
+Voice/model host
+  ↓ untrusted model output
+MCP tool request
+  ↓ validation boundary
+Policy engine
+  ↓ authorization boundary
+Windows automation adapter
+  ↓ OS boundary
+Desktop applications and files
+</code></pre>
+<h2>What is trusted</h2>
+<ul>
+<li>User’s explicit approvals.</li>
+<li>Local policy configuration.</li>
+<li>Signed local DeskPilot binaries, if implemented.</li>
+<li>MCP server validation code.</li>
+<li>Audit log writer.</li>
+</ul>
+<h2>What is not trusted</h2>
+<ul>
+<li>LLM-generated plans.</li>
+<li>Tool descriptions from third-party servers.</li>
+<li>Text read from webpages, documents, emails, or app UI.</li>
+<li>Screenshots.</li>
+<li>Clipboard contents.</li>
+<li>App window titles.</li>
+<li>File names.</li>
+<li>Browser content.</li>
+<li>Recipes from untrusted sources.</li>
+</ul>
+<h2>Policy engine</h2>
+<p>The policy engine is mandatory for every action tool.</p>
+<p>Input:</p>
+<pre><code class="language-json">{
+  &quot;session_id&quot;: &quot;session_123&quot;,
+  &quot;correlation_id&quot;: &quot;task_001.step_003&quot;,
+  &quot;tool&quot;: &quot;file.rename&quot;,
+  &quot;arguments&quot;: {},
+  &quot;risk_tier&quot;: &quot;local_state_change&quot;,
+  &quot;context&quot;: {
+    &quot;active_process&quot;: &quot;explorer.exe&quot;,
+    &quot;visible_to_user&quot;: true,
+    &quot;external_side_effect&quot;: false,
+    &quot;reversible&quot;: true,
+    &quot;requires_secret&quot;: false
+  }
+}
+</code></pre>
+<p>Output:</p>
+<pre><code class="language-json">{
+  &quot;decision&quot;: &quot;require_approval&quot;,
+  &quot;reason&quot;: &quot;Renaming a file changes local state.&quot;,
+  &quot;approval_prompt&quot;: &quot;Rename Screenshot.png to router-settings.png?&quot;,
+  &quot;policy_rule_ids&quot;: [&quot;file.write.requires_approval&quot;]
+}
+</code></pre>
+<p>Allowed decisions:</p>
+<pre><code class="language-text">allow
+deny
+require_approval
+require_handoff
+</code></pre>
+<h2>Risk tier policy</h2>
+<table>
+<thead>
+<tr>
+  <th style="text-align:right">Tier</th>
+  <th>Name</th>
+  <th>Default behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="text-align:right">0</td>
+  <td>Observe</td>
+  <td>Allow after session permission</td>
+</tr>
+<tr>
+  <td style="text-align:right">1</td>
+  <td>Local reversible</td>
+  <td>Allow when visible and expected</td>
+</tr>
+<tr>
+  <td style="text-align:right">2</td>
+  <td>Local state change</td>
+  <td>Require task approval</td>
+</tr>
+<tr>
+  <td style="text-align:right">3</td>
+  <td>External side effect</td>
+  <td>Require explicit final approval every time</td>
+</tr>
+<tr>
+  <td style="text-align:right">4</td>
+  <td>Dangerous or blocked</td>
+  <td>Deny or hand off</td>
+</tr>
+</tbody>
+</table>
+<h2>Approval rules</h2>
+<p>Approval prompts must be:</p>
+<ul>
+<li>Specific.</li>
+<li>Short.</li>
+<li>Human-readable.</li>
+<li>Tied to one action or one bounded task.</li>
+<li>Logged.</li>
+</ul>
+<p>Good:</p>
+<blockquote>
+<p>Rename <code>Screenshot 2026-06-07.png</code> to <code>router-settings.png</code> in Downloads?</p>
+</blockquote>
+<p>Bad:</p>
+<blockquote>
+<p>Continue?</p>
+</blockquote>
+<h2>Data handling</h2>
+<h3>UI text</h3>
+<p>UI text may contain secrets. Treat it as sensitive.</p>
+<p>Controls:</p>
+<ul>
+<li>Bounded extraction.</li>
+<li>Redaction before model sharing.</li>
+<li>Do not store full UI trees unless debug mode is enabled.</li>
+<li>Avoid sending UI text to cloud models without user opt-in.</li>
+</ul>
+<h3>Screenshots</h3>
+<p>Screenshots are high sensitivity.</p>
+<p>Controls:</p>
+<ul>
+<li>Disabled by default for cloud model sharing.</li>
+<li>Active-window only by default.</li>
+<li>Redaction hooks.</li>
+<li>Short-lived storage.</li>
+<li>Audit when captured.</li>
+</ul>
+<h3>Clipboard</h3>
+<p>Clipboard may contain passwords, tokens, or private content.</p>
+<p>Controls:</p>
+<ul>
+<li>Default tool returns metadata only.</li>
+<li>Reading contents requires explicit permission.</li>
+<li>Writing clipboard requires policy check.</li>
+<li>Do not log clipboard contents by default.</li>
+</ul>
+<h3>File contents</h3>
+<p>File contents may be sensitive.</p>
+<p>Controls:</p>
+<ul>
+<li>File reads scoped to approved roots.</li>
+<li>Content extraction requires explicit tool and policy check.</li>
+<li>No cloud upload by default.</li>
+</ul>
+<h2>Blocked MVP actions</h2>
+<ul>
+<li>Entering passwords.</li>
+<li>Entering 2FA codes.</li>
+<li>Accessing credential stores.</li>
+<li>Accessing browser passwords.</li>
+<li>Accessing crypto wallets.</li>
+<li>Submitting payments.</li>
+<li>Purchasing items.</li>
+<li>Installing software.</li>
+<li>Changing security settings.</li>
+<li>Accepting UAC prompts.</li>
+<li>Running arbitrary commands.</li>
+<li>Permanent deletion.</li>
+<li>Silent email/message sending.</li>
+<li>Silent file upload.</li>
+<li>Hidden-window automation.</li>
+</ul>
+<h2>Shell/process execution</h2>
+<p>MVP rule: no arbitrary shell.</p>
+<p>Future limited process execution may be allowed only through:</p>
+<ul>
+<li>Named allowlisted commands.</li>
+<li>Typed arguments.</li>
+<li>No shell interpolation.</li>
+<li>Fixed executable path.</li>
+<li>Approval for state-changing commands.</li>
+<li>Full audit logging.</li>
+</ul>
+<p>Example allowlisted command shape:</p>
+<pre><code class="language-yaml">id: open_control_panel
+executable: &quot;control.exe&quot;
+args_schema:
+  type: object
+  properties:
+    applet:
+      enum: [&quot;printers&quot;, &quot;date_time&quot;]
+</code></pre>
+<h2>Network exposure</h2>
+<p>Default:</p>
+<ul>
+<li>MCP server uses local stdio.</li>
+<li>No local HTTP listener.</li>
+<li>No remote control.</li>
+</ul>
+<p>If HTTP transport is added later:</p>
+<ul>
+<li>Bind to localhost only by default.</li>
+<li>Require authentication.</li>
+<li>Require origin checks where relevant.</li>
+<li>Rate-limit requests.</li>
+<li>Disable dangerous tools by default.</li>
+<li>Log all sessions.</li>
+</ul>
+<h2>Prompt injection defenses</h2>
+<p>Prompt injection can come from webpages, documents, emails, filenames, or UI text.</p>
+<p>Rules:</p>
+<ul>
+<li>Treat observed content as data, not instructions.</li>
+<li>Never let UI text change policy.</li>
+<li>Never let webpage text request new tools.</li>
+<li>Keep system/developer instructions outside observed context.</li>
+<li>Ask the model to cite observed elements by IDs rather than following embedded instructions.</li>
+<li>Use tool schemas and policy engine as the final boundary.</li>
+</ul>
+<h2>Audit log</h2>
+<p>Every tool call should log:</p>
+<ul>
+<li>Timestamp.</li>
+<li>Session ID.</li>
+<li>Correlation ID.</li>
+<li>User task summary.</li>
+<li>Tool name.</li>
+<li>Redacted arguments.</li>
+<li>Policy decision.</li>
+<li>Approval ID, if any.</li>
+<li>Execution result.</li>
+<li>Verification result.</li>
+<li>Error code, if any.</li>
+</ul>
+<p>Never log by default:</p>
+<ul>
+<li>Passwords.</li>
+<li>2FA codes.</li>
+<li>Full clipboard contents.</li>
+<li>Full screenshots.</li>
+<li>Full file contents.</li>
+</ul>
+<h2>Kill switch</h2>
+<p>Required MVP stop mechanisms:</p>
+<ul>
+<li>Global hotkey.</li>
+<li>Voice phrase: “stop now”.</li>
+<li>Host UI stop button, once a UI exists.</li>
+</ul>
+<p>Stop should:</p>
+<ul>
+<li>Cancel pending tool calls.</li>
+<li>Release active input loop.</li>
+<li>Clear pending approvals.</li>
+<li>Record stop event.</li>
+<li>Tell the user what was stopped.</li>
+</ul>
+<h2>Security acceptance criteria</h2>
+<ul>
+<li>All action tools call policy evaluation.</li>
+<li>Tier 4 actions are blocked in tests.</li>
+<li>External side effects require explicit approval.</li>
+<li>Password/2FA/payment fields cause handoff.</li>
+<li>Audit events exist for all tool calls.</li>
+<li>Screenshot and clipboard tools are disabled or metadata-only by default.</li>
+<li>MCP server has no network listener by default.</li>
+</ul>
+
+    </article>
+  </main>
+  <script src="../assets/site.js"></script>
+</body>
+</html>

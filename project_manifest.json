@@ -1,0 +1,35 @@
+{
+  "project": "DeskPilot",
+  "created": "2026-06-07",
+  "description": "A local-first Windows 11 voice agent runtime built around a safety-gated MCP automation server.",
+  "site_entry": "docs/index.html",
+  "github_pages_source": "/docs",
+  "core_docs": [
+    "docs/reference/ARCHITECTURE.md",
+    "docs/reference/BURNDOWN.md",
+    "docs/reference/DATA_MODEL.md",
+    "docs/reference/DEPLOYMENT.md",
+    "docs/reference/GITHUB_PAGES.md",
+    "docs/reference/MCP_TOOLS.md",
+    "docs/reference/PRODUCT_SPEC.md",
+    "docs/reference/README.md",
+    "docs/reference/ROADMAP.md",
+    "docs/reference/SECURITY_MODEL.md",
+    "docs/reference/TEST_PLAN.md",
+    "docs/reference/THREAT_MODEL.md",
+    "docs/reference/VOICE_UX.md",
+    "docs/reference/WINDOWS_AUTOMATION.md"
+  ],
+  "adr_docs": [
+    "docs/reference/ADR/0001-local-stdio-mcp.md",
+    "docs/reference/ADR/0002-uia-before-sendinput.md",
+    "docs/reference/ADR/0003-policy-engine-required.md",
+    "docs/reference/ADR/0004-sensitive-observation-data.md"
+  ],
+  "examples": [
+    "examples/policies/default.policy.yaml",
+    "examples/recipes/process_invoice.example.yaml",
+    "examples/mcp/claude_desktop_config.example.json",
+    "examples/model-providers/ollama.example.yaml"
+  ]
+}

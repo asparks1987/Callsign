@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DeskPilot · Windows Voice Agent MCP Server</title>
+  <meta name="description" content="DeskPilot is a local-first Windows 11 voice agent runtime built around a safety-gated MCP automation server." />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html">DeskPilot</a>
+    <nav>
+      <a href="pages/product-spec.html">Product</a>
+      <a href="pages/architecture.html">Architecture</a>
+      <a href="pages/security-model.html">Security</a>
+      <a href="pages/mcp-tools.html">MCP Tools</a>
+      <a href="pages/burndown.html">Burndown</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="eyebrow">Local-first · Windows 11 · MCP · Voice</div>
+      <h1>Voice control for Windows, without haunted cursor chaos.</h1>
+      <p>DeskPilot is a design starter for a Windows automation MCP server and voice/model host. The model plans, the MCP server exposes typed desktop capabilities, the policy engine gates risky actions, and the audit log records what happened.</p>
+      <div class="actions">
+        <a class="button primary" href="pages/architecture.html">Read the architecture</a>
+        <a class="button" href="pages/security-model.html">Review the safety model</a>
+        <a class="button" href="reference/BURNDOWN.md">Open burndown</a>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Core idea</h2>
+      <div class="flow"><pre><code>User voice/text
+  → Voice/model host
+  → LLM planner
+  → MCP tool call
+  → Policy engine
+  → Windows UI Automation / native API / fallback input
+  → Verification
+  → Audit log</code></pre></div>
+    </section>
+
+    <section class="section">
+      <h2>Design principles</h2>
+      <div class="grid">
+        <article class="card"><h3>Semantic first</h3><p>Prefer native APIs and Windows UI Automation over coordinate clicks and raw keystrokes.</p></article>
+        <article class="card"><h3>Policy outside the model</h3><p>The LLM can propose actions. It cannot authorize risky ones.</p></article>
+        <article class="card"><h3>Visible and reversible</h3><p>Actions should happen on visible targets, include verification, and support handoff or undo where possible.</p></article>
+        <article class="card"><h3>Local by default</h3><p>Screenshots, clipboard, UI text, selectors, recipes, and audit logs stay local unless explicitly configured.</p></article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Documentation</h2>
+      <input class="search" data-doc-search placeholder="Filter docs…" />
+      <div class="grid"><article class="card" data-doc-card>
+      <h3><a href="pages/product-spec.html">Product Spec</a></h3>
+      <p>Vision, users, MVP, non-goals, and product principles.</p>
+      <p><a href="reference/PRODUCT_SPEC.md">Markdown source</a></p>
+    </article>
+<article class="card" data-doc-card>
+      <h3><a href="pages/architecture.html">Architecture</a></h3>
+      <p>Host/server split, runtime loop, transport, resources, and adapters.</p>
+      <p><a href="reference/ARCHITECTURE.md">Markdown source</a></p>
+    </article>
+<article class="card" data-doc-card>
+      <h3><a href="pages/mcp-tools.html">MCP Tools</a></h3>
+      <p>Tool schemas, risk tiers, result envelopes, and examples.</p>
+      <p><a href="reference/MCP_TOOLS.md">Markdown source</a></p>
+    </article>
+<article class="card" data-doc-card>
+      <h3><a href="pages/windows-automation.html">Windows Automation</a></h3>
+      <p>UI Automation-first strategy with SendInput fallback rules.</p>
+      <p><a href="reference/WINDOWS_AUTOMATION.md">Markdown source</a></p>
+    </article>
+<article class="card" data-doc-card>
+      <h3><a href="pages/security-model.html">Security Model</a></h3>
+      <p>Policy engine, approvals, data handling, and blocked actions.</p>
+      <p><a href="reference/SECURITY_MODEL.md">Markdown source</a></p>
+    </article>
+<article class="card" data-doc-card>
+      <h3><a href="pages/threat-model.html">Threat Model</a></h3>
+      <p>Threat actors, abuse cases, mitigations, and security tests.</p>
+      <p><a href="reference/THREAT_MODEL.md">Markdown source</a></p>
+    </article>
+<article class="card" data-doc-card>
+      <h3><a href="pages/voice-ux.html">Voice UX</a></h3>
+      <p>Voice modes, confirmations, interruptions, and recovery.</p>
+      <p><a href="reference/VOICE_UX.md">Markdown source</a></p>
+    </article>
+<article class="card" data-doc-card>
+      <h3><a href="pages/data-model.html">Data Model</a></h3>
+      <p>Sessions, audit events, selectors, recipes, and configs.</p>
+      <p><a href="reference/DATA_MODEL.md">Markdown source</a></p>
+    </article>
+<article class="card" data-doc-card>
+      <h3><a href="pages/test-plan.html">Test Plan</a></h3>
+      <p>Unit, integration, desktop, safety, and manual QA tests.</p>
+      <p><a href="reference/TEST_PLAN.md">Markdown source</a></p>
+    </article>
+<article class="card" data-doc-card>
+      <h3><a href="pages/deployment.html">Deployment</a></h3>
+      <p>GitHub Pages setup, local preview, and future app deployment.</p>
+      <p><a href="reference/DEPLOYMENT.md">Markdown source</a></p>
+    </article>
+<article class="card" data-doc-card>
+      <h3><a href="pages/roadmap.html">Roadmap</a></h3>
+      <p>Milestones from docs starter to voice host and recipes.</p>
+      <p><a href="reference/ROADMAP.md">Markdown source</a></p>
+    </article>
+<article class="card" data-doc-card>
+      <h3><a href="pages/burndown.html">Burndown</a></h3>
+      <p>Prioritized implementation backlog and acceptance criteria.</p>
+      <p><a href="reference/BURNDOWN.md">Markdown source</a></p>
+    </article>
+<article class="card" data-doc-card>
+      <h3><a href="pages/github-pages.html">GitHub Pages</a></h3>
+      <p>How the static site is organized and published from /docs.</p>
+      <p><a href="reference/GITHUB_PAGES.md">Markdown source</a></p>
+    </article></div>
+    </section>
+
+    <section class="section">
+      <h2>Publish this site</h2>
+      <div class="card">
+        <p>This site is ready to run from the repository <code>/docs</code> folder. In GitHub, open repository settings, go to Pages, choose <strong>Deploy from a branch</strong>, select your branch, and choose <code>/docs</code> as the folder.</p>
+        <p>For local preview, run:</p>
+        <pre><code>python -m http.server 8000 -d docs</code></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">DeskPilot docs starter · Static site, no external assets.</footer>
+  <script src="assets/site.js"></script>
+</body>
+</html>

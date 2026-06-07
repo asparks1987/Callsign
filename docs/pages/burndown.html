@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Burndown · DeskPilot</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../index.html">DeskPilot</a>
+    <nav><a href="product-spec.html">Product Spec</a>
+<a href="architecture.html">Architecture</a>
+<a href="mcp-tools.html">MCP Tools</a>
+<a href="windows-automation.html">Windows Automation</a>
+<a href="security-model.html">Security Model</a>
+<a href="threat-model.html">Threat Model</a>
+<a href="voice-ux.html">Voice UX</a>
+<a href="data-model.html">Data Model</a>
+<a href="test-plan.html">Test Plan</a>
+<a href="deployment.html">Deployment</a>
+<a href="roadmap.html">Roadmap</a>
+<a href="burndown.html">Burndown</a>
+<a href="github-pages.html">GitHub Pages</a></nav>
+  </header>
+  <main class="doc-shell">
+    <aside class="doc-sidebar">
+      <strong>Docs</strong>
+      <a href="product-spec.html">Product Spec</a>
+<a href="architecture.html">Architecture</a>
+<a href="mcp-tools.html">MCP Tools</a>
+<a href="windows-automation.html">Windows Automation</a>
+<a href="security-model.html">Security Model</a>
+<a href="threat-model.html">Threat Model</a>
+<a href="voice-ux.html">Voice UX</a>
+<a href="data-model.html">Data Model</a>
+<a href="test-plan.html">Test Plan</a>
+<a href="deployment.html">Deployment</a>
+<a href="roadmap.html">Roadmap</a>
+<a href="burndown.html">Burndown</a>
+<a href="github-pages.html">GitHub Pages</a>
+    </aside>
+    <article class="doc-content">
+      <h1>Burndown List</h1>
+<h2>Legend</h2>
+<p>Priority:</p>
+<ul>
+<li>P0: required for MVP foundation.</li>
+<li>P1: required for useful demo.</li>
+<li>P2: important but can follow MVP.</li>
+<li>P3: later enhancement.</li>
+</ul>
+<p>Status:</p>
+<ul>
+<li>Not started.</li>
+<li>In progress.</li>
+<li>Blocked.</li>
+<li>Done.</li>
+</ul>
+<h2>Backlog</h2>
+<table>
+<thead>
+<tr>
+  <th style="text-align:right">ID</th>
+  <th>Work item</th>
+  <th style="text-align:right">Priority</th>
+  <th>Status</th>
+  <th>Acceptance criteria</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td style="text-align:right">1</td>
+  <td>Product spec v0.1</td>
+  <td style="text-align:right">P0</td>
+  <td>Done</td>
+  <td>Clear scope, users, MVP, non-goals</td>
+</tr>
+<tr>
+  <td style="text-align:right">2</td>
+  <td>Architecture doc v0.1</td>
+  <td style="text-align:right">P0</td>
+  <td>Done</td>
+  <td>Host/server boundary, transport, components</td>
+</tr>
+<tr>
+  <td style="text-align:right">3</td>
+  <td>Threat model v0.1</td>
+  <td style="text-align:right">P0</td>
+  <td>Done</td>
+  <td>Covers prompt injection, secrets, arbitrary execution, local compromise</td>
+</tr>
+<tr>
+  <td style="text-align:right">4</td>
+  <td>Security model v0.1</td>
+  <td style="text-align:right">P0</td>
+  <td>Done</td>
+  <td>Policy tiers, approvals, data handling, audit rules</td>
+</tr>
+<tr>
+  <td style="text-align:right">5</td>
+  <td>MCP tools doc v0.1</td>
+  <td style="text-align:right">P0</td>
+  <td>Done</td>
+  <td>Tool list, schemas, risk tiers, examples</td>
+</tr>
+<tr>
+  <td style="text-align:right">6</td>
+  <td>Windows automation strategy</td>
+  <td style="text-align:right">P0</td>
+  <td>Done</td>
+  <td>UIA-first and SendInput fallback rules</td>
+</tr>
+<tr>
+  <td style="text-align:right">7</td>
+  <td>Voice UX doc</td>
+  <td style="text-align:right">P1</td>
+  <td>Done</td>
+  <td>Confirmation, interruption, dictation, recovery patterns</td>
+</tr>
+<tr>
+  <td style="text-align:right">8</td>
+  <td>Data model doc</td>
+  <td style="text-align:right">P1</td>
+  <td>Done</td>
+  <td>Audit, selectors, recipes, policy config</td>
+</tr>
+<tr>
+  <td style="text-align:right">9</td>
+  <td>Test plan</td>
+  <td style="text-align:right">P0</td>
+  <td>Done</td>
+  <td>Unit, integration, safety, manual QA</td>
+</tr>
+<tr>
+  <td style="text-align:right">10</td>
+  <td>Deployment doc</td>
+  <td style="text-align:right">P1</td>
+  <td>Done</td>
+  <td>GitHub Pages, local preview, future app deployment</td>
+</tr>
+<tr>
+  <td style="text-align:right">11</td>
+  <td>Root README</td>
+  <td style="text-align:right">P0</td>
+  <td>Done</td>
+  <td>Fully details project and setup</td>
+</tr>
+<tr>
+  <td style="text-align:right">12</td>
+  <td>AGENTS.md</td>
+  <td style="text-align:right">P0</td>
+  <td>Done</td>
+  <td>Code-agent rules and safety constraints</td>
+</tr>
+<tr>
+  <td style="text-align:right">13</td>
+  <td>GitHub Pages site</td>
+  <td style="text-align:right">P0</td>
+  <td>Done</td>
+  <td>Static site served from <code>/docs</code></td>
+</tr>
+<tr>
+  <td style="text-align:right">14</td>
+  <td>C# solution skeleton</td>
+  <td style="text-align:right">P0</td>
+  <td>Not started</td>
+  <td>Builds empty solution with server/test projects</td>
+</tr>
+<tr>
+  <td style="text-align:right">15</td>
+  <td>MCP stdio server skeleton</td>
+  <td style="text-align:right">P0</td>
+  <td>Not started</td>
+  <td>Starts over stdio and registers tools</td>
+</tr>
+<tr>
+  <td style="text-align:right">16</td>
+  <td><code>server.ping</code> tool</td>
+  <td style="text-align:right">P0</td>
+  <td>Not started</td>
+  <td>Returns pong and logs call</td>
+</tr>
+<tr>
+  <td style="text-align:right">17</td>
+  <td><code>server.info</code> tool</td>
+  <td style="text-align:right">P0</td>
+  <td>Not started</td>
+  <td>Returns version/capabilities</td>
+</tr>
+<tr>
+  <td style="text-align:right">18</td>
+  <td>Standard result envelopes</td>
+  <td style="text-align:right">P0</td>
+  <td>Not started</td>
+  <td>All tools use typed success/error shape</td>
+</tr>
+<tr>
+  <td style="text-align:right">19</td>
+  <td>JSONL audit writer</td>
+  <td style="text-align:right">P0</td>
+  <td>Not started</td>
+  <td>Writes session/tool/policy events</td>
+</tr>
+<tr>
+  <td style="text-align:right">20</td>
+  <td>Policy engine stub</td>
+  <td style="text-align:right">P0</td>
+  <td>Not started</td>
+  <td>All action tools call policy</td>
+</tr>
+<tr>
+  <td style="text-align:right">21</td>
+  <td>Policy config loader</td>
+  <td style="text-align:right">P0</td>
+  <td>Not started</td>
+  <td>Loads YAML/TOML policy file</td>
+</tr>
+<tr>
+  <td style="text-align:right">22</td>
+  <td>Active window detection</td>
+  <td style="text-align:right">P0</td>
+  <td>Not started</td>
+  <td>Returns hwnd/title/process/bounds</td>
+</tr>
+<tr>
+  <td style="text-align:right">23</td>
+  <td>Visible window listing</td>
+  <td style="text-align:right">P0</td>
+  <td>Not started</td>
+  <td>Lists visible top-level windows</td>
+</tr>
+<tr>
+  <td style="text-align:right">24</td>
+  <td>UIA tree inspector</td>
+  <td style="text-align:right">P0</td>
+  <td>Not started</td>
+  <td>Bounded tree with controls/patterns</td>
+</tr>
+<tr>
+  <td style="text-align:right">25</td>
+  <td>Redaction v0</td>
+  <td style="text-align:right">P0</td>
+  <td>Not started</td>
+  <td>Redacts known sensitive strings in logs/context</td>
+</tr>
+<tr>
+  <td style="text-align:right">26</td>
+  <td>Element finder</td>
+  <td style="text-align:right">P0</td>
+  <td>Not started</td>
+  <td>Finds by name/control type/automation ID</td>
+</tr>
+<tr>
+  <td style="text-align:right">27</td>
+  <td>UIA invoke tool</td>
+  <td style="text-align:right">P0</td>
+  <td>Not started</td>
+  <td>Invokes supported visible button/menu item</td>
+</tr>
+<tr>
+  <td style="text-align:right">28</td>
+  <td>UIA set text tool</td>
+  <td style="text-align:right">P0</td>
+  <td>Not started</td>
+  <td>Sets editable field or reports unsupported</td>
+</tr>
+<tr>
+  <td style="text-align:right">29</td>
+  <td>Focus element tool</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>Focuses expected visible element</td>
+</tr>
+<tr>
+  <td style="text-align:right">30</td>
+  <td>Approved hotkey fallback</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>Sends allowlisted hotkeys only</td>
+</tr>
+<tr>
+  <td style="text-align:right">31</td>
+  <td>Type text fallback</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>Types into focused expected field with policy</td>
+</tr>
+<tr>
+  <td style="text-align:right">32</td>
+  <td>Verification helpers</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>Supports window changed, readback, file exists</td>
+</tr>
+<tr>
+  <td style="text-align:right">33</td>
+  <td>Approval request flow</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>Host prompts user and records approval</td>
+</tr>
+<tr>
+  <td style="text-align:right">34</td>
+  <td>File approved roots</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>Enforces root allowlist</td>
+</tr>
+<tr>
+  <td style="text-align:right">35</td>
+  <td>File list recent</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>Lists recent files in approved root</td>
+</tr>
+<tr>
+  <td style="text-align:right">36</td>
+  <td>File rename</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>Renames with approval and verification</td>
+</tr>
+<tr>
+  <td style="text-align:right">37</td>
+  <td>File move/copy</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>Moves/copies with approval and verification</td>
+</tr>
+<tr>
+  <td style="text-align:right">38</td>
+  <td>Text CLI host</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>User can type command to host</td>
+</tr>
+<tr>
+  <td style="text-align:right">39</td>
+  <td>MCP client in host</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>Host calls local server</td>
+</tr>
+<tr>
+  <td style="text-align:right">40</td>
+  <td>Mock model provider</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>Deterministic tool-call tests</td>
+</tr>
+<tr>
+  <td style="text-align:right">41</td>
+  <td>Ollama/OpenAI-compatible provider</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>Local model call works</td>
+</tr>
+<tr>
+  <td style="text-align:right">42</td>
+  <td>Planner prompt v0</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>Produces bounded tool plans</td>
+</tr>
+<tr>
+  <td style="text-align:right">43</td>
+  <td>Notepad demo</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>Open/type/save-with-approval path</td>
+</tr>
+<tr>
+  <td style="text-align:right">44</td>
+  <td>Calculator demo</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>Invoke buttons/read result</td>
+</tr>
+<tr>
+  <td style="text-align:right">45</td>
+  <td>File rename demo</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>Rename newest PNG in temp folder</td>
+</tr>
+<tr>
+  <td style="text-align:right">46</td>
+  <td>Stop workflow tool</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>Cancels active workflow</td>
+</tr>
+<tr>
+  <td style="text-align:right">47</td>
+  <td>Global hotkey kill switch</td>
+  <td style="text-align:right">P1</td>
+  <td>Not started</td>
+  <td>User can stop execution</td>
+</tr>
+<tr>
+  <td style="text-align:right">48</td>
+  <td>Voice provider interface</td>
+  <td style="text-align:right">P2</td>
+  <td>Not started</td>
+  <td>STT/TTS/realtime abstraction</td>
+</tr>
+<tr>
+  <td style="text-align:right">49</td>
+  <td>OpenAI Realtime provider</td>
+  <td style="text-align:right">P2</td>
+  <td>Not started</td>
+  <td>Voice in/out and tool bridge</td>
+</tr>
+<tr>
+  <td style="text-align:right">50</td>
+  <td>Local STT/TTS provider</td>
+  <td style="text-align:right">P2</td>
+  <td>Not started</td>
+  <td>Fully local voice option</td>
+</tr>
+<tr>
+  <td style="text-align:right">51</td>
+  <td>Selector schema</td>
+  <td style="text-align:right">P2</td>
+  <td>Not started</td>
+  <td>YAML selector records</td>
+</tr>
+<tr>
+  <td style="text-align:right">52</td>
+  <td>Selector matcher</td>
+  <td style="text-align:right">P2</td>
+  <td>Not started</td>
+  <td>Confidence scoring and explanations</td>
+</tr>
+<tr>
+  <td style="text-align:right">53</td>
+  <td>Recipe schema</td>
+  <td style="text-align:right">P2</td>
+  <td>Not started</td>
+  <td>YAML repeatable workflows</td>
+</tr>
+<tr>
+  <td style="text-align:right">54</td>
+  <td>Recipe runner</td>
+  <td style="text-align:right">P2</td>
+  <td>Not started</td>
+  <td>Executes approved recipe steps</td>
+</tr>
+<tr>
+  <td style="text-align:right">55</td>
+  <td>Teach mode design</td>
+  <td style="text-align:right">P3</td>
+  <td>Not started</td>
+  <td>Recording and recipe generation design</td>
+</tr>
+<tr>
+  <td style="text-align:right">56</td>
+  <td>Browser adapter design</td>
+  <td style="text-align:right">P3</td>
+  <td>Not started</td>
+  <td>DOM-based future plan</td>
+</tr>
+<tr>
+  <td style="text-align:right">57</td>
+  <td>Tray app design</td>
+  <td style="text-align:right">P3</td>
+  <td>Not started</td>
+  <td>UI shell and status controls</td>
+</tr>
+<tr>
+  <td style="text-align:right">58</td>
+  <td>Installer/packaging</td>
+  <td style="text-align:right">P3</td>
+  <td>Not started</td>
+  <td>Zip/MSIX/installer decision</td>
+</tr>
+</tbody>
+</table>
+<h2>MVP milestone target</h2>
+<p>MVP is complete when the system can:</p>
+<ol>
+<li>Start a local MCP server over stdio.</li>
+<li>Inspect the active Windows app.</li>
+<li>Find a visible named UI element.</li>
+<li>Invoke or set text safely.</li>
+<li>Rename a local file with approval.</li>
+<li>Stop immediately.</li>
+<li>Log every action.</li>
+<li>Block high-risk actions.</li>
+</ol>
+<h2>Current next work</h2>
+<p>The first implementation sprint should focus on:</p>
+<ul>
+<li>C# solution skeleton.</li>
+<li>MCP stdio server.</li>
+<li><code>server.ping</code> and <code>server.info</code>.</li>
+<li>JSONL audit writer.</li>
+<li>Policy engine stub.</li>
+<li>Active window detection.</li>
+</ul>
+<h2>Risks</h2>
+<table>
+<thead>
+<tr>
+  <th>Risk</th>
+  <th>Status</th>
+  <th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>UIA support inconsistent across apps</td>
+  <td>Open</td>
+  <td>Test with Notepad, Calculator, Explorer, dialogs</td>
+</tr>
+<tr>
+  <td>Safety model underbuilt</td>
+  <td>Open</td>
+  <td>Keep all actions policy-gated from first implementation</td>
+</tr>
+<tr>
+  <td>Voice distracts from core execution</td>
+  <td>Open</td>
+  <td>Build text CLI first</td>
+</tr>
+<tr>
+  <td>Local model tool calling unreliable</td>
+  <td>Open</td>
+  <td>Add mock provider and deterministic planner tests</td>
+</tr>
+<tr>
+  <td>GitHub Pages docs drift from Markdown</td>
+  <td>Open</td>
+  <td>Use <code>scripts/build_site.py</code> after edits</td>
+</tr>
+</tbody>
+</table>
+
+    </article>
+  </main>
+  <script src="../assets/site.js"></script>
+</body>
+</html>

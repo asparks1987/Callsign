@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Data Model · DeskPilot</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../index.html">DeskPilot</a>
+    <nav><a href="product-spec.html">Product Spec</a>
+<a href="architecture.html">Architecture</a>
+<a href="mcp-tools.html">MCP Tools</a>
+<a href="windows-automation.html">Windows Automation</a>
+<a href="security-model.html">Security Model</a>
+<a href="threat-model.html">Threat Model</a>
+<a href="voice-ux.html">Voice UX</a>
+<a href="data-model.html">Data Model</a>
+<a href="test-plan.html">Test Plan</a>
+<a href="deployment.html">Deployment</a>
+<a href="roadmap.html">Roadmap</a>
+<a href="burndown.html">Burndown</a>
+<a href="github-pages.html">GitHub Pages</a></nav>
+  </header>
+  <main class="doc-shell">
+    <aside class="doc-sidebar">
+      <strong>Docs</strong>
+      <a href="product-spec.html">Product Spec</a>
+<a href="architecture.html">Architecture</a>
+<a href="mcp-tools.html">MCP Tools</a>
+<a href="windows-automation.html">Windows Automation</a>
+<a href="security-model.html">Security Model</a>
+<a href="threat-model.html">Threat Model</a>
+<a href="voice-ux.html">Voice UX</a>
+<a href="data-model.html">Data Model</a>
+<a href="test-plan.html">Test Plan</a>
+<a href="deployment.html">Deployment</a>
+<a href="roadmap.html">Roadmap</a>
+<a href="burndown.html">Burndown</a>
+<a href="github-pages.html">GitHub Pages</a>
+    </aside>
+    <article class="doc-content">
+      <h1>Data Model</h1>
+<h2>Overview</h2>
+<p>DeskPilot should store durable state locally and minimally.</p>
+<p>Main data types:</p>
+<ul>
+<li>Session.</li>
+<li>Task.</li>
+<li>Tool call.</li>
+<li>Policy decision.</li>
+<li>Approval.</li>
+<li>Audit event.</li>
+<li>Selector.</li>
+<li>Recipe.</li>
+<li>Provider config.</li>
+</ul>
+<h2>Session record</h2>
+<pre><code class="language-json">{
+  &quot;session_id&quot;: &quot;session_20260607_001&quot;,
+  &quot;started_at&quot;: &quot;2026-06-07T15:00:00Z&quot;,
+  &quot;ended_at&quot;: null,
+  &quot;host_version&quot;: &quot;0.1.0&quot;,
+  &quot;server_version&quot;: &quot;0.1.0&quot;,
+  &quot;model_provider&quot;: &quot;ollama&quot;,
+  &quot;voice_provider&quot;: &quot;none&quot;,
+  &quot;privacy_mode&quot;: &quot;local_first&quot;
+}
+</code></pre>
+<h2>Task record</h2>
+<pre><code class="language-json">{
+  &quot;task_id&quot;: &quot;task_20260607_001&quot;,
+  &quot;session_id&quot;: &quot;session_20260607_001&quot;,
+  &quot;user_utterance&quot;: &quot;Rename the newest PNG in Downloads to router-settings.png&quot;,
+  &quot;normalized_intent&quot;: &quot;rename_recent_file&quot;,
+  &quot;status&quot;: &quot;completed&quot;,
+  &quot;risk_max&quot;: &quot;local_state_change&quot;,
+  &quot;started_at&quot;: &quot;2026-06-07T15:01:00Z&quot;,
+  &quot;ended_at&quot;: &quot;2026-06-07T15:01:07Z&quot;
+}
+</code></pre>
+<h2>Audit event</h2>
+<p>Audit logs should be JSONL: one JSON object per line.</p>
+<pre><code class="language-json">{
+  &quot;event_id&quot;: &quot;evt_001&quot;,
+  &quot;timestamp&quot;: &quot;2026-06-07T15:01:01Z&quot;,
+  &quot;session_id&quot;: &quot;session_20260607_001&quot;,
+  &quot;task_id&quot;: &quot;task_20260607_001&quot;,
+  &quot;correlation_id&quot;: &quot;task_20260607_001.step_001&quot;,
+  &quot;event_type&quot;: &quot;tool_call_requested&quot;,
+  &quot;tool&quot;: &quot;file.list_recent&quot;,
+  &quot;arguments_redacted&quot;: {
+    &quot;directory&quot;: &quot;%USERPROFILE%/Downloads&quot;,
+    &quot;pattern&quot;: &quot;*.png&quot;
+  }
+}
+</code></pre>
+<p>Event types:</p>
+<pre><code class="language-text">session_started
+session_ended
+user_utterance
+plan_created
+tool_call_requested
+policy_evaluated
+approval_requested
+approval_granted
+approval_denied
+tool_execution_started
+tool_execution_finished
+verification_finished
+workflow_stopped
+error
+</code></pre>
+<h2>Policy decision</h2>
+<pre><code class="language-json">{
+  &quot;decision_id&quot;: &quot;policy_001&quot;,
+  &quot;correlation_id&quot;: &quot;task_001.step_002&quot;,
+  &quot;tool&quot;: &quot;file.rename&quot;,
+  &quot;risk_tier&quot;: &quot;local_state_change&quot;,
+  &quot;decision&quot;: &quot;require_approval&quot;,
+  &quot;reason&quot;: &quot;File rename changes local state.&quot;,
+  &quot;rule_ids&quot;: [&quot;file.write.requires_approval&quot;]
+}
+</code></pre>
+<h2>Approval record</h2>
+<pre><code class="language-json">{
+  &quot;approval_id&quot;: &quot;approval_001&quot;,
+  &quot;task_id&quot;: &quot;task_001&quot;,
+  &quot;requested_at&quot;: &quot;2026-06-07T15:01:02Z&quot;,
+  &quot;resolved_at&quot;: &quot;2026-06-07T15:01:05Z&quot;,
+  &quot;status&quot;: &quot;approved&quot;,
+  &quot;prompt&quot;: &quot;Rename Screenshot.png to router-settings.png?&quot;,
+  &quot;approved_by&quot;: &quot;user_voice_confirmation&quot;,
+  &quot;expires_at&quot;: &quot;2026-06-07T15:02:02Z&quot;
+}
+</code></pre>
+<h2>Selector record</h2>
+<p>Selectors identify UI elements across sessions.</p>
+<pre><code class="language-yaml">id: notepad.save_as.filename_box
+version: 1
+app:
+  process_name: notepad.exe
+  executable_path_hint: null
+  window_title_pattern: &quot;Save As*&quot;
+selector:
+  control_type: Edit
+  automation_id: &quot;1001&quot;
+  name_any:
+    - &quot;File name:&quot;
+    - &quot;File name&quot;
+  class_name: Edit
+verification:
+  supports_patterns:
+    - ValuePattern
+  visible: true
+risk_notes:
+  default_risk: local_reversible
+created_at: &quot;2026-06-07T00:00:00Z&quot;
+updated_at: &quot;2026-06-07T00:00:00Z&quot;
+</code></pre>
+<h2>Recipe record</h2>
+<p>Recipes define repeatable workflows.</p>
+<pre><code class="language-yaml">id: process_invoice
+version: 1
+name: Process invoice
+summary: Rename a downloaded invoice and move it into the yearly invoice folder.
+permissions:
+  read:
+    - &quot;%USERPROFILE%/Downloads&quot;
+  write:
+    - &quot;%USERPROFILE%/Documents/Invoices&quot;
+inputs:
+  - id: source_file
+    type: file
+    default_strategy: newest_matching
+    pattern: &quot;*.pdf&quot;
+steps:
+  - id: find_invoice
+    tool: file.list_recent
+    args:
+      directory: &quot;%USERPROFILE%/Downloads&quot;
+      pattern: &quot;*.pdf&quot;
+      max_results: 5
+  - id: request_approval
+    tool: policy.request_approval
+    args:
+      prompt: &quot;Process the newest PDF invoice?&quot;
+  - id: move_file
+    tool: file.move
+    args:
+      source_path: &quot;${steps.find_invoice.files[0].path}&quot;
+      destination_path: &quot;%USERPROFILE%/Documents/Invoices/${year}/${filename}&quot;
+verification:
+  - type: file_exists
+    path: &quot;%USERPROFILE%/Documents/Invoices/${year}/${filename}&quot;
+</code></pre>
+<h2>Provider config</h2>
+<pre><code class="language-yaml">model_providers:
+  default: ollama-qwen
+  providers:
+    ollama-qwen:
+      type: openai_compatible
+      base_url: &quot;http://localhost:11434/v1&quot;
+      model: &quot;qwen3.5&quot;
+      send_screenshots: false
+      send_clipboard: false
+    openai-realtime:
+      type: openai_realtime
+      model: &quot;realtime-model-name&quot;
+      send_screenshots: false
+      send_ui_text: ask
+</code></pre>
+<h2>Policy config</h2>
+<pre><code class="language-yaml">version: 1
+session:
+  require_initial_permission: true
+privacy:
+  allow_cloud_screenshots: false
+  allow_cloud_clipboard: false
+  persist_screenshots: false
+files:
+  approved_roots:
+    - &quot;%USERPROFILE%/Downloads&quot;
+    - &quot;%USERPROFILE%/Documents&quot;
+blocked:
+  tools:
+    - shell.run
+    - credential.read
+    - browser.read_passwords
+approvals:
+  local_state_change: required
+  external_side_effect: always
+  dangerous_or_blocked: deny
+</code></pre>
+<h2>Redaction</h2>
+<p>Redaction should happen before audit logging and before model sharing.</p>
+<p>Common redaction markers:</p>
+<pre><code class="language-text">[REDACTED_EMAIL]
+[REDACTED_PHONE]
+[REDACTED_SECRET]
+[REDACTED_PATH_SEGMENT]
+[REDACTED_CLIPBOARD]
+[REDACTED_SCREENSHOT]
+</code></pre>
+<h2>Storage layout</h2>
+<p>Suggested local storage:</p>
+<pre><code class="language-text">%LOCALAPPDATA%/DeskPilot/
+  config/
+    policy.yaml
+    providers.yaml
+  audit/
+    session_20260607_001.jsonl
+  selectors/
+    notepad.yaml
+    explorer.yaml
+  recipes/
+    process_invoice.yaml
+  cache/
+    ui_snapshots/
+</code></pre>
+<h2>Retention</h2>
+<p>Default retention:</p>
+<ul>
+<li>Audit logs: keep 30 days.</li>
+<li>UI snapshots: memory only or short TTL.</li>
+<li>Screenshots: do not persist.</li>
+<li>Clipboard contents: do not persist.</li>
+<li>Recipes/selectors: persist until user deletes.</li>
+</ul>
+
+    </article>
+  </main>
+  <script src="../assets/site.js"></script>
+</body>
+</html>

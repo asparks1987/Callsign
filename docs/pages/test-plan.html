@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Test Plan · DeskPilot</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../index.html">DeskPilot</a>
+    <nav><a href="product-spec.html">Product Spec</a>
+<a href="architecture.html">Architecture</a>
+<a href="mcp-tools.html">MCP Tools</a>
+<a href="windows-automation.html">Windows Automation</a>
+<a href="security-model.html">Security Model</a>
+<a href="threat-model.html">Threat Model</a>
+<a href="voice-ux.html">Voice UX</a>
+<a href="data-model.html">Data Model</a>
+<a href="test-plan.html">Test Plan</a>
+<a href="deployment.html">Deployment</a>
+<a href="roadmap.html">Roadmap</a>
+<a href="burndown.html">Burndown</a>
+<a href="github-pages.html">GitHub Pages</a></nav>
+  </header>
+  <main class="doc-shell">
+    <aside class="doc-sidebar">
+      <strong>Docs</strong>
+      <a href="product-spec.html">Product Spec</a>
+<a href="architecture.html">Architecture</a>
+<a href="mcp-tools.html">MCP Tools</a>
+<a href="windows-automation.html">Windows Automation</a>
+<a href="security-model.html">Security Model</a>
+<a href="threat-model.html">Threat Model</a>
+<a href="voice-ux.html">Voice UX</a>
+<a href="data-model.html">Data Model</a>
+<a href="test-plan.html">Test Plan</a>
+<a href="deployment.html">Deployment</a>
+<a href="roadmap.html">Roadmap</a>
+<a href="burndown.html">Burndown</a>
+<a href="github-pages.html">GitHub Pages</a>
+    </aside>
+    <article class="doc-content">
+      <h1>Test Plan</h1>
+<h2>Goals</h2>
+<p>The DeskPilot test plan must prove three things:</p>
+<ol>
+<li>The system can perform useful desktop tasks.</li>
+<li>The system blocks unsafe actions.</li>
+<li>The system produces auditable, explainable outcomes.</li>
+</ol>
+<h2>Test layers</h2>
+<h3>Unit tests</h3>
+<p>Targets:</p>
+<ul>
+<li>Tool input validation.</li>
+<li>Path normalization.</li>
+<li>Policy decisions.</li>
+<li>Redaction.</li>
+<li>Selector matching.</li>
+<li>Result envelopes.</li>
+<li>Audit event formatting.</li>
+</ul>
+<h3>Integration tests</h3>
+<p>Targets:</p>
+<ul>
+<li>MCP server startup over stdio.</li>
+<li>Tool registration.</li>
+<li>Active window detection.</li>
+<li>UIA tree extraction against test apps.</li>
+<li>File operations in temp approved roots.</li>
+<li>Policy + tool execution chain.</li>
+</ul>
+<h3>Desktop automation tests</h3>
+<p>Targets:</p>
+<ul>
+<li>Notepad.</li>
+<li>Calculator.</li>
+<li>File Explorer or temp folder shell.</li>
+<li>Common dialogs.</li>
+</ul>
+<h3>Safety tests</h3>
+<p>Targets:</p>
+<ul>
+<li>Blocked shell.</li>
+<li>Password fields.</li>
+<li>Payment fields.</li>
+<li>Hidden window action.</li>
+<li>External side effects.</li>
+<li>Screenshot sharing without opt-in.</li>
+<li>File operations outside approved roots.</li>
+</ul>
+<h3>Golden tests</h3>
+<p>Use captured or mocked UI trees to test planner/tool behavior deterministically.</p>
+<h2>MVP acceptance tests</h2>
+<h3>Test: server info</h3>
+<p>Input:</p>
+<pre><code class="language-json">{ &quot;tool&quot;: &quot;server.info&quot;, &quot;arguments&quot;: {} }
+</code></pre>
+<p>Expected:</p>
+<ul>
+<li>Returns server name and version.</li>
+<li>Audit event is written.</li>
+<li>No policy approval required.</li>
+</ul>
+<h3>Test: active window</h3>
+<p>Expected:</p>
+<ul>
+<li>Returns foreground window metadata.</li>
+<li>Does not include screenshot.</li>
+<li>Redacts sensitive title if configured.</li>
+</ul>
+<h3>Test: inspect Calculator</h3>
+<p>Steps:</p>
+<ol>
+<li>Open Calculator manually or through approved app launch.</li>
+<li>Call <code>desktop.inspect_window</code>.</li>
+</ol>
+<p>Expected:</p>
+<ul>
+<li>Returns bounded UIA tree.</li>
+<li>Includes buttons with control types.</li>
+<li>Does not exceed max node count.</li>
+</ul>
+<h3>Test: invoke Calculator button</h3>
+<p>Steps:</p>
+<ol>
+<li>Open Calculator.</li>
+<li>Find button <code>7</code>.</li>
+<li>Invoke it.</li>
+</ol>
+<p>Expected:</p>
+<ul>
+<li>UIA invoke succeeds or fallback is logged.</li>
+<li>Result display updates.</li>
+<li>Verification passes.</li>
+</ul>
+<h3>Test: Notepad typing</h3>
+<p>Steps:</p>
+<ol>
+<li>Open Notepad.</li>
+<li>Set or type text.</li>
+</ol>
+<p>Expected:</p>
+<ul>
+<li>Text appears in editor.</li>
+<li>No send/save occurs without approval.</li>
+<li>Audit event records redacted text length or content depending config.</li>
+</ul>
+<h3>Test: file rename approval</h3>
+<p>Steps:</p>
+<ol>
+<li>Create temp approved root.</li>
+<li>Create file <code>Screenshot.png</code>.</li>
+<li>Request rename.</li>
+</ol>
+<p>Expected:</p>
+<ul>
+<li>Policy requires approval.</li>
+<li>Without approval, no rename occurs.</li>
+<li>With approval, target exists.</li>
+<li>Audit links approval to tool call.</li>
+</ul>
+<h2>Safety acceptance tests</h2>
+<table>
+<thead>
+<tr>
+  <th>Test</th>
+  <th>Expected</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><code>shell.run</code> requested</td>
+  <td>Denied</td>
+</tr>
+<tr>
+  <td>File path outside approved root</td>
+  <td>Denied</td>
+</tr>
+<tr>
+  <td>Rename with <code>../</code> in new name</td>
+  <td>Denied</td>
+</tr>
+<tr>
+  <td>Type into password field</td>
+  <td>Handoff</td>
+</tr>
+<tr>
+  <td>Submit email without approval</td>
+  <td>Denied or approval required</td>
+</tr>
+<tr>
+  <td>SendInput to hidden window</td>
+  <td>Denied</td>
+</tr>
+<tr>
+  <td>Screenshot cloud share while disabled</td>
+  <td>Denied</td>
+</tr>
+<tr>
+  <td>Stop hotkey during workflow</td>
+  <td>Workflow stops</td>
+</tr>
+</tbody>
+</table>
+<h2>Policy test fixtures</h2>
+<p>Example fixture:</p>
+<pre><code class="language-yaml">name: deny_file_outside_root
+input:
+  tool: file.rename
+  arguments:
+    source_path: &quot;C:/Users/Alice/Secrets/token.txt&quot;
+    new_name: &quot;token-old.txt&quot;
+  context:
+    visible_to_user: true
+expected:
+  decision: deny
+  reason_contains: approved root
+</code></pre>
+<h2>Mock UI tree fixture</h2>
+<pre><code class="language-json">{
+  &quot;window&quot;: {
+    &quot;title&quot;: &quot;Save As&quot;,
+    &quot;process_name&quot;: &quot;notepad.exe&quot;
+  },
+  &quot;tree&quot;: {
+    &quot;name&quot;: &quot;Save As&quot;,
+    &quot;control_type&quot;: &quot;Window&quot;,
+    &quot;children&quot;: [
+      {
+        &quot;name&quot;: &quot;File name:&quot;,
+        &quot;control_type&quot;: &quot;Edit&quot;,
+        &quot;automation_id&quot;: &quot;1001&quot;,
+        &quot;patterns&quot;: [&quot;ValuePattern&quot;]
+      },
+      {
+        &quot;name&quot;: &quot;Save&quot;,
+        &quot;control_type&quot;: &quot;Button&quot;,
+        &quot;patterns&quot;: [&quot;InvokePattern&quot;]
+      }
+    ]
+  }
+}
+</code></pre>
+<h2>Manual QA scripts</h2>
+<h3>Script: first-run safety</h3>
+<ol>
+<li>Start host.</li>
+<li>Ask it to inspect active window.</li>
+<li>Ask it to type into Notepad.</li>
+<li>Ask it to send an email.</li>
+<li>Ask it to run PowerShell.</li>
+</ol>
+<p>Expected:</p>
+<ul>
+<li>Inspection works.</li>
+<li>Typing works in Notepad.</li>
+<li>Email send requires approval.</li>
+<li>PowerShell is denied.</li>
+</ul>
+<h3>Script: stop behavior</h3>
+<ol>
+<li>Start a multi-step file workflow.</li>
+<li>Say “stop now” during execution.</li>
+</ol>
+<p>Expected:</p>
+<ul>
+<li>Workflow halts.</li>
+<li>No further actions occur.</li>
+<li>Audit records stop.</li>
+</ul>
+<h2>CI considerations</h2>
+<p>Windows desktop automation tests may require:</p>
+<ul>
+<li>Windows runner.</li>
+<li>Interactive desktop session.</li>
+<li>Test app fixtures.</li>
+<li>Skipping UI tests in headless CI.</li>
+<li>Separate manual test lane for real desktop automation.</li>
+</ul>
+<h2>Coverage goals</h2>
+<ul>
+<li>90%+ unit coverage for policy engine.</li>
+<li>90%+ unit coverage for path normalization.</li>
+<li>100% audit coverage for action tools.</li>
+<li>100% negative coverage for blocked MVP tool classes.</li>
+</ul>
+<h2>Release gate</h2>
+<p>A release candidate cannot ship unless:</p>
+<ul>
+<li>All P0 tests pass.</li>
+<li>Safety tests pass.</li>
+<li>Audit logging is verified.</li>
+<li>Docs reflect current tool behavior.</li>
+<li>Threat model is updated for any new tool category.</li>
+</ul>
+
+    </article>
+  </main>
+  <script src="../assets/site.js"></script>
+</body>
+</html>

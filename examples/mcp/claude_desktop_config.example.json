@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "deskpilot-windows": {
+      "command": "C:/Users/YOU/AppData/Local/DeskPilot/DeskPilot.McpServer.exe",
+      "args": [
+        "--stdio"
+      ],
+      "env": {
+        "DESKPILOT_POLICY": "C:/Users/YOU/AppData/Local/DeskPilot/config/policy.yaml"
+      }
+    }
+  }
+}

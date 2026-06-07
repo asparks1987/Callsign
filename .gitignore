@@ -1,0 +1,17 @@
+# Build/cache artifacts
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+
+# Local DeskPilot state
+audit/
+cache/
+*.local.yaml
+*.local.json
+
+# OS files
+.DS_Store
+Thumbs.db

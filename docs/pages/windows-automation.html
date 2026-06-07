@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Windows Automation · DeskPilot</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../index.html">DeskPilot</a>
+    <nav><a href="product-spec.html">Product Spec</a>
+<a href="architecture.html">Architecture</a>
+<a href="mcp-tools.html">MCP Tools</a>
+<a href="windows-automation.html">Windows Automation</a>
+<a href="security-model.html">Security Model</a>
+<a href="threat-model.html">Threat Model</a>
+<a href="voice-ux.html">Voice UX</a>
+<a href="data-model.html">Data Model</a>
+<a href="test-plan.html">Test Plan</a>
+<a href="deployment.html">Deployment</a>
+<a href="roadmap.html">Roadmap</a>
+<a href="burndown.html">Burndown</a>
+<a href="github-pages.html">GitHub Pages</a></nav>
+  </header>
+  <main class="doc-shell">
+    <aside class="doc-sidebar">
+      <strong>Docs</strong>
+      <a href="product-spec.html">Product Spec</a>
+<a href="architecture.html">Architecture</a>
+<a href="mcp-tools.html">MCP Tools</a>
+<a href="windows-automation.html">Windows Automation</a>
+<a href="security-model.html">Security Model</a>
+<a href="threat-model.html">Threat Model</a>
+<a href="voice-ux.html">Voice UX</a>
+<a href="data-model.html">Data Model</a>
+<a href="test-plan.html">Test Plan</a>
+<a href="deployment.html">Deployment</a>
+<a href="roadmap.html">Roadmap</a>
+<a href="burndown.html">Burndown</a>
+<a href="github-pages.html">GitHub Pages</a>
+    </aside>
+    <article class="doc-content">
+      <h1>Windows Automation Strategy</h1>
+<h2>Goal</h2>
+<p>DeskPilot should perform Windows 11 desktop tasks through the safest, most semantic execution layer available.</p>
+<p>The hierarchy is:</p>
+<ol>
+<li>Native app/API operation.</li>
+<li>Windows UI Automation pattern.</li>
+<li>Saved selector.</li>
+<li>Vision/OCR-assisted target.</li>
+<li>Raw keyboard/mouse simulation with SendInput.</li>
+<li>Human handoff.</li>
+</ol>
+<h2>Why UI Automation first</h2>
+<p>Microsoft UI Automation exposes programmatic information about user interface elements and lets automation clients manipulate controls through control patterns. Control patterns represent capabilities such as invoking a button, setting a value, scrolling, toggling, selecting, or reading text.</p>
+<p>That makes UIA far better than blind coordinate-clicking for an agent that needs to understand and operate UI safely.</p>
+<h2>UI Automation adapter</h2>
+<h3>Responsibilities</h3>
+<ul>
+<li>Enumerate top-level windows.</li>
+<li>Get active window metadata.</li>
+<li>Inspect bounded UIA trees.</li>
+<li>Extract names, automation IDs, control types, bounding rectangles, enabled state, focus state, and supported patterns.</li>
+<li>Find elements by semantic selectors.</li>
+<li>Invoke controls through <code>InvokePattern</code> where available.</li>
+<li>Set text through <code>ValuePattern</code> or text-focused alternatives.</li>
+<li>Read visible text through supported patterns.</li>
+<li>Detect password or protected fields where possible.</li>
+</ul>
+<h3>UIA tree shape</h3>
+<pre><code class="language-json">{
+  &quot;element_id&quot;: &quot;uia:abc123&quot;,
+  &quot;name&quot;: &quot;Save&quot;,
+  &quot;control_type&quot;: &quot;Button&quot;,
+  &quot;automation_id&quot;: &quot;saveButton&quot;,
+  &quot;class_name&quot;: &quot;Button&quot;,
+  &quot;framework_id&quot;: &quot;Win32&quot;,
+  &quot;is_enabled&quot;: true,
+  &quot;is_offscreen&quot;: false,
+  &quot;bounds&quot;: { &quot;x&quot;: 10, &quot;y&quot;: 20, &quot;width&quot;: 80, &quot;height&quot;: 32 },
+  &quot;patterns&quot;: [&quot;InvokePattern&quot;],
+  &quot;children&quot;: []
+}
+</code></pre>
+<h3>Tree bounds</h3>
+<p>To avoid flooding the model and leaking too much data, <code>desktop.inspect_window</code> should enforce:</p>
+<ul>
+<li><code>max_depth</code></li>
+<li><code>max_nodes</code></li>
+<li><code>include_text</code></li>
+<li><code>include_patterns</code></li>
+<li><code>redaction_mode</code></li>
+<li><code>visible_only</code></li>
+</ul>
+<h3>Element IDs</h3>
+<p><code>element_id</code> should be stable enough for a short interaction but not treated as durable across app launches.</p>
+<p>Suggested format:</p>
+<pre><code class="language-text">uia:{session_id}:{window_handle}:{runtime_id_hash}
+</code></pre>
+<p>Durable recipes should use selectors, not transient IDs.</p>
+<h2>Selector strategy</h2>
+<p>Selectors are saved descriptions of how to locate elements.</p>
+<p>Example:</p>
+<pre><code class="language-yaml">id: notepad.save_as.filename_box
+app:
+  process_name: notepad.exe
+  window_title_pattern: &quot;Save As*&quot;
+selector:
+  control_type: Edit
+  automation_id: &quot;1001&quot;
+  name_any:
+    - &quot;File name:&quot;
+    - &quot;File name&quot;
+verification:
+  supports_patterns:
+    - ValuePattern
+</code></pre>
+<p>Selector matching should return confidence and explain why.</p>
+<pre><code class="language-json">{
+  &quot;selector_id&quot;: &quot;notepad.save_as.filename_box&quot;,
+  &quot;element_id&quot;: &quot;uia:abc123&quot;,
+  &quot;confidence&quot;: 0.91,
+  &quot;matched_on&quot;: [&quot;process_name&quot;, &quot;control_type&quot;, &quot;automation_id&quot;],
+  &quot;warnings&quot;: []
+}
+</code></pre>
+<h2>Win32 adapter</h2>
+<h3>Responsibilities</h3>
+<ul>
+<li>Get foreground window.</li>
+<li>Activate a window.</li>
+<li>Send approved hotkeys.</li>
+<li>Type text into focused fields as fallback.</li>
+<li>Capture window bounds.</li>
+<li>Detect elevated windows where possible.</li>
+</ul>
+<h3>SendInput limitations</h3>
+<p><code>SendInput</code> can insert keyboard and mouse events into the input stream, but it is subject to Windows integrity boundaries. It may fail when attempting to inject into elevated/admin applications from a lower-integrity process.</p>
+<p>DeskPilot should detect likely integrity mismatch and hand off instead of retrying blindly.</p>
+<h2>Raw input rules</h2>
+<p>Raw input is allowed only when:</p>
+<ul>
+<li>The target is visible.</li>
+<li>The active window matches the expected process/title.</li>
+<li>The target element or intent is verified.</li>
+<li>The hotkey or input action is allowlisted.</li>
+<li>The risk tier allows it.</li>
+<li>The audit log records it.</li>
+</ul>
+<p>Raw coordinate clicking additionally requires:</p>
+<ul>
+<li>A semantic or visual target explanation.</li>
+<li>A bounding box.</li>
+<li>Confidence score.</li>
+<li>Verification after the click.</li>
+</ul>
+<h2>Screenshot and vision strategy</h2>
+<p>Screenshots are privacy-sensitive.</p>
+<p>Default MVP behavior:</p>
+<ul>
+<li>No screenshots sent to cloud models.</li>
+<li>Active-window screenshot only, if enabled.</li>
+<li>Redaction hooks before storage or model sharing.</li>
+<li>No persistent screenshot storage unless explicitly configured.</li>
+</ul>
+<p>Vision should be used for:</p>
+<ul>
+<li>Apps with poor UIA support.</li>
+<li>Icon-only controls.</li>
+<li>Legacy apps.</li>
+<li>Visual verification.</li>
+</ul>
+<p>Vision should not be the default path for controls with good UIA metadata.</p>
+<h2>App-specific adapters</h2>
+<p>App-specific adapters can provide more reliable operations than generic UI automation.</p>
+<p>Potential adapters:</p>
+<ul>
+<li>File Explorer adapter.</li>
+<li>Browser adapter.</li>
+<li>Office adapter.</li>
+<li>Terminal adapter with strict limits.</li>
+<li>PDF reader adapter.</li>
+</ul>
+<p>Adapters should still go through MCP tool schemas, policy, and audit logging.</p>
+<h2>Browser strategy</h2>
+<p>MVP:</p>
+<ul>
+<li>Open browser.</li>
+<li>Navigate visibly.</li>
+<li>Use address bar/search.</li>
+<li>Fill simple visible fields with approval.</li>
+<li>Do not submit external forms without explicit approval.</li>
+</ul>
+<p>Future:</p>
+<ul>
+<li>Browser extension.</li>
+<li>Playwright-style DOM adapter.</li>
+<li>Tab/resource inspection.</li>
+<li>Page-level prompt injection defenses.</li>
+</ul>
+<h2>Known limitations</h2>
+<table>
+<thead>
+<tr>
+  <th>Limitation</th>
+  <th>Impact</th>
+  <th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>Poor accessibility metadata</td>
+  <td>Element finding may fail</td>
+  <td>Vision fallback or handoff</td>
+</tr>
+<tr>
+  <td>Large UI trees</td>
+  <td>Model context bloat</td>
+  <td>Bounded tree summaries</td>
+</tr>
+<tr>
+  <td>Elevated windows</td>
+  <td>Input may fail</td>
+  <td>Detect and hand off</td>
+</tr>
+<tr>
+  <td>Dynamic web apps</td>
+  <td>Selectors unstable</td>
+  <td>Browser adapter later</td>
+</tr>
+<tr>
+  <td>Multiple monitors/scaling</td>
+  <td>Coordinates unreliable</td>
+  <td>Avoid coordinates</td>
+</tr>
+<tr>
+  <td>Modal dialogs</td>
+  <td>State changes unexpectedly</td>
+  <td>Wait/verify active window</td>
+</tr>
+</tbody>
+</table>
+<h2>Implementation notes</h2>
+<ul>
+<li>Keep automation adapter code separate from protocol code.</li>
+<li>Cache UI tree snapshots with short TTL only.</li>
+<li>Re-resolve elements before action.</li>
+<li>Never trust stale element IDs.</li>
+<li>Normalize and redact window titles where needed.</li>
+<li>Prefer allowlists over blocklists for high-risk input actions.</li>
+</ul>
+
+    </article>
+  </main>
+  <script src="../assets/site.js"></script>
+</body>
+</html>

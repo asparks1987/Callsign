@@ -1,0 +1,34 @@
+version: 1
+name: default-local-first
+session:
+  require_initial_permission: true
+privacy:
+  allow_cloud_screenshots: false
+  allow_cloud_clipboard: false
+  allow_cloud_file_contents: false
+  persist_screenshots: false
+files:
+  approved_roots:
+    - "%USERPROFILE%/Downloads"
+    - "%USERPROFILE%/Documents"
+approvals:
+  observe: allow
+  local_reversible: allow_when_visible
+  local_state_change: required
+  external_side_effect: always
+  dangerous_or_blocked: deny
+blocked:
+  tools:
+    - shell.run
+    - credential.read
+    - browser.read_passwords
+    - payment.submit
+  hotkeys:
+    - "WIN+R"
+    - "SHIFT+DELETE"
+    - "CTRL+ENTER"
+  contexts:
+    - password_field
+    - two_factor_field
+    - payment_field
+    - uac_prompt

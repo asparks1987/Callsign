@@ -1,0 +1,17 @@
+model_providers:
+  default: local-qwen
+  providers:
+    local-qwen:
+      type: openai_compatible
+      base_url: "http://localhost:11434/v1"
+      model: "qwen3.5"
+      send_screenshots: false
+      send_clipboard: false
+      send_file_contents: false
+    local-gemma:
+      type: openai_compatible
+      base_url: "http://localhost:11434/v1"
+      model: "gemma"
+      send_screenshots: false
+      send_clipboard: false
+      send_file_contents: false

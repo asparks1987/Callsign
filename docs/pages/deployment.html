@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Deployment · DeskPilot</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../index.html">DeskPilot</a>
+    <nav><a href="product-spec.html">Product Spec</a>
+<a href="architecture.html">Architecture</a>
+<a href="mcp-tools.html">MCP Tools</a>
+<a href="windows-automation.html">Windows Automation</a>
+<a href="security-model.html">Security Model</a>
+<a href="threat-model.html">Threat Model</a>
+<a href="voice-ux.html">Voice UX</a>
+<a href="data-model.html">Data Model</a>
+<a href="test-plan.html">Test Plan</a>
+<a href="deployment.html">Deployment</a>
+<a href="roadmap.html">Roadmap</a>
+<a href="burndown.html">Burndown</a>
+<a href="github-pages.html">GitHub Pages</a></nav>
+  </header>
+  <main class="doc-shell">
+    <aside class="doc-sidebar">
+      <strong>Docs</strong>
+      <a href="product-spec.html">Product Spec</a>
+<a href="architecture.html">Architecture</a>
+<a href="mcp-tools.html">MCP Tools</a>
+<a href="windows-automation.html">Windows Automation</a>
+<a href="security-model.html">Security Model</a>
+<a href="threat-model.html">Threat Model</a>
+<a href="voice-ux.html">Voice UX</a>
+<a href="data-model.html">Data Model</a>
+<a href="test-plan.html">Test Plan</a>
+<a href="deployment.html">Deployment</a>
+<a href="roadmap.html">Roadmap</a>
+<a href="burndown.html">Burndown</a>
+<a href="github-pages.html">GitHub Pages</a>
+    </aside>
+    <article class="doc-content">
+      <h1>Deployment</h1>
+<h2>Deployment modes</h2>
+<h3>Mode 1: Docs-only starter</h3>
+<p>This package is currently a docs-first starter.</p>
+<p>Use it to:</p>
+<ul>
+<li>Start a GitHub repository.</li>
+<li>Publish the GitHub Pages site from <code>/docs</code>.</li>
+<li>Track implementation against the burndown list.</li>
+<li>Guide code agents with <code>AGENTS.md</code>.</li>
+</ul>
+<h3>Mode 2: Local developer build</h3>
+<p>Future implementation target:</p>
+<pre><code class="language-text">DeskPilot.Host starts DeskPilot.McpServer over stdio.
+User sends text command.
+Host calls local or cloud model provider.
+Model proposes tool call.
+MCP server validates, evaluates policy, executes, and logs.
+</code></pre>
+<h3>Mode 3: Packaged local app</h3>
+<p>Future implementation target:</p>
+<ul>
+<li>Windows installer or zip package.</li>
+<li>Tray app.</li>
+<li>Config UI.</li>
+<li>Global hotkey.</li>
+<li>Voice provider settings.</li>
+<li>Local audit viewer.</li>
+</ul>
+<h2>GitHub Pages deployment</h2>
+<p>This repository is arranged for GitHub Pages from <code>/docs</code>.</p>
+<p>Steps:</p>
+<ol>
+<li>Push repository to GitHub.</li>
+<li>Go to repository <strong>Settings</strong>.</li>
+<li>Open <strong>Pages</strong>.</li>
+<li>Choose <strong>Deploy from a branch</strong>.</li>
+<li>Select branch <code>main</code>.</li>
+<li>Select folder <code>/docs</code>.</li>
+<li>Save.</li>
+</ol>
+<p>The site entry point is:</p>
+<pre><code class="language-text">docs/index.html
+</code></pre>
+<p>The included <code>.nojekyll</code> file tells GitHub Pages to serve the static site without Jekyll processing.</p>
+<h2>Local site preview</h2>
+<p>From the repository root:</p>
+<pre><code class="language-bash">python -m http.server 8000 -d docs
+</code></pre>
+<p>Open:</p>
+<pre><code class="language-text">http://localhost:8000
+</code></pre>
+<h2>Regenerate site pages</h2>
+<p>After editing Markdown files in <code>docs/reference</code>, run:</p>
+<pre><code class="language-bash">python scripts/build_site.py
+</code></pre>
+<p>This regenerates HTML pages under:</p>
+<pre><code class="language-text">docs/pages/
+</code></pre>
+<h2>Suggested local app install layout</h2>
+<p>Future Windows package:</p>
+<pre><code class="language-text">%LOCALAPPDATA%/DeskPilot/
+  DeskPilot.Host.exe
+  DeskPilot.McpServer.exe
+  config/
+  audit/
+  selectors/
+  recipes/
+</code></pre>
+<h2>Configuration files</h2>
+<p>Suggested config locations:</p>
+<pre><code class="language-text">%LOCALAPPDATA%/DeskPilot/config/policy.yaml
+%LOCALAPPDATA%/DeskPilot/config/providers.yaml
+%LOCALAPPDATA%/DeskPilot/selectors/*.yaml
+%LOCALAPPDATA%/DeskPilot/recipes/*.yaml
+</code></pre>
+<h2>MCP client configuration</h2>
+<p>Example stdio config shape:</p>
+<pre><code class="language-json">{
+  &quot;mcpServers&quot;: {
+    &quot;deskpilot-windows&quot;: {
+      &quot;command&quot;: &quot;C:/Users/YOU/AppData/Local/DeskPilot/DeskPilot.McpServer.exe&quot;,
+      &quot;args&quot;: [&quot;--stdio&quot;],
+      &quot;env&quot;: {
+        &quot;DESKPILOT_POLICY&quot;: &quot;C:/Users/YOU/AppData/Local/DeskPilot/config/policy.yaml&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<h2>Model provider deployment</h2>
+<h3>Local provider</h3>
+<p>Use an OpenAI-compatible local endpoint when possible.</p>
+<p>Example provider config:</p>
+<pre><code class="language-yaml">model_providers:
+  default: local-qwen
+  providers:
+    local-qwen:
+      type: openai_compatible
+      base_url: &quot;http://localhost:11434/v1&quot;
+      model: &quot;qwen3.5&quot;
+      send_screenshots: false
+      send_clipboard: false
+</code></pre>
+<h3>Cloud provider</h3>
+<p>Cloud providers require explicit privacy settings.</p>
+<pre><code class="language-yaml">cloud_model_policy:
+  send_ui_text: ask
+  send_screenshots: false
+  send_clipboard: false
+  send_file_contents: false
+</code></pre>
+<h2>Windows permissions</h2>
+<p>MVP should run as a normal user process.</p>
+<p>Do not require administrator privileges.</p>
+<p>If an elevated window is encountered:</p>
+<ul>
+<li>Detect where possible.</li>
+<li>Do not attempt bypass.</li>
+<li>Handoff to user.</li>
+</ul>
+<h2>Audit logs</h2>
+<p>Suggested default:</p>
+<pre><code class="language-text">%LOCALAPPDATA%/DeskPilot/audit/session_YYYYMMDD_NNN.jsonl
+</code></pre>
+<p>Audit logs should be local only.</p>
+<h2>Upgrade strategy</h2>
+<p>Future packages should support:</p>
+<ul>
+<li>Config migration.</li>
+<li>Policy migration.</li>
+<li>Selector schema migration.</li>
+<li>Recipe schema migration.</li>
+<li>Audit format versioning.</li>
+</ul>
+<h2>Uninstall strategy</h2>
+<p>Uninstall should remove binaries but ask whether to keep:</p>
+<ul>
+<li>Audit logs.</li>
+<li>Recipes.</li>
+<li>Selectors.</li>
+<li>Config.</li>
+</ul>
+<h2>Deployment checklist</h2>
+<ul>
+<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/>MCP server starts over stdio.</li>
+<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/>No network listener by default.</li>
+<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/>Policy config is loaded.</li>
+<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/>Audit directory is writable.</li>
+<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/>Stop hotkey is registered.</li>
+<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/>Dangerous tools are disabled.</li>
+<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/>Site docs match shipped tool list.</li>
+</ul>
+
+    </article>
+  </main>
+  <script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+id: process_invoice
+version: 1
+name: Process invoice
+summary: Rename the newest downloaded PDF invoice and move it into the yearly invoice folder.
+permissions:
+  read:
+    - "%USERPROFILE%/Downloads"
+  write:
+    - "%USERPROFILE%/Documents/Invoices"
+inputs:
+  - id: source_file
+    type: file
+    default_strategy: newest_matching
+    pattern: "*.pdf"
+steps:
+  - id: find_invoice
+    tool: file.list_recent
+    args:
+      directory: "%USERPROFILE%/Downloads"
+      pattern: "*.pdf"
+      max_results: 5
+  - id: approve
+    tool: policy.request_approval
+    args:
+      prompt: "Process the newest PDF invoice?"
+  - id: move_file
+    tool: file.move
+    args:
+      source_path: "${steps.find_invoice.files[0].path}"
+      destination_path: "%USERPROFILE%/Documents/Invoices/${year}/${filename}"
+verification:
+  - type: file_exists
+    path: "%USERPROFILE%/Documents/Invoices/${year}/${filename}"

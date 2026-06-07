@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MCP Tools · DeskPilot</title>
+  <title>MCP Tools · Callsign</title>
   <link rel="stylesheet" href="../assets/styles.css" />
 </head>
 <body>
   <header class="site-header">
-    <a class="brand" href="../index.html">DeskPilot</a>
+    <a class="brand" href="../index.html">Callsign</a>
     <nav><a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
 <a href="mcp-tools.html">MCP Tools</a>
@@ -53,59 +53,12 @@ desktop.invoke_element
 desktop.set_text
 file.rename
 policy.evaluate
-workflow.stop
-</code></pre>
+workflow.stop</code></pre>
 <h2>Tool metadata</h2>
 <p>Every tool must include:</p>
-<ul>
-<li>Name.</li>
-<li>Description.</li>
-<li>Input schema.</li>
-<li>Output schema.</li>
-<li>Risk tier.</li>
-<li>Privacy impact.</li>
-<li>Reversibility.</li>
-<li>Required approval behavior.</li>
-<li>Audit requirements.</li>
-<li>Verification behavior.</li>
-</ul>
+<ul><li>Name.</li><li>Description.</li><li>Input schema.</li><li>Output schema.</li><li>Risk tier.</li><li>Privacy impact.</li><li>Reversibility.</li><li>Required approval behavior.</li><li>Audit requirements.</li><li>Verification behavior.</li></ul>
 <h2>Risk tiers</h2>
-<table>
-<thead>
-<tr>
-  <th style="text-align:right">Tier</th>
-  <th>Name</th>
-  <th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-  <td style="text-align:right">0</td>
-  <td><code>observe</code></td>
-  <td>Reads state only</td>
-</tr>
-<tr>
-  <td style="text-align:right">1</td>
-  <td><code>local_reversible</code></td>
-  <td>Performs visible local action that is usually reversible</td>
-</tr>
-<tr>
-  <td style="text-align:right">2</td>
-  <td><code>local_state_change</code></td>
-  <td>Changes local files, documents, or settings</td>
-</tr>
-<tr>
-  <td style="text-align:right">3</td>
-  <td><code>external_side_effect</code></td>
-  <td>Sends, uploads, submits, posts, or otherwise affects external systems</td>
-</tr>
-<tr>
-  <td style="text-align:right">4</td>
-  <td><code>dangerous_or_blocked</code></td>
-  <td>Credentials, shell, admin, deletion, payment, security settings</td>
-</tr>
-</tbody>
-</table>
+<p>| Tier | Name | Meaning | |---:|---|---| | 0 | <code>observe</code> | Reads state only | | 1 | <code>local_reversible</code> | Performs visible local action that is usually reversible | | 2 | <code>local_state_change</code> | Changes local files, documents, or settings | | 3 | <code>external_side_effect</code> | Sends, uploads, submits, posts, or otherwise affects external systems | | 4 | <code>dangerous_or_blocked</code> | Credentials, shell, admin, deletion, payment, security settings |</p>
 <h2>Standard result envelope</h2>
 <pre><code class="language-json">{
   &quot;ok&quot;: true,
@@ -118,8 +71,7 @@ workflow.stop
     &quot;method&quot;: &quot;state_check&quot;,
     &quot;summary&quot;: &quot;Verified active window handle.&quot;
   }
-}
-</code></pre>
+}</code></pre>
 <h2>Standard error envelope</h2>
 <pre><code class="language-json">{
   &quot;ok&quot;: false,
@@ -131,38 +83,33 @@ workflow.stop
     &quot;recoverable&quot;: true,
     &quot;suggested_next_tools&quot;: [&quot;desktop.inspect_window&quot;, &quot;workflow.pause&quot;]
   }
-}
-</code></pre>
+}</code></pre>
 <h2>Core tools v0.1</h2>
 <h3><code>server.info</code></h3>
 <p>Returns server metadata.</p>
 <p>Risk: <code>observe</code></p>
 <p>Input:</p>
-<pre><code class="language-json">{}
-</code></pre>
+<pre><code class="language-json">{}</code></pre>
 <p>Output data:</p>
 <pre><code class="language-json">{
-  &quot;name&quot;: &quot;DeskPilot Windows MCP Server&quot;,
+  &quot;name&quot;: &quot;Callsign Windows MCP Server&quot;,
   &quot;version&quot;: &quot;0.1.0&quot;,
   &quot;transport&quot;: &quot;stdio&quot;,
   &quot;platform&quot;: &quot;windows&quot;,
   &quot;capabilities&quot;: [&quot;desktop&quot;, &quot;file&quot;, &quot;policy&quot;, &quot;audit&quot;]
-}
-</code></pre>
+}</code></pre>
 <h3><code>server.ping</code></h3>
 <p>Health check.</p>
 <p>Risk: <code>observe</code></p>
 <p>Input:</p>
 <pre><code class="language-json">{
   &quot;message&quot;: &quot;optional string&quot;
-}
-</code></pre>
+}</code></pre>
 <p>Output data:</p>
 <pre><code class="language-json">{
   &quot;message&quot;: &quot;pong&quot;,
   &quot;server_time&quot;: &quot;2026-06-07T00:00:00Z&quot;
-}
-</code></pre>
+}</code></pre>
 <h3><code>desktop.get_active_window</code></h3>
 <p>Returns the active foreground window.</p>
 <p>Risk: <code>observe</code></p>
@@ -170,8 +117,7 @@ workflow.stop
 <p>Input:</p>
 <pre><code class="language-json">{
   &quot;include_bounds&quot;: true
-}
-</code></pre>
+}</code></pre>
 <p>Output data:</p>
 <pre><code class="language-json">{
   &quot;window_id&quot;: &quot;hwnd:0000000000123456&quot;,
@@ -180,8 +126,7 @@ workflow.stop
   &quot;process_id&quot;: 1234,
   &quot;bounds&quot;: { &quot;x&quot;: 100, &quot;y&quot;: 100, &quot;width&quot;: 1200, &quot;height&quot;: 800 },
   &quot;is_elevated&quot;: false
-}
-</code></pre>
+}</code></pre>
 <h3><code>desktop.list_windows</code></h3>
 <p>Lists visible top-level windows.</p>
 <p>Risk: <code>observe</code></p>
@@ -190,8 +135,7 @@ workflow.stop
   &quot;visible_only&quot;: true,
   &quot;include_minimized&quot;: false,
   &quot;max_results&quot;: 50
-}
-</code></pre>
+}</code></pre>
 <p>Output data:</p>
 <pre><code class="language-json">{
   &quot;windows&quot;: [
@@ -202,8 +146,7 @@ workflow.stop
       &quot;is_active&quot;: true
     }
   ]
-}
-</code></pre>
+}</code></pre>
 <h3><code>desktop.inspect_window</code></h3>
 <p>Returns a bounded UI Automation tree summary for a window.</p>
 <p>Risk: <code>observe</code></p>
@@ -216,8 +159,7 @@ workflow.stop
   &quot;include_text&quot;: true,
   &quot;include_patterns&quot;: true,
   &quot;redaction_mode&quot;: &quot;standard&quot;
-}
-</code></pre>
+}</code></pre>
 <p>Output data:</p>
 <pre><code class="language-json">{
   &quot;window&quot;: {
@@ -234,8 +176,7 @@ workflow.stop
     &quot;children&quot;: []
   },
   &quot;truncated&quot;: false
-}
-</code></pre>
+}</code></pre>
 <h3><code>desktop.find_element</code></h3>
 <p>Finds an element in the active or specified window.</p>
 <p>Risk: <code>observe</code></p>
@@ -248,8 +189,7 @@ workflow.stop
   &quot;selector&quot;: null,
   &quot;visible_only&quot;: true,
   &quot;max_results&quot;: 10
-}
-</code></pre>
+}</code></pre>
 <p>Output data:</p>
 <pre><code class="language-json">{
   &quot;matches&quot;: [
@@ -262,8 +202,7 @@ workflow.stop
       &quot;confidence&quot;: 0.94
     }
   ]
-}
-</code></pre>
+}</code></pre>
 <h3><code>desktop.invoke_element</code></h3>
 <p>Invokes a UI element through UI Automation when possible.</p>
 <p>Risk: <code>local_reversible</code> or <code>local_state_change</code>, depending on target.</p>
@@ -276,14 +215,9 @@ workflow.stop
     &quot;type&quot;: &quot;window_title_changes_or_dialog_closes&quot;,
     &quot;timeout_ms&quot;: 5000
   }
-}
-</code></pre>
+}</code></pre>
 <p>Policy notes:</p>
-<ul>
-<li>Requires the element to still match expected identity.</li>
-<li>Requires visible target unless hidden mode is explicitly approved.</li>
-<li>If target text suggests external submission, deletion, purchase, or security action, escalate risk.</li>
-</ul>
+<ul><li>Requires the element to still match expected identity.</li><li>Requires visible target unless hidden mode is explicitly approved.</li><li>If target text suggests external submission, deletion, purchase, or security action, escalate risk.</li></ul>
 <h3><code>desktop.set_text</code></h3>
 <p>Sets text in an editable element.</p>
 <p>Risk: <code>local_reversible</code> or higher depending on target app/context.</p>
@@ -294,15 +228,9 @@ workflow.stop
   &quot;mode&quot;: &quot;replace&quot;,
   &quot;allow_fallback_typing&quot;: true,
   &quot;verify_readback&quot;: true
-}
-</code></pre>
+}</code></pre>
 <p>Policy notes:</p>
-<ul>
-<li>Do not set password fields.</li>
-<li>Do not set payment fields.</li>
-<li>Do not set 2FA fields.</li>
-<li>Large text insertion should be confirmed if target is external communication.</li>
-</ul>
+<ul><li>Do not set password fields.</li><li>Do not set payment fields.</li><li>Do not set 2FA fields.</li><li>Large text insertion should be confirmed if target is external communication.</li></ul>
 <h3><code>desktop.send_hotkey</code></h3>
 <p>Sends an approved hotkey to the active window.</p>
 <p>Risk: depends on hotkey and active app.</p>
@@ -315,8 +243,7 @@ workflow.stop
     &quot;type&quot;: &quot;focus_changed&quot;,
     &quot;timeout_ms&quot;: 1500
   }
-}
-</code></pre>
+}</code></pre>
 <p>Allowed MVP hotkeys:</p>
 <pre><code class="language-text">Escape
 Enter only when low-risk context is verified
@@ -328,15 +255,13 @@ Ctrl+V with approval if clipboard contents are known
 Ctrl+L
 Ctrl+S with approval in document contexts
 Ctrl+Z
-Alt+Tab with approval or explicit request
-</code></pre>
+Alt+Tab with approval or explicit request</code></pre>
 <p>Blocked hotkeys by default:</p>
 <pre><code class="language-text">Alt+F4 unless explicit
 Shift+Delete
 Win+R
 Ctrl+Enter in email/message contexts
-Any app-specific send/submit shortcut
-</code></pre>
+Any app-specific send/submit shortcut</code></pre>
 <h3><code>desktop.type_text</code></h3>
 <p>Types text into the currently focused element.</p>
 <p>Risk: <code>local_reversible</code> or higher.</p>
@@ -347,14 +272,9 @@ Any app-specific send/submit shortcut
   &quot;expected_focused_element&quot;: &quot;uia:textbox123&quot;,
   &quot;typing_delay_ms&quot;: 0,
   &quot;verify_readback&quot;: true
-}
-</code></pre>
+}</code></pre>
 <p>Policy notes:</p>
-<ul>
-<li>Prefer <code>desktop.set_text</code> when possible.</li>
-<li>Block password/2FA/payment fields.</li>
-<li>Require confirmation for external communications.</li>
-</ul>
+<ul><li>Prefer <code>desktop.set_text</code> when possible.</li><li>Block password/2FA/payment fields.</li><li>Require confirmation for external communications.</li></ul>
 <h3><code>file.list_recent</code></h3>
 <p>Lists recent files inside an approved root.</p>
 <p>Risk: <code>observe</code></p>
@@ -363,8 +283,7 @@ Any app-specific send/submit shortcut
   &quot;directory&quot;: &quot;%USERPROFILE%/Downloads&quot;,
   &quot;pattern&quot;: &quot;*.png&quot;,
   &quot;max_results&quot;: 10
-}
-</code></pre>
+}</code></pre>
 <h3><code>file.rename</code></h3>
 <p>Renames a file inside an approved root.</p>
 <p>Risk: <code>local_state_change</code></p>
@@ -373,15 +292,9 @@ Any app-specific send/submit shortcut
   &quot;source_path&quot;: &quot;%USERPROFILE%/Downloads/Screenshot.png&quot;,
   &quot;new_name&quot;: &quot;router-settings.png&quot;,
   &quot;overwrite&quot;: false
-}
-</code></pre>
+}</code></pre>
 <p>Policy notes:</p>
-<ul>
-<li>Source must be inside an approved root.</li>
-<li>New name must not contain path traversal.</li>
-<li>Overwrite is false by default.</li>
-<li>Approval required by default.</li>
-</ul>
+<ul><li>Source must be inside an approved root.</li><li>New name must not contain path traversal.</li><li>Overwrite is false by default.</li><li>Approval required by default.</li></ul>
 <h3><code>file.move</code></h3>
 <p>Moves a file between approved roots.</p>
 <p>Risk: <code>local_state_change</code></p>
@@ -390,8 +303,7 @@ Any app-specific send/submit shortcut
   &quot;source_path&quot;: &quot;%USERPROFILE%/Downloads/invoice.pdf&quot;,
   &quot;destination_path&quot;: &quot;%USERPROFILE%/Documents/Invoices/invoice.pdf&quot;,
   &quot;overwrite&quot;: false
-}
-</code></pre>
+}</code></pre>
 <h3><code>policy.evaluate</code></h3>
 <p>Evaluates whether a proposed tool call is allowed.</p>
 <p>Risk: <code>observe</code></p>
@@ -404,24 +316,21 @@ Any app-specific send/submit shortcut
     &quot;active_process&quot;: &quot;explorer.exe&quot;,
     &quot;visible_to_user&quot;: true
   }
-}
-</code></pre>
+}</code></pre>
 <p>Output data:</p>
 <pre><code class="language-json">{
   &quot;decision&quot;: &quot;require_approval&quot;,
   &quot;risk_tier&quot;: &quot;local_state_change&quot;,
   &quot;reason&quot;: &quot;Renaming a file changes local state.&quot;,
   &quot;approval_prompt&quot;: &quot;Rename Screenshot.png to router-settings.png?&quot;
-}
-</code></pre>
+}</code></pre>
 <h3><code>workflow.stop</code></h3>
 <p>Stops the active workflow immediately.</p>
 <p>Risk: <code>local_reversible</code></p>
 <p>Input:</p>
 <pre><code class="language-json">{
   &quot;reason&quot;: &quot;User requested stop&quot;
-}
-</code></pre>
+}</code></pre>
 <h3><code>workflow.handoff</code></h3>
 <p>Tells the host to ask the user to perform a step manually.</p>
 <p>Risk: <code>observe</code></p>
@@ -429,22 +338,10 @@ Any app-specific send/submit shortcut
 <pre><code class="language-json">{
   &quot;reason&quot;: &quot;Password field detected&quot;,
   &quot;message_to_user&quot;: &quot;Please enter your password manually. I will continue after you say resume.&quot;
-}
-</code></pre>
+}</code></pre>
 <h2>Tool safety checklist</h2>
 <p>Before merging a new tool:</p>
-<ul>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/>Has typed input schema.</li>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/>Has typed result schema.</li>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/>Has risk tier.</li>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/>Has privacy classification.</li>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/>Has policy tests.</li>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/>Has audit logging.</li>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/>Has verification behavior.</li>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/>Has examples.</li>
-<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled/>Has blocked-case tests.</li>
-</ul>
-
+<ul><li>[ ] Has typed input schema.</li><li>[ ] Has typed result schema.</li><li>[ ] Has risk tier.</li><li>[ ] Has privacy classification.</li><li>[ ] Has policy tests.</li><li>[ ] Has audit logging.</li><li>[ ] Has verification behavior.</li><li>[ ] Has examples.</li><li>[ ] Has blocked-case tests.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

@@ -10,7 +10,7 @@ Windows tasks can be automated through semantic accessibility APIs or through ra
 
 ## Decision
 
-DeskPilot must attempt Windows UI Automation or native APIs before using SendInput.
+Callsign must attempt Windows UI Automation or native APIs before using SendInput.
 
 ## Rationale
 

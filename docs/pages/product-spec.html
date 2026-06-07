@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Product Spec · DeskPilot</title>
+  <title>Product Spec · Callsign</title>
   <link rel="stylesheet" href="../assets/styles.css" />
 </head>
 <body>
   <header class="site-header">
-    <a class="brand" href="../index.html">DeskPilot</a>
+    <a class="brand" href="../index.html">Callsign</a>
     <nav><a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
 <a href="mcp-tools.html">MCP Tools</a>
@@ -43,147 +43,69 @@
     <article class="doc-content">
       <h1>Product Specification</h1>
 <h2>Product name</h2>
-<p>DeskPilot</p>
+<p>Callsign</p>
 <h2>One-line description</h2>
-<p>DeskPilot is a local-first Windows 11 voice agent runtime that lets a user operate desktop applications through a voice/model host and a safety-gated Windows MCP automation server.</p>
+<p>Callsign is a local-first Windows 11 voice agent runtime that lets a user operate desktop applications through a voice/model host and a safety-gated Windows MCP automation server.</p>
 <h2>Product thesis</h2>
 <p>A useful voice desktop agent should not pretend the screen is just pixels. It should expose the local machine as typed capabilities: inspect windows, find UI elements, invoke controls, set text, move files, request approval, and verify outcomes.</p>
 <p>The product should feel like an assistant that can use the computer with you, not like a remote-control cursor guessing where to click.</p>
+<h2>v1 alpha interaction flow</h2>
+<p>Callsign v1 alpha uses a wake-and-identity contract:</p>
+<p>1. Background service detects wake phrase <code>Callsign</code>. 2. Service enters a short command capture window and prompts for user identity. 3. User speaks a configured callsign. 4. Host validates the callsign against enrolled identities. 5. Host captures the user command (single instruction block). 6. Host generates a readable action summary from the command. 7. Host routes planned tool calls through policy and approval. 8. Host executes after approval and records action result.</p>
+<p>When identity fails or times out, the service returns to idle without performing actions.</p>
 <h2>Target users</h2>
 <h3>1. Accessibility-first users</h3>
 <p>Users who want hands-free or reduced-input control of Windows apps.</p>
 <p>Needs:</p>
-<ul>
-<li>Dictation and command control.</li>
-<li>Reliable corrections.</li>
-<li>Clear confirmations.</li>
-<li>Ability to stop immediately.</li>
-<li>Workflows that reduce repetitive strain.</li>
-</ul>
+<ul><li>Dictation and command control.</li><li>Reliable corrections.</li><li>Clear confirmations.</li><li>Ability to stop immediately.</li><li>Workflows that reduce repetitive strain.</li></ul>
 <h3>2. Power users</h3>
 <p>Users who want to automate repetitive desktop work without writing full scripts.</p>
 <p>Needs:</p>
-<ul>
-<li>Natural-language task execution.</li>
-<li>Reusable recipes.</li>
-<li>Transparent logs.</li>
-<li>App-specific selectors.</li>
-<li>Local model options.</li>
-</ul>
+<ul><li>Natural-language task execution.</li><li>Reusable recipes.</li><li>Transparent logs.</li><li>App-specific selectors.</li><li>Local model options.</li></ul>
 <h3>3. Developers and AI builders</h3>
 <p>Users who want an MCP-based Windows automation layer they can connect to different AI hosts.</p>
 <p>Needs:</p>
-<ul>
-<li>Clean MCP tools.</li>
-<li>Strict schemas.</li>
-<li>Local stdio transport.</li>
-<li>Testable interfaces.</li>
-<li>Safety boundaries.</li>
-</ul>
+<ul><li>Clean MCP tools.</li><li>Strict schemas.</li><li>Local stdio transport.</li><li>Testable interfaces.</li><li>Safety boundaries.</li></ul>
 <h3>4. Small-business operators</h3>
 <p>Users who repeatedly process invoices, documents, downloads, forms, and email drafts.</p>
 <p>Needs:</p>
-<ul>
-<li>File organization.</li>
-<li>Document extraction handoff.</li>
-<li>Approval before external side effects.</li>
-<li>Repeatable workflows.</li>
-</ul>
+<ul><li>File organization.</li><li>Document extraction handoff.</li><li>Approval before external side effects.</li><li>Repeatable workflows.</li></ul>
 <h2>Core use cases</h2>
 <h3>Use case: operate a visible desktop app</h3>
 <p>User says:</p>
-<blockquote>
-<p>Click the Save button in this dialog.</p>
-</blockquote>
-<p>DeskPilot should:</p>
-<ol>
-<li>Inspect the active window.</li>
-<li>Find a visible button named <code>Save</code>.</li>
-<li>Check that invoking it is allowed.</li>
-<li>Invoke it through UI Automation when possible.</li>
-<li>Verify the dialog closed or file state changed.</li>
-<li>Record the action.</li>
-</ol>
+<p>&gt; Click the Save button in this dialog.</p>
+<p>Callsign should:</p>
+<p>1. Inspect the active window. 2. Find a visible button named <code>Save</code>. 3. Check that invoking it is allowed. 4. Invoke it through UI Automation when possible. 5. Verify the dialog closed or file state changed. 6. Record the action.</p>
 <h3>Use case: dictate and edit text</h3>
 <p>User says:</p>
-<blockquote>
-<p>Put this in the email body: Thanks for the update. I’ll review it this afternoon.</p>
-</blockquote>
-<p>DeskPilot should:</p>
-<ol>
-<li>Confirm the active target is an editable field.</li>
-<li>Insert text through a semantic value/text pattern if available.</li>
-<li>Fall back to typing only if needed.</li>
-<li>Avoid sending the email unless explicitly approved.</li>
-</ol>
+<p>&gt; Put this in the email body: Thanks for the update. I’ll review it this afternoon.</p>
+<p>Callsign should:</p>
+<p>1. Confirm the active target is an editable field. 2. Insert text through a semantic value/text pattern if available. 3. Fall back to typing only if needed. 4. Avoid sending the email unless explicitly approved.</p>
 <h3>Use case: rename and move local files</h3>
 <p>User says:</p>
-<blockquote>
-<p>Rename the newest screenshot in Downloads to router-settings.png.</p>
-</blockquote>
-<p>DeskPilot should:</p>
-<ol>
-<li>List candidate files in the approved folder.</li>
-<li>Identify the newest matching image.</li>
-<li>Request approval because this is a local state change.</li>
-<li>Rename the file.</li>
-<li>Verify the target exists.</li>
-</ol>
+<p>&gt; Rename the newest screenshot in Downloads to router-settings.png.</p>
+<p>Callsign should:</p>
+<p>1. List candidate files in the approved folder. 2. Identify the newest matching image. 3. Request approval because this is a local state change. 4. Rename the file. 5. Verify the target exists.</p>
 <h3>Use case: teach a workflow</h3>
 <p>User says:</p>
-<blockquote>
-<p>Watch me process this invoice and make it repeatable.</p>
-</blockquote>
-<p>DeskPilot should eventually:</p>
-<ol>
-<li>Enter teach mode.</li>
-<li>Observe user actions and UI selectors.</li>
-<li>Capture semantic steps.</li>
-<li>Ask the user to name the workflow.</li>
-<li>Save a recipe with permissions and verification.</li>
-</ol>
+<p>&gt; Watch me process this invoice and make it repeatable.</p>
+<p>Callsign should eventually:</p>
+<p>1. Enter teach mode. 2. Observe user actions and UI selectors. 3. Capture semantic steps. 4. Ask the user to name the workflow. 5. Save a recipe with permissions and verification.</p>
 <h2>MVP scope</h2>
 <p>The MVP should include:</p>
-<ul>
-<li>Text-command host before voice is required.</li>
-<li>Local Windows MCP server over stdio.</li>
-<li>Server info and health tools.</li>
-<li>Active window detection.</li>
-<li>Visible window listing.</li>
-<li>Bounded UI Automation tree inspection.</li>
-<li>Element finding by name, automation ID, control type, and selector hints.</li>
-<li>UIA invocation for buttons/menu items where available.</li>
-<li>Text setting for editable controls where available.</li>
-<li>Approved hotkey fallback.</li>
-<li>File listing, rename, move, and copy inside allowlisted roots.</li>
-<li>Policy engine v0.</li>
-<li>Approval prompt mechanism.</li>
-<li>JSONL audit log.</li>
-<li>Notepad demo.</li>
-<li>Calculator demo.</li>
-<li>File rename demo.</li>
-</ul>
+<ul><li>Text-command host before voice is required.</li><li>Local Windows MCP server over stdio.</li><li>Server info and health tools.</li><li>Active window detection.</li><li>Visible window listing.</li><li>Bounded UI Automation tree inspection.</li><li>Element finding by name, automation ID, control type, and selector hints.</li><li>UIA invocation for buttons/menu items where available.</li><li>Text setting for editable controls where available.</li><li>Approved hotkey fallback.</li><li>File listing, rename, move, and copy inside allowlisted roots.</li><li>Policy engine v0.</li><li>Approval prompt mechanism.</li><li>JSONL audit log.</li><li>Notepad demo.</li><li>Calculator demo.</li><li>File rename demo.</li></ul>
 <h2>Explicit MVP non-goals</h2>
 <p>The MVP should not include:</p>
-<ul>
-<li>Arbitrary shell execution.</li>
-<li>Autonomous browser purchasing.</li>
-<li>Password or 2FA handling.</li>
-<li>UAC/admin automation.</li>
-<li>Background remote control.</li>
-<li>Permanent deletion.</li>
-<li>Silent email or message sending.</li>
-<li>Cloud screenshot upload by default.</li>
-<li>Full browser DOM automation.</li>
-<li>Unattended long-running workflows.</li>
-</ul>
+<ul><li>Arbitrary shell execution.</li><li>Autonomous browser purchasing.</li><li>Password or 2FA handling.</li><li>UAC/admin automation.</li><li>Background remote control.</li><li>Permanent deletion.</li><li>Silent email or message sending.</li><li>Cloud screenshot upload by default.</li><li>Full browser DOM automation.</li><li>Unattended long-running workflows.</li></ul>
 <h2>Product principles</h2>
 <h3>1. The user remains in command</h3>
-<p>DeskPilot acts only in response to user intent. Risky actions require visible approval.</p>
+<p>Callsign acts only in response to user intent. Risky actions require visible approval.</p>
 <h3>2. The model is not trusted with authorization</h3>
 <p>The LLM may propose a plan, but the policy engine makes allow/deny/approval decisions.</p>
 <h3>3. Use semantic automation before raw input</h3>
 <p>UI Automation and native APIs should be preferred over mouse coordinates and synthetic keystrokes.</p>
+<h3>4. Audible identity check</h3>
+<p>The host should only accept actionable commands after wake-word + callsign identity confirmation, with explicit timeout and lockout behavior for failed attempts.</p>
 <h3>4. Verify after acting</h3>
 <p>Every action should define a reasonable verification step.</p>
 <h3>5. Everything important is auditable</h3>
@@ -192,79 +114,29 @@
 <p>Screenshots, clipboard contents, UI trees, file contents, and logs should remain local unless the user explicitly opts in to sending them to a cloud model.</p>
 <h2>Success metrics</h2>
 <h3>Reliability</h3>
-<ul>
-<li>90%+ success rate for scripted Notepad, Calculator, and File Explorer demos.</li>
-<li>95%+ correct policy classification on test fixtures.</li>
-<li>Less than 5% false invocation rate in visible UI tests.</li>
-</ul>
+<ul><li>90%+ success rate for scripted Notepad, Calculator, and File Explorer demos.</li><li>95%+ correct policy classification on test fixtures.</li><li>Less than 5% false invocation rate in visible UI tests.</li></ul>
 <h3>Safety</h3>
-<ul>
-<li>100% block rate for blocked Tier 4 actions in automated safety tests.</li>
-<li>100% approval requirement for external side effects.</li>
-<li>Audit log coverage for every action tool.</li>
-</ul>
+<ul><li>100% block rate for blocked Tier 4 actions in automated safety tests.</li><li>100% approval requirement for external side effects.</li><li>Audit log coverage for every action tool.</li></ul>
 <h3>UX</h3>
-<ul>
-<li>User can stop active automation with a hotkey or voice command.</li>
-<li>User can understand what the agent is about to do before approval.</li>
-<li>Errors include useful recovery suggestions.</li>
-</ul>
+<ul><li>User can stop active automation with a hotkey or voice command.</li><li>User can understand what the agent is about to do before approval.</li><li>Errors include useful recovery suggestions.</li></ul>
 <h2>Personas and sample commands</h2>
 <h3>Accessibility user</h3>
-<blockquote>
-<p>Open Notepad and write a grocery list.</p>
-</blockquote>
-<blockquote>
-<p>Read the buttons in this dialog.</p>
-</blockquote>
-<blockquote>
-<p>Click Cancel.</p>
-</blockquote>
-<blockquote>
-<p>Stop now.</p>
-</blockquote>
+<p>&gt; Open Notepad and write a grocery list.</p>
+<p>&gt; Read the buttons in this dialog.</p>
+<p>&gt; Click Cancel.</p>
+<p>&gt; Stop now.</p>
 <h3>Power user</h3>
-<blockquote>
-<p>Rename all selected files using the date in their filenames, but ask before changing them.</p>
-</blockquote>
-<blockquote>
-<p>Move the newest PDF from Downloads into my Invoices folder.</p>
-</blockquote>
-<blockquote>
-<p>Watch how I process this file and turn it into a recipe.</p>
-</blockquote>
+<p>&gt; Rename all selected files using the date in their filenames, but ask before changing them.</p>
+<p>&gt; Move the newest PDF from Downloads into my Invoices folder.</p>
+<p>&gt; Watch how I process this file and turn it into a recipe.</p>
 <h3>Developer</h3>
-<blockquote>
-<p>Inspect the active window and show me the UIA tree.</p>
-</blockquote>
-<blockquote>
-<p>Find all buttons in the Calculator window.</p>
-</blockquote>
-<blockquote>
-<p>Test whether the Save button supports InvokePattern.</p>
-</blockquote>
+<p>&gt; Inspect the active window and show me the UIA tree.</p>
+<p>&gt; Find all buttons in the Calculator window.</p>
+<p>&gt; Test whether the Save button supports InvokePattern.</p>
 <h2>Future features</h2>
-<ul>
-<li>Browser extension or Playwright adapter.</li>
-<li>Office app adapters.</li>
-<li>OCR and visual grounding.</li>
-<li>Workflow teach mode.</li>
-<li>Recipe marketplace or local recipe library.</li>
-<li>Tray app.</li>
-<li>Local wake word.</li>
-<li>Multimodal planner.</li>
-<li>Per-app permission profiles.</li>
-<li>Sandboxed testing environment.</li>
-</ul>
+<ul><li>Browser extension or Playwright adapter.</li><li>Office app adapters.</li><li>OCR and visual grounding.</li><li>Workflow teach mode.</li><li>Recipe marketplace or local recipe library.</li><li>Tray app.</li><li>Local wake word.</li><li>Multimodal planner.</li><li>Per-app permission profiles.</li><li>Sandboxed testing environment.</li></ul>
 <h2>Open product questions</h2>
-<ul>
-<li>Should voice be built into the host or pluggable through providers?</li>
-<li>Should screenshot sharing with cloud models be opt-in per session or per task?</li>
-<li>How much UI text should be sent to the planner by default?</li>
-<li>Should recipe replay be allowed unattended, or always visible?</li>
-<li>How should DeskPilot expose a human-readable “why I need this permission” explanation?</li>
-</ul>
-
+<ul><li>Should voice be built into the host or pluggable through providers?</li><li>Should screenshot sharing with cloud models be opt-in per session or per task?</li><li>How much UI text should be sent to the planner by default?</li><li>Should recipe replay be allowed unattended, or always visible?</li><li>How should Callsign expose a human-readable “why I need this permission” explanation?</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

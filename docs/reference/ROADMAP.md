@@ -179,6 +179,18 @@ Potential adapters:
 - PDF adapter.
 - File Explorer adapter.
 
+## Phase 11: Linux roadmap
+
+- Linux host shell and desktop adapter plan.
+- Linux desktop abstraction for Linux-specific window/query APIs.
+- Separate policy profiles and configuration migration.
+- Identity flow retained with per-user callsign mapping.
+
+Exit criteria:
+
+- Linux desktop adapter validates parity for safe local actions.
+- Linux strategy is documented for future release.
+
 Exit criteria:
 
 - Adapters expose semantic tools while still using policy and audit.

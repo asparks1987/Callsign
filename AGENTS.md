@@ -2,15 +2,23 @@
 
 ## Mission
 
-Build DeskPilot: a local-first Windows 11 MCP server and companion host that lets a user control desktop applications through voice and/or text using an LLM, while preserving user consent, privacy, reversibility, and auditability.
+Build Callsign: a local-first background service and MCP-driven automation layer for Windows that lets a user control desktop applications through voice and/or text using an LLM, while preserving user consent, privacy, reversibility, and auditability.
 
 The project is not a general-purpose malware-like automation framework. It is an accessibility-oriented, user-visible, consent-driven desktop assistant.
 
 ## Core architecture
 
-DeskPilot is split into two primary layers.
+Callsign is split into two primary layers.
 
 ### 1. Voice / Agent Host
+
+Callsign runs as a background service process and is composed of two primary layers:
+
+- Wake-word listener.
+- Callsign identity/authorization gate.
+- Session orchestration and planner.
+- Local policy and approval enforcement.
+- Task execution through MCP tools.
 
 The host handles:
 
@@ -165,6 +173,18 @@ When adding or changing a tool, update:
 - The GitHub Pages HTML by running `python scripts/build_site.py`
 
 ## Default development posture
+
+## Alpha interaction contract (v1)
+
+The v1 alpha session contract is:
+
+- The service continuously listens in the background for the wake word `Callsign`.
+- After wake word detection, the service enters a short command window.
+- The user must provide their callsign (e.g., `Alpha` or any configured identifier) before command parsing proceeds.
+- If identity is not provided or does not match, the command window closes and no action is executed.
+- Once identity is confirmed, the host captures the spoken command and translates it into readable action steps before attempting execution.
+- Execution only proceeds after policy and consent checks pass.
+- The service remains visible/stoppable during execution.
 
 Assume the model may misunderstand the UI.
 

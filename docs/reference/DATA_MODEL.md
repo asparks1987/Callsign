@@ -2,7 +2,7 @@
 
 ## Overview
 
-DeskPilot should store durable state locally and minimally.
+Callsign should store durable state locally and minimally.
 
 Main data types:
 
@@ -246,7 +246,7 @@ Common redaction markers:
 Suggested local storage:
 
 ```text
-%LOCALAPPDATA%/DeskPilot/
+%LOCALAPPDATA%/Callsign/
   config/
     policy.yaml
     providers.yaml

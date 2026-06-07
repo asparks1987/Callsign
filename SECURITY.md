@@ -2,7 +2,7 @@
 
 ## Security posture
 
-DeskPilot is a local desktop automation project. That makes safety and security part of the core product, not an afterthought.
+Callsign is a local desktop automation project. That makes safety and security part of the core product, not an afterthought.
 
 The MVP should be treated as experimental software and should not be used on machines containing high-risk secrets, production credentials, financial accounts, sensitive medical/legal documents, or business-critical unattended workflows until the security model has been implemented and independently reviewed.
 

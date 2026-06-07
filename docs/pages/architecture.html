@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Architecture · DeskPilot</title>
+  <title>Architecture · Callsign</title>
   <link rel="stylesheet" href="../assets/styles.css" />
 </head>
 <body>
   <header class="site-header">
-    <a class="brand" href="../index.html">DeskPilot</a>
+    <a class="brand" href="../index.html">Callsign</a>
     <nav><a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
 <a href="mcp-tools.html">MCP Tools</a>
@@ -43,8 +43,9 @@
     <article class="doc-content">
       <h1>Architecture</h1>
 <h2>Overview</h2>
-<p>DeskPilot is split into a voice/model host and a Windows Automation MCP server.</p>
-<p>The split matters because MCP is a tool/resource/prompt interface, not the entire agent. The host owns conversation, voice, model provider choice, task planning, and user-facing approval UX. The MCP server owns Windows-specific capabilities, tool validation, policy checks, execution, and audit logging.</p>
+<p>Callsign is split into a background service host and a Windows Automation MCP server.</p>
+<p>The split matters because MCP is a tool/resource/prompt interface, not the entire agent. The host owns conversation, wake-word + identity flow, voice handling, model provider choice, task planning, and user-facing approval UX. The MCP server owns Windows-specific capabilities, tool validation, policy checks, execution, and audit logging.</p>
+<p>Callsign v1 is Windows-first.</p>
 <h2>Component diagram</h2>
 <pre><code class="language-text">┌─────────────────────────────────────────────────────────────────────┐
 │                         Voice / Agent Host                          │
@@ -77,12 +78,11 @@
 │           ┌─────────────────────────┬───────────────┼──────────────┐ │
 │           ▼                         ▼               ▼              ▼ │
 │  UI Automation Adapter      Win32 Adapter     File Adapter   Audit Log│
-└─────────────────────────────────────────────────────────────────────┘
-</code></pre>
+└─────────────────────────────────────────────────────────────────────┘</code></pre>
 <h2>Runtime loop</h2>
-<p>DeskPilot uses an observe-plan-act-verify loop.</p>
-<pre><code class="language-text">1. User gives a voice or text instruction.
-2. Host transcribes or receives text.
+<p>Callsign uses an observe-plan-act-verify loop.</p>
+<pre><code class="language-text">1. User wakes service and confirms callsign identity.
+2. Host captures command text.
 3. Host asks the model to produce a bounded plan.
 4. Host routes read-only observations to the MCP server.
 5. MCP server returns structured desktop context.
@@ -93,88 +93,43 @@
 10. MCP server executes the approved action.
 11. MCP server verifies the outcome where possible.
 12. Audit log records the full chain.
-13. Host summarizes the result.
-</code></pre>
+13. Host summarizes the result.</code></pre>
+<h2>Alpha session flow</h2>
+<p>The v1 canonical session flow is:</p>
+<p>1. Background service detects wake word <code>Callsign</code>. 2. Identity prompt captures a user callsign. 3. If identity matches a configured user, command capture opens. 4. If identity fails or times out, session expires and no action runs. 5. Approved command intent is translated into readable action text and proposed as typed MCP calls. 6. Execution and verification only occur after policy pass and user confirmation where required.</p>
 <h2>Process boundaries</h2>
 <h3>Host process</h3>
 <p>Responsibilities:</p>
-<ul>
-<li>Voice session.</li>
-<li>Model provider abstraction.</li>
-<li>Conversation state.</li>
-<li>Approval UX.</li>
-<li>MCP client connection.</li>
-<li>Task-level planning.</li>
-<li>User-facing explanations.</li>
-</ul>
+<ul><li>Voice session.</li><li>Model provider abstraction.</li><li>Conversation state.</li><li>Approval UX.</li><li>MCP client connection.</li><li>Task-level planning.</li><li>User-facing explanations.</li></ul>
 <p>The host should not contain direct Windows automation code.</p>
 <h3>MCP server process</h3>
 <p>Responsibilities:</p>
-<ul>
-<li>Tool registration.</li>
-<li>Resource registration.</li>
-<li>Prompt registration.</li>
-<li>Argument validation.</li>
-<li>Policy enforcement.</li>
-<li>Windows automation adapters.</li>
-<li>File allowlist enforcement.</li>
-<li>Audit log.</li>
-<li>Safe error handling.</li>
-</ul>
+<ul><li>Tool registration.</li><li>Resource registration.</li><li>Prompt registration.</li><li>Argument validation.</li><li>Policy enforcement.</li><li>Windows automation adapters.</li><li>File allowlist enforcement.</li><li>Audit log.</li><li>Safe error handling.</li></ul>
 <p>The server should not choose high-level task intent. It should execute validated, policy-approved capabilities.</p>
 <h2>Transport</h2>
 <p>Default transport: local stdio.</p>
 <p>Reasons:</p>
-<ul>
-<li>No open local port by default.</li>
-<li>Natural fit for local MCP clients.</li>
-<li>Simple process lifetime management.</li>
-<li>Lower attack surface than an unauthenticated local HTTP server.</li>
-</ul>
+<ul><li>No open local port by default.</li><li>Natural fit for local MCP clients.</li><li>Simple process lifetime management.</li><li>Lower attack surface than an unauthenticated local HTTP server.</li></ul>
 <p>Future transport options:</p>
-<ul>
-<li>Authenticated local HTTP for tray app integration.</li>
-<li>Named pipe transport.</li>
-<li>Remote bridge only through a separate authenticated component.</li>
-</ul>
+<ul><li>Authenticated local HTTP for tray app integration.</li><li>Named pipe transport.</li><li>Remote bridge only through a separate authenticated component.</li></ul>
+<p>Linux roadmap: Linux support is planned after Windows v1, with a separate Linux service adapter and desktop abstraction layer.</p>
 <h2>Tool categories</h2>
 <h3>Observe tools</h3>
 <p>Read local desktop state.</p>
 <p>Examples:</p>
-<ul>
-<li><code>server.info</code></li>
-<li><code>desktop.get_active_window</code></li>
-<li><code>desktop.list_windows</code></li>
-<li><code>desktop.inspect_window</code></li>
-<li><code>desktop.find_element</code></li>
-</ul>
+<ul><li><code>server.info</code></li><li><code>desktop.get_active_window</code></li><li><code>desktop.list_windows</code></li><li><code>desktop.inspect_window</code></li><li><code>desktop.find_element</code></li></ul>
 <h3>Act tools</h3>
 <p>Change local state or interact with UI.</p>
 <p>Examples:</p>
-<ul>
-<li><code>desktop.invoke_element</code></li>
-<li><code>desktop.set_text</code></li>
-<li><code>desktop.focus_element</code></li>
-<li><code>desktop.send_hotkey</code></li>
-<li><code>file.rename</code></li>
-</ul>
+<ul><li><code>desktop.invoke_element</code></li><li><code>desktop.set_text</code></li><li><code>desktop.focus_element</code></li><li><code>desktop.send_hotkey</code></li><li><code>file.rename</code></li></ul>
 <h3>Recovery tools</h3>
 <p>Stop, undo, cancel, or hand off.</p>
 <p>Examples:</p>
-<ul>
-<li><code>workflow.pause</code></li>
-<li><code>workflow.stop</code></li>
-<li><code>desktop.escape</code></li>
-<li><code>desktop.undo_last_input</code></li>
-<li><code>workflow.handoff</code></li>
-</ul>
+<ul><li><code>workflow.pause</code></li><li><code>workflow.stop</code></li><li><code>desktop.escape</code></li><li><code>desktop.undo_last_input</code></li><li><code>workflow.handoff</code></li></ul>
 <h3>Policy tools</h3>
 <p>Expose approval and policy outcomes.</p>
 <p>Examples:</p>
-<ul>
-<li><code>policy.evaluate</code></li>
-<li><code>policy.request_approval</code></li>
-</ul>
+<ul><li><code>policy.evaluate</code></li><li><code>policy.request_approval</code></li></ul>
 <h2>Resources</h2>
 <p>Resources provide passive context to hosts and clients.</p>
 <p>Recommended resource URIs:</p>
@@ -185,8 +140,7 @@ windows://window/{hwnd}/text
 windows://processes
 audit://session/{session_id}
 config://policy
-config://selectors
-</code></pre>
+config://selectors</code></pre>
 <h2>Prompts</h2>
 <p>Prompts provide reusable task templates.</p>
 <p>Recommended prompts:</p>
@@ -195,63 +149,28 @@ inspect_before_acting
 teach_new_task
 recover_from_failed_action
 explain_last_action
-create_selector_recipe
-</code></pre>
+create_selector_recipe</code></pre>
 <h2>Automation adapters</h2>
 <h3>UI Automation adapter</h3>
 <p>Primary adapter for semantic desktop interaction.</p>
 <p>Responsibilities:</p>
-<ul>
-<li>Enumerate top-level windows.</li>
-<li>Inspect UIA tree.</li>
-<li>Extract properties.</li>
-<li>Identify supported patterns.</li>
-<li>Invoke controls.</li>
-<li>Set values.</li>
-<li>Read text.</li>
-<li>Scroll when safe.</li>
-</ul>
+<ul><li>Enumerate top-level windows.</li><li>Inspect UIA tree.</li><li>Extract properties.</li><li>Identify supported patterns.</li><li>Invoke controls.</li><li>Set values.</li><li>Read text.</li><li>Scroll when safe.</li></ul>
 <h3>Win32 adapter</h3>
 <p>Fallback adapter.</p>
 <p>Responsibilities:</p>
-<ul>
-<li>Get foreground window.</li>
-<li>Activate windows.</li>
-<li>Send approved hotkeys.</li>
-<li>Type text when semantic text setting fails.</li>
-<li>Click coordinates only after selector/vision resolution and approval.</li>
-</ul>
+<ul><li>Get foreground window.</li><li>Activate windows.</li><li>Send approved hotkeys.</li><li>Type text when semantic text setting fails.</li><li>Click coordinates only after selector/vision resolution and approval.</li></ul>
 <h3>File adapter</h3>
 <p>Native deterministic file operations.</p>
 <p>Responsibilities:</p>
-<ul>
-<li>List files inside approved roots.</li>
-<li>Rename files.</li>
-<li>Move files.</li>
-<li>Copy files.</li>
-<li>Verify existence.</li>
-<li>Prevent path traversal.</li>
-</ul>
+<ul><li>List files inside approved roots.</li><li>Rename files.</li><li>Move files.</li><li>Copy files.</li><li>Verify existence.</li><li>Prevent path traversal.</li></ul>
 <h3>Vision adapter</h3>
 <p>Future adapter for screenshots, OCR, and visual target finding.</p>
 <p>This adapter should be disabled by default for cloud providers because screenshots may contain sensitive information.</p>
 <h2>State model</h2>
 <p>The MCP server should maintain minimal in-memory state:</p>
-<ul>
-<li>Current session ID.</li>
-<li>Correlation IDs.</li>
-<li>Recent tool call history.</li>
-<li>Pending approvals.</li>
-<li>Cached UI tree snapshots with short TTL.</li>
-<li>Selector cache.</li>
-</ul>
+<ul><li>Current session ID.</li><li>Correlation IDs.</li><li>Recent tool call history.</li><li>Pending approvals.</li><li>Cached UI tree snapshots with short TTL.</li><li>Selector cache.</li></ul>
 <p>Durable state:</p>
-<ul>
-<li>Audit JSONL.</li>
-<li>Selector repository.</li>
-<li>Policy config.</li>
-<li>Recipes.</li>
-</ul>
+<ul><li>Audit JSONL.</li><li>Selector repository.</li><li>Policy config.</li><li>Recipes.</li></ul>
 <h2>Error handling</h2>
 <p>Errors should be structured and recoverable when possible.</p>
 <p>Example:</p>
@@ -263,88 +182,15 @@ create_selector_recipe
     &quot;recoverable&quot;: true,
     &quot;approval_request_id&quot;: &quot;approval_01&quot;
   }
-}
-</code></pre>
+}</code></pre>
 <h2>Verification strategy</h2>
 <p>Every action tool should declare a verification strategy.</p>
 <p>Examples:</p>
-<table>
-<thead>
-<tr>
-  <th>Action</th>
-  <th>Verification</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-  <td><code>desktop.invoke_element</code></td>
-  <td>State changed, dialog closed, focused element changed, or user-visible confirmation requested</td>
-</tr>
-<tr>
-  <td><code>desktop.set_text</code></td>
-  <td>Read back value when possible</td>
-</tr>
-<tr>
-  <td><code>file.rename</code></td>
-  <td>Target exists and source no longer exists</td>
-</tr>
-<tr>
-  <td><code>desktop.send_hotkey</code></td>
-  <td>Active window or UI tree changed as expected</td>
-</tr>
-<tr>
-  <td><code>desktop.open_app</code></td>
-  <td>Process/window appears within timeout</td>
-</tr>
-</tbody>
-</table>
+<p>| Action | Verification | |---|---| | <code>desktop.invoke_element</code> | State changed, dialog closed, focused element changed, or user-visible confirmation requested | | <code>desktop.set_text</code> | Read back value when possible | | <code>file.rename</code> | Target exists and source no longer exists | | <code>desktop.send_hotkey</code> | Active window or UI tree changed as expected | | <code>desktop.open_app</code> | Process/window appears within timeout |</p>
 <h2>Extension points</h2>
-<ul>
-<li>Model providers.</li>
-<li>Voice providers.</li>
-<li>App-specific adapters.</li>
-<li>Browser DOM adapters.</li>
-<li>Policy packs.</li>
-<li>Selector packs.</li>
-<li>Recipes.</li>
-<li>Test fixtures.</li>
-</ul>
+<ul><li>Model providers.</li><li>Voice providers.</li><li>App-specific adapters.</li><li>Browser DOM adapters.</li><li>Policy packs.</li><li>Selector packs.</li><li>Recipes.</li><li>Test fixtures.</li></ul>
 <h2>Architectural risks</h2>
-<table>
-<thead>
-<tr>
-  <th>Risk</th>
-  <th>Mitigation</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-  <td>UIA tree too large</td>
-  <td>Bounded extraction and summarization</td>
-</tr>
-<tr>
-  <td>Model proposes unsafe tool call</td>
-  <td>Policy engine outside model</td>
-</tr>
-<tr>
-  <td>App exposes poor accessibility data</td>
-  <td>Fallback adapter and human handoff</td>
-</tr>
-<tr>
-  <td>Screenshots leak secrets</td>
-  <td>Disabled by default, redaction hooks</td>
-</tr>
-<tr>
-  <td>SendInput fails on elevated windows</td>
-  <td>Detect integrity issues and hand off</td>
-</tr>
-<tr>
-  <td>Prompt injection through UI text</td>
-  <td>Treat UI text as untrusted data</td>
-</tr>
-</tbody>
-</table>
-
+<p>| Risk | Mitigation | |---|---| | UIA tree too large | Bounded extraction and summarization | | Model proposes unsafe tool call | Policy engine outside model | | App exposes poor accessibility data | Fallback adapter and human handoff | | Screenshots leak secrets | Disabled by default, redaction hooks | | SendInput fails on elevated windows | Detect integrity issues and hand off | | Prompt injection through UI text | Treat UI text as untrusted data |</p>
     </article>
   </main>
   <script src="../assets/site.js"></script>

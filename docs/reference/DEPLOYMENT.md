@@ -18,7 +18,7 @@ Use it to:
 Future implementation target:
 
 ```text
-DeskPilot.Host starts DeskPilot.McpServer over stdio.
+Callsign.Host starts Callsign.McpServer over stdio.
 User sends text command.
 Host calls local or cloud model provider.
 Model proposes tool call.
@@ -35,6 +35,7 @@ Future implementation target:
 - Global hotkey.
 - Voice provider settings.
 - Local audit viewer.
+- Linux packaging roadmap and Linux service profile.
 
 ## GitHub Pages deployment
 
@@ -88,27 +89,29 @@ docs/pages/
 
 ## Suggested local app install layout
 
-Future Windows package:
+Future Windows package (v1 alpha):
 
 ```text
-%LOCALAPPDATA%/DeskPilot/
-  DeskPilot.Host.exe
-  DeskPilot.McpServer.exe
+%LOCALAPPDATA%/Callsign/
+  Callsign.Host.exe
+  Callsign.McpServer.exe
   config/
   audit/
   selectors/
   recipes/
 ```
 
+Linux is planned as a later phase with a Linux-specific package profile and desktop adapter.
+
 ## Configuration files
 
 Suggested config locations:
 
 ```text
-%LOCALAPPDATA%/DeskPilot/config/policy.yaml
-%LOCALAPPDATA%/DeskPilot/config/providers.yaml
-%LOCALAPPDATA%/DeskPilot/selectors/*.yaml
-%LOCALAPPDATA%/DeskPilot/recipes/*.yaml
+%LOCALAPPDATA%/Callsign/config/policy.yaml
+%LOCALAPPDATA%/Callsign/config/providers.yaml
+%LOCALAPPDATA%/Callsign/selectors/*.yaml
+%LOCALAPPDATA%/Callsign/recipes/*.yaml
 ```
 
 ## MCP client configuration
@@ -118,11 +121,11 @@ Example stdio config shape:
 ```json
 {
   "mcpServers": {
-    "deskpilot-windows": {
-      "command": "C:/Users/YOU/AppData/Local/DeskPilot/DeskPilot.McpServer.exe",
+    "Callsign-windows": {
+      "command": "C:/Users/YOU/AppData/Local/Callsign/Callsign.McpServer.exe",
       "args": ["--stdio"],
       "env": {
-        "DESKPILOT_POLICY": "C:/Users/YOU/AppData/Local/DeskPilot/config/policy.yaml"
+        "Callsign_POLICY": "C:/Users/YOU/AppData/Local/Callsign/config/policy.yaml"
       }
     }
   }
@@ -178,7 +181,7 @@ If an elevated window is encountered:
 Suggested default:
 
 ```text
-%LOCALAPPDATA%/DeskPilot/audit/session_YYYYMMDD_NNN.jsonl
+%LOCALAPPDATA%/Callsign/audit/session_YYYYMMDD_NNN.jsonl
 ```
 
 Audit logs should be local only.

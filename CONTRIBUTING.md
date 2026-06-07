@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping build DeskPilot.
+Thanks for helping build Callsign.
 
 The project is documentation-first and safety-first. Before adding new automation capabilities, read:
 

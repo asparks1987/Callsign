@@ -1,6 +1,6 @@
-# DeskPilot
+# Callsign
 
-**DeskPilot** is a design starter for a Windows 11 voice-operated desktop agent: a local-first automation runtime where a voice/model host talks to a Windows MCP server that safely observes and operates the user’s desktop.
+**Callsign** is a design starter for a Windows 11 voice-operated desktop agent: a local-first automation runtime where a voice/model host talks to a Windows MCP server that safely observes and operates the user’s desktop.
 
 The core idea is simple but powerful:
 
@@ -12,11 +12,17 @@ This repository is a documentation-first starter kit. It contains the project sp
 
 ## Why this exists
 
-Most desktop agents are either too brittle or too dangerous. They click coordinates, scrape screenshots, guess at user intent, and often treat the local machine as an unstructured visual surface. DeskPilot takes the opposite approach.
+Most desktop agents are either too brittle or too dangerous. They click coordinates, scrape screenshots, guess at user intent, and often treat the local machine as an unstructured visual surface. Callsign takes the opposite approach.
 
 It treats the Windows desktop as a set of typed, inspectable, permissioned capabilities.
 
-Instead of asking an LLM to “move the mouse over there,” DeskPilot asks the LLM to call tools like:
+Callsign is a background service with a wake-and-identity gate in v1 alpha:
+
+- Wake word: `Callsign`
+- Follow-up identity confirmation via spoken user callsign
+- Command capture → readable action summary → policy + approval → execution
+
+Instead of asking an LLM to “move the mouse over there,” Callsign asks the LLM to call tools like:
 
 ```text
 desktop.inspect_window
@@ -42,7 +48,7 @@ This keeps the agent closer to assistive technology and test automation than to 
 
 ## Project goals
 
-DeskPilot is intended to become:
+Callsign is intended to become:
 
 - A **local Windows MCP server** exposing desktop automation tools.
 - A **voice/model host** that can use OpenAI Realtime, local STT/TTS, Ollama, LM Studio, llama.cpp, or other model providers.
@@ -54,7 +60,7 @@ DeskPilot is intended to become:
 
 ## Non-goals
 
-DeskPilot is not intended to be:
+Callsign is not intended to be:
 
 - A stealth automation framework.
 - A bot for bypassing app protections.
@@ -169,11 +175,11 @@ The site is static HTML/CSS/JS and includes `.nojekyll`, so it does not require 
 
 ## Development philosophy
 
-DeskPilot should be built documentation-first, safety-first, and test-first.
+Callsign should be built documentation-first, safety-first, and test-first.
 
 The model is not the authority. The model proposes actions. The policy engine approves, denies, or requests user confirmation. The Windows automation layer executes only typed, validated tools. The audit log records what happened.
 
-A good DeskPilot action has these properties:
+A good Callsign action has these properties:
 
 - It is tied to an explicit user request.
 - It operates on the visible desktop unless the user explicitly permits otherwise.

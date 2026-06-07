@@ -2,17 +2,32 @@
 
 ## Product name
 
-DeskPilot
+Callsign
 
 ## One-line description
 
-DeskPilot is a local-first Windows 11 voice agent runtime that lets a user operate desktop applications through a voice/model host and a safety-gated Windows MCP automation server.
+Callsign is a local-first Windows 11 voice agent runtime that lets a user operate desktop applications through a voice/model host and a safety-gated Windows MCP automation server.
 
 ## Product thesis
 
 A useful voice desktop agent should not pretend the screen is just pixels. It should expose the local machine as typed capabilities: inspect windows, find UI elements, invoke controls, set text, move files, request approval, and verify outcomes.
 
 The product should feel like an assistant that can use the computer with you, not like a remote-control cursor guessing where to click.
+
+## v1 alpha interaction flow
+
+Callsign v1 alpha uses a wake-and-identity contract:
+
+1. Background service detects wake phrase `Callsign`.
+2. Service enters a short command capture window and prompts for user identity.
+3. User speaks a configured callsign.
+4. Host validates the callsign against enrolled identities.
+5. Host captures the user command (single instruction block).
+6. Host generates a readable action summary from the command.
+7. Host routes planned tool calls through policy and approval.
+8. Host executes after approval and records action result.
+
+When identity fails or times out, the service returns to idle without performing actions.
 
 ## Target users
 
@@ -71,7 +86,7 @@ User says:
 
 > Click the Save button in this dialog.
 
-DeskPilot should:
+Callsign should:
 
 1. Inspect the active window.
 2. Find a visible button named `Save`.
@@ -86,7 +101,7 @@ User says:
 
 > Put this in the email body: Thanks for the update. I’ll review it this afternoon.
 
-DeskPilot should:
+Callsign should:
 
 1. Confirm the active target is an editable field.
 2. Insert text through a semantic value/text pattern if available.
@@ -99,7 +114,7 @@ User says:
 
 > Rename the newest screenshot in Downloads to router-settings.png.
 
-DeskPilot should:
+Callsign should:
 
 1. List candidate files in the approved folder.
 2. Identify the newest matching image.
@@ -113,7 +128,7 @@ User says:
 
 > Watch me process this invoice and make it repeatable.
 
-DeskPilot should eventually:
+Callsign should eventually:
 
 1. Enter teach mode.
 2. Observe user actions and UI selectors.
@@ -162,7 +177,7 @@ The MVP should not include:
 
 ### 1. The user remains in command
 
-DeskPilot acts only in response to user intent. Risky actions require visible approval.
+Callsign acts only in response to user intent. Risky actions require visible approval.
 
 ### 2. The model is not trusted with authorization
 
@@ -171,6 +186,10 @@ The LLM may propose a plan, but the policy engine makes allow/deny/approval deci
 ### 3. Use semantic automation before raw input
 
 UI Automation and native APIs should be preferred over mouse coordinates and synthetic keystrokes.
+
+### 4. Audible identity check
+
+The host should only accept actionable commands after wake-word + callsign identity confirmation, with explicit timeout and lockout behavior for failed attempts.
 
 ### 4. Verify after acting
 
@@ -251,4 +270,4 @@ Screenshots, clipboard contents, UI trees, file contents, and logs should remain
 - Should screenshot sharing with cloud models be opt-in per session or per task?
 - How much UI text should be sent to the planner by default?
 - Should recipe replay be allowed unattended, or always visible?
-- How should DeskPilot expose a human-readable “why I need this permission” explanation?
+- How should Callsign expose a human-readable “why I need this permission” explanation?

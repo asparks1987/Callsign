@@ -94,7 +94,7 @@ Output data:
 
 ```json
 {
-  "name": "DeskPilot Windows MCP Server",
+  "name": "Callsign Windows MCP Server",
   "version": "0.1.0",
   "transport": "stdio",
   "platform": "windows",

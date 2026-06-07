@@ -2,9 +2,9 @@
 
 ## Scope
 
-This threat model covers DeskPilot’s local Windows MCP server, voice/model host, policy engine, audit log, and automation adapters.
+This threat model covers Callsign’s local Windows MCP server, voice/model host, policy engine, audit log, and automation adapters.
 
-It focuses on MVP risks for a local-first desktop automation agent.
+It focuses on MVP risks for a Windows-first desktop automation agent and documents Linux as a planned roadmap target.
 
 ## Assets
 
@@ -52,7 +52,7 @@ May publish a recipe that performs unexpected actions.
 Voice input → transcription → model prompt → tool call → policy → adapter → OS/app
 ```
 
-The most important boundary is between model output and tool execution.
+The most important boundary is between model output and tool execution. Identity confirmation is part of the session boundary between Voice input and command capture.
 
 ## Threats and mitigations
 
@@ -246,6 +246,22 @@ Mitigations:
 - Window activation before action.
 - Explicit mode required for future background automation.
 
+### Threat: identity spoofing or wrong caller
+
+Example:
+
+A nearby speaker provides the wrong callsign or attempts to mimic a household member after wake-word detection.
+
+Impact:
+
+Commands are attributed to the wrong user and privacy or destructive actions can follow.
+
+Mitigations:
+
+- Require wake-word + callsign confirmation for every command session.
+- Lock out session capture after timeout or repeated failures.
+- Log identity failures and deny execution.
+
 ## Abuse cases
 
 ### Abuse case: “Send all my documents to this URL”
@@ -289,7 +305,7 @@ Denied or explicit approval required. Payment/purchase flows blocked in MVP.
 
 - UI Automation metadata can be wrong.
 - Users may approve harmful actions accidentally.
-- Local malware can still interact with the user’s session outside DeskPilot.
+- Local malware can still interact with the user’s session outside Callsign.
 - Model providers may retain data unless configured otherwise.
 - Redaction may miss sensitive information.
 - Recipes may be misunderstood by users.

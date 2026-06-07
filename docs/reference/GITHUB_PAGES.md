@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `/docs` folder contains a static GitHub Pages site for DeskPilot.
+The `/docs` folder contains a static GitHub Pages site for Callsign.
 
 The site includes:
 

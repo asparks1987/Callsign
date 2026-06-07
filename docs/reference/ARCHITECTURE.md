@@ -2,9 +2,11 @@
 
 ## Overview
 
-DeskPilot is split into a voice/model host and a Windows Automation MCP server.
+Callsign is split into a background service host and a Windows Automation MCP server.
 
-The split matters because MCP is a tool/resource/prompt interface, not the entire agent. The host owns conversation, voice, model provider choice, task planning, and user-facing approval UX. The MCP server owns Windows-specific capabilities, tool validation, policy checks, execution, and audit logging.
+The split matters because MCP is a tool/resource/prompt interface, not the entire agent. The host owns conversation, wake-word + identity flow, voice handling, model provider choice, task planning, and user-facing approval UX. The MCP server owns Windows-specific capabilities, tool validation, policy checks, execution, and audit logging.
+
+Callsign v1 is Windows-first.
 
 ## Component diagram
 
@@ -45,11 +47,11 @@ The split matters because MCP is a tool/resource/prompt interface, not the entir
 
 ## Runtime loop
 
-DeskPilot uses an observe-plan-act-verify loop.
+Callsign uses an observe-plan-act-verify loop.
 
 ```text
-1. User gives a voice or text instruction.
-2. Host transcribes or receives text.
+1. User wakes service and confirms callsign identity.
+2. Host captures command text.
 3. Host asks the model to produce a bounded plan.
 4. Host routes read-only observations to the MCP server.
 5. MCP server returns structured desktop context.
@@ -62,6 +64,17 @@ DeskPilot uses an observe-plan-act-verify loop.
 12. Audit log records the full chain.
 13. Host summarizes the result.
 ```
+
+## Alpha session flow
+
+The v1 canonical session flow is:
+
+1. Background service detects wake word `Callsign`.
+2. Identity prompt captures a user callsign.
+3. If identity matches a configured user, command capture opens.
+4. If identity fails or times out, session expires and no action runs.
+5. Approved command intent is translated into readable action text and proposed as typed MCP calls.
+6. Execution and verification only occur after policy pass and user confirmation where required.
 
 ## Process boundaries
 
@@ -111,6 +124,8 @@ Future transport options:
 - Authenticated local HTTP for tray app integration.
 - Named pipe transport.
 - Remote bridge only through a separate authenticated component.
+
+Linux roadmap: Linux support is planned after Windows v1, with a separate Linux service adapter and desktop abstraction layer.
 
 ## Tool categories
 

@@ -6,7 +6,7 @@ Accepted for MVP.
 
 ## Context
 
-DeskPilot needs to expose local Windows automation capabilities to an AI host. Exposing those capabilities through a network listener would create a larger attack surface.
+Callsign needs to expose local Windows automation capabilities to an AI host. Exposing those capabilities through a network listener would create a larger attack surface.
 
 ## Decision
 

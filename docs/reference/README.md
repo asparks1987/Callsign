@@ -1,6 +1,6 @@
-# DeskPilot Reference Docs
+# Callsign Reference Docs
 
-This folder contains the source Markdown design documentation for DeskPilot.
+This folder contains the source Markdown design documentation for Callsign.
 
 Generated HTML pages live in `docs/pages/` and are linked from the GitHub Pages site at `docs/index.html`.
 

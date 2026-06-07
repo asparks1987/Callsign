@@ -2,7 +2,7 @@
 
 ## Goals
 
-The DeskPilot test plan must prove three things:
+The Callsign test plan must prove three things:
 
 1. The system can perform useful desktop tasks.
 2. The system blocks unsafe actions.

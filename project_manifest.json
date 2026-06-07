@@ -1,5 +1,5 @@
 {
-  "project": "DeskPilot",
+  "project": "Callsign",
   "created": "2026-06-07",
   "description": "A local-first Windows 11 voice agent runtime built around a safety-gated MCP automation server.",
   "site_entry": "docs/index.html",

@@ -2,7 +2,7 @@
 
 ## Goal
 
-DeskPilot should feel like a calm, competent copilot for the user’s desktop. It should be conversational, but action-oriented. It should not chatter while operating, and it should never surprise the user with risky actions.
+Callsign should feel like a calm, competent copilot for the user’s desktop. It should be conversational, but action-oriented. It should not chatter while operating, and it should never surprise the user with risky actions.
 
 ## Voice interaction modes
 
@@ -74,7 +74,7 @@ Bad:
 
 ## Interruption
 
-DeskPilot must support interruption.
+Callsign must support interruption.
 
 Required stop phrases:
 

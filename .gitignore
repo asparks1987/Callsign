@@ -6,7 +6,7 @@ obj/
 *.user
 *.suo
 
-# Local DeskPilot state
+# Local Callsign state
 audit/
 cache/
 *.local.yaml

@@ -2,7 +2,7 @@
 
 ## Summary
 
-DeskPilot operates a user’s desktop. That is powerful. The security model therefore treats the LLM as an untrusted planner and the MCP server as a guarded capability provider.
+Callsign operates a user’s desktop. That is powerful. The security model therefore treats the LLM as an untrusted planner and the MCP server as a guarded capability provider.
 
 The model may request actions. The policy engine decides whether they are allowed.
 
@@ -16,6 +16,7 @@ The model may request actions. The policy engine decides whether they are allowe
 - Make actions visible and auditable.
 - Provide immediate stop mechanisms.
 - Keep the local MCP server from becoming a remote-control backdoor.
+- Preserve Windows-first v1 alpha baseline; plan Linux strategy after policy and adapter parity.
 
 ## Trust boundaries
 
@@ -37,7 +38,7 @@ Desktop applications and files
 
 - User’s explicit approvals.
 - Local policy configuration.
-- Signed local DeskPilot binaries, if implemented.
+- Signed local Callsign binaries, if implemented.
 - MCP server validation code.
 - Audit log writer.
 
@@ -123,6 +124,12 @@ Good:
 Bad:
 
 > Continue?
+
+## V1 identity controls
+
+- Wake-word and callsign identity checks run before any command capture.
+- If identity is invalid or absent, all pending actions are blocked and logged.
+- Logged identity events are metadata-only and never include secrets.
 
 ## Data handling
 

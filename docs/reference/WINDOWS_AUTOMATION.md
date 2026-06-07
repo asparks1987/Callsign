@@ -2,7 +2,7 @@
 
 ## Goal
 
-DeskPilot should perform Windows 11 desktop tasks through the safest, most semantic execution layer available.
+Callsign should perform Windows 11 desktop tasks through the safest, most semantic execution layer available.
 
 The hierarchy is:
 
@@ -123,7 +123,7 @@ Selector matching should return confidence and explain why.
 
 `SendInput` can insert keyboard and mouse events into the input stream, but it is subject to Windows integrity boundaries. It may fail when attempting to inject into elevated/admin applications from a lower-integrity process.
 
-DeskPilot should detect likely integrity mismatch and hand off instead of retrying blindly.
+Callsign should detect likely integrity mismatch and hand off instead of retrying blindly.
 
 ## Raw input rules
 

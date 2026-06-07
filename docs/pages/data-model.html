@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Data Model · DeskPilot</title>
+  <title>Data Model · Callsign</title>
   <link rel="stylesheet" href="../assets/styles.css" />
 </head>
 <body>
   <header class="site-header">
-    <a class="brand" href="../index.html">DeskPilot</a>
+    <a class="brand" href="../index.html">Callsign</a>
     <nav><a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
 <a href="mcp-tools.html">MCP Tools</a>
@@ -43,19 +43,9 @@
     <article class="doc-content">
       <h1>Data Model</h1>
 <h2>Overview</h2>
-<p>DeskPilot should store durable state locally and minimally.</p>
+<p>Callsign should store durable state locally and minimally.</p>
 <p>Main data types:</p>
-<ul>
-<li>Session.</li>
-<li>Task.</li>
-<li>Tool call.</li>
-<li>Policy decision.</li>
-<li>Approval.</li>
-<li>Audit event.</li>
-<li>Selector.</li>
-<li>Recipe.</li>
-<li>Provider config.</li>
-</ul>
+<ul><li>Session.</li><li>Task.</li><li>Tool call.</li><li>Policy decision.</li><li>Approval.</li><li>Audit event.</li><li>Selector.</li><li>Recipe.</li><li>Provider config.</li></ul>
 <h2>Session record</h2>
 <pre><code class="language-json">{
   &quot;session_id&quot;: &quot;session_20260607_001&quot;,
@@ -66,8 +56,7 @@
   &quot;model_provider&quot;: &quot;ollama&quot;,
   &quot;voice_provider&quot;: &quot;none&quot;,
   &quot;privacy_mode&quot;: &quot;local_first&quot;
-}
-</code></pre>
+}</code></pre>
 <h2>Task record</h2>
 <pre><code class="language-json">{
   &quot;task_id&quot;: &quot;task_20260607_001&quot;,
@@ -78,8 +67,7 @@
   &quot;risk_max&quot;: &quot;local_state_change&quot;,
   &quot;started_at&quot;: &quot;2026-06-07T15:01:00Z&quot;,
   &quot;ended_at&quot;: &quot;2026-06-07T15:01:07Z&quot;
-}
-</code></pre>
+}</code></pre>
 <h2>Audit event</h2>
 <p>Audit logs should be JSONL: one JSON object per line.</p>
 <pre><code class="language-json">{
@@ -94,8 +82,7 @@
     &quot;directory&quot;: &quot;%USERPROFILE%/Downloads&quot;,
     &quot;pattern&quot;: &quot;*.png&quot;
   }
-}
-</code></pre>
+}</code></pre>
 <p>Event types:</p>
 <pre><code class="language-text">session_started
 session_ended
@@ -110,8 +97,7 @@ tool_execution_started
 tool_execution_finished
 verification_finished
 workflow_stopped
-error
-</code></pre>
+error</code></pre>
 <h2>Policy decision</h2>
 <pre><code class="language-json">{
   &quot;decision_id&quot;: &quot;policy_001&quot;,
@@ -121,8 +107,7 @@ error
   &quot;decision&quot;: &quot;require_approval&quot;,
   &quot;reason&quot;: &quot;File rename changes local state.&quot;,
   &quot;rule_ids&quot;: [&quot;file.write.requires_approval&quot;]
-}
-</code></pre>
+}</code></pre>
 <h2>Approval record</h2>
 <pre><code class="language-json">{
   &quot;approval_id&quot;: &quot;approval_001&quot;,
@@ -133,8 +118,7 @@ error
   &quot;prompt&quot;: &quot;Rename Screenshot.png to router-settings.png?&quot;,
   &quot;approved_by&quot;: &quot;user_voice_confirmation&quot;,
   &quot;expires_at&quot;: &quot;2026-06-07T15:02:02Z&quot;
-}
-</code></pre>
+}</code></pre>
 <h2>Selector record</h2>
 <p>Selectors identify UI elements across sessions.</p>
 <pre><code class="language-yaml">id: notepad.save_as.filename_box
@@ -157,8 +141,7 @@ verification:
 risk_notes:
   default_risk: local_reversible
 created_at: &quot;2026-06-07T00:00:00Z&quot;
-updated_at: &quot;2026-06-07T00:00:00Z&quot;
-</code></pre>
+updated_at: &quot;2026-06-07T00:00:00Z&quot;</code></pre>
 <h2>Recipe record</h2>
 <p>Recipes define repeatable workflows.</p>
 <pre><code class="language-yaml">id: process_invoice
@@ -193,8 +176,7 @@ steps:
       destination_path: &quot;%USERPROFILE%/Documents/Invoices/${year}/${filename}&quot;
 verification:
   - type: file_exists
-    path: &quot;%USERPROFILE%/Documents/Invoices/${year}/${filename}&quot;
-</code></pre>
+    path: &quot;%USERPROFILE%/Documents/Invoices/${year}/${filename}&quot;</code></pre>
 <h2>Provider config</h2>
 <pre><code class="language-yaml">model_providers:
   default: ollama-qwen
@@ -209,8 +191,7 @@ verification:
       type: openai_realtime
       model: &quot;realtime-model-name&quot;
       send_screenshots: false
-      send_ui_text: ask
-</code></pre>
+      send_ui_text: ask</code></pre>
 <h2>Policy config</h2>
 <pre><code class="language-yaml">version: 1
 session:
@@ -231,8 +212,7 @@ blocked:
 approvals:
   local_state_change: required
   external_side_effect: always
-  dangerous_or_blocked: deny
-</code></pre>
+  dangerous_or_blocked: deny</code></pre>
 <h2>Redaction</h2>
 <p>Redaction should happen before audit logging and before model sharing.</p>
 <p>Common redaction markers:</p>
@@ -241,11 +221,10 @@ approvals:
 [REDACTED_SECRET]
 [REDACTED_PATH_SEGMENT]
 [REDACTED_CLIPBOARD]
-[REDACTED_SCREENSHOT]
-</code></pre>
+[REDACTED_SCREENSHOT]</code></pre>
 <h2>Storage layout</h2>
 <p>Suggested local storage:</p>
-<pre><code class="language-text">%LOCALAPPDATA%/DeskPilot/
+<pre><code class="language-text">%LOCALAPPDATA%/Callsign/
   config/
     policy.yaml
     providers.yaml
@@ -257,18 +236,10 @@ approvals:
   recipes/
     process_invoice.yaml
   cache/
-    ui_snapshots/
-</code></pre>
+    ui_snapshots/</code></pre>
 <h2>Retention</h2>
 <p>Default retention:</p>
-<ul>
-<li>Audit logs: keep 30 days.</li>
-<li>UI snapshots: memory only or short TTL.</li>
-<li>Screenshots: do not persist.</li>
-<li>Clipboard contents: do not persist.</li>
-<li>Recipes/selectors: persist until user deletes.</li>
-</ul>
-
+<ul><li>Audit logs: keep 30 days.</li><li>UI snapshots: memory only or short TTL.</li><li>Screenshots: do not persist.</li><li>Clipboard contents: do not persist.</li><li>Recipes/selectors: persist until user deletes.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

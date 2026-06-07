@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>GitHub Pages · DeskPilot</title>
+  <title>GitHub Pages · Callsign</title>
   <link rel="stylesheet" href="../assets/styles.css" />
 </head>
 <body>
   <header class="site-header">
-    <a class="brand" href="../index.html">DeskPilot</a>
+    <a class="brand" href="../index.html">Callsign</a>
     <nav><a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
 <a href="mcp-tools.html">MCP Tools</a>
@@ -43,53 +43,27 @@
     <article class="doc-content">
       <h1>GitHub Pages Site</h1>
 <h2>Purpose</h2>
-<p>The <code>/docs</code> folder contains a static GitHub Pages site for DeskPilot.</p>
+<p>The <code>/docs</code> folder contains a static GitHub Pages site for Callsign.</p>
 <p>The site includes:</p>
-<ul>
-<li><code>index.html</code> landing page.</li>
-<li><code>pages/*.html</code> generated documentation pages.</li>
-<li><code>reference/*.md</code> source Markdown documentation.</li>
-<li><code>assets/styles.css</code> and <code>assets/site.js</code>.</li>
-<li><code>.nojekyll</code> to serve the static site directly.</li>
-</ul>
+<ul><li><code>index.html</code> landing page.</li><li><code>pages/*.html</code> generated documentation pages.</li><li><code>reference/*.md</code> source Markdown documentation.</li><li><code>assets/styles.css</code> and <code>assets/site.js</code>.</li><li><code>.nojekyll</code> to serve the static site directly.</li></ul>
 <h2>Publish from <code>/docs</code></h2>
 <p>GitHub Pages can publish from a selected branch and either the repository root <code>/</code> or the <code>/docs</code> folder.</p>
 <p>Repository setup:</p>
-<ol>
-<li>Push repository to GitHub.</li>
-<li>Open repository settings.</li>
-<li>Select <strong>Pages</strong>.</li>
-<li>Under <strong>Build and deployment</strong>, choose <strong>Deploy from a branch</strong>.</li>
-<li>Select branch <code>main</code>.</li>
-<li>Select folder <code>/docs</code>.</li>
-<li>Save.</li>
-</ol>
+<p>1. Push repository to GitHub. 2. Open repository settings. 3. Select <strong>Pages</strong>. 4. Under <strong>Build and deployment</strong>, choose <strong>Deploy from a branch</strong>. 5. Select branch <code>main</code>. 6. Select folder <code>/docs</code>. 7. Save.</p>
 <h2>Local preview</h2>
-<pre><code class="language-bash">python -m http.server 8000 -d docs
-</code></pre>
+<pre><code class="language-bash">python -m http.server 8000 -d docs</code></pre>
 <p>Then open:</p>
-<pre><code class="language-text">http://localhost:8000
-</code></pre>
+<pre><code class="language-text">http://localhost:8000</code></pre>
 <h2>Editing docs</h2>
 <p>Edit Markdown files in:</p>
-<pre><code class="language-text">docs/reference/
-</code></pre>
+<pre><code class="language-text">docs/reference/</code></pre>
 <p>Then regenerate HTML pages:</p>
-<pre><code class="language-bash">python scripts/build_site.py
-</code></pre>
+<pre><code class="language-bash">python scripts/build_site.py</code></pre>
 <h2>No build dependencies</h2>
 <p>The generated site uses static HTML, CSS, and JavaScript. No npm, bundler, or remote assets are required.</p>
 <h2>Site design notes</h2>
 <p>The site is intentionally simple:</p>
-<ul>
-<li>Fast static pages.</li>
-<li>Dark theme.</li>
-<li>Search/filter on the landing page.</li>
-<li>Mobile-friendly layout.</li>
-<li>No external tracking.</li>
-<li>No external fonts.</li>
-</ul>
-
+<ul><li>Fast static pages.</li><li>Dark theme.</li><li>Search/filter on the landing page.</li><li>Mobile-friendly layout.</li><li>No external tracking.</li><li>No external fonts.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

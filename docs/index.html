@@ -3,129 +3,61 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Callsign · Windows Voice Agent MCP Server</title>
-  <meta name="description" content="Callsign is a local-first Windows 11 voice agent runtime built around a safety-gated MCP automation server." />
+  <title>Callsign · Voice-Activated AI for Your Desktop</title>
+  <meta name="description" content="Callsign is a voice-activated AI desktop assistant that listens for your callsign, understands what you want, and helps your computer move with you." />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body>
   <header class="site-header">
     <a class="brand" href="index.html">Callsign</a>
     <nav>
-      <a href="pages/product-spec.html">Product</a>
-      <a href="pages/architecture.html">Architecture</a>
-      <a href="pages/security-model.html">Security</a>
-      <a href="pages/mcp-tools.html">MCP Tools</a>
-      <a href="pages/burndown.html">Burndown</a>
+      <a href="#experience">Experience</a>
+      <a href="#trust">Trust</a>
+      <a href="#future">Future</a>
     </nav>
   </header>
 
   <main>
     <section class="hero">
-      <div class="eyebrow">Local-first · Windows 11 · MCP · Voice</div>
-      <h1>Voice control for Windows, without haunted cursor chaos.</h1>
-      <p>Callsign is a design starter for a Windows automation MCP server and voice/model host. The model plans, the MCP server exposes typed desktop capabilities, the policy engine gates risky actions, and the audit log records what happened.</p>
+      <div class="eyebrow">Wake word · Your callsign · AI magic</div>
+      <h1>Say the word. Your computer starts listening.</h1>
+      <p>Callsign is a voice-activated AI companion for your desktop. It wakes when you say <strong>Callsign</strong>, confirms who you are, listens to what you want, and turns your request into clear, visible action.</p>
       <div class="actions">
-        <a class="button primary" href="pages/architecture.html">Read the architecture</a>
-        <a class="button" href="pages/security-model.html">Review the safety model</a>
-        <a class="button" href="reference/BURNDOWN.md">Open burndown</a>
+        <a class="button primary" href="#experience">See the experience</a>
+        <a class="button" href="#trust">Why it feels safe</a>
       </div>
     </section>
 
-    <section class="section">
-      <h2>Core idea</h2>
-      <div class="flow"><pre><code>User voice/text
-  → Voice/model host
-  → LLM planner
-  → MCP tool call
-  → Policy engine
-  → Windows UI Automation / native API / fallback input
-  → Verification
-  → Audit log</code></pre></div>
-    </section>
-
-    <section class="section">
-      <h2>Design principles</h2>
+    <section class="section" id="experience">
+      <h2>The Moment</h2>
       <div class="grid">
-        <article class="card"><h3>Semantic first</h3><p>Prefer native APIs and Windows UI Automation over coordinate clicks and raw keystrokes.</p></article>
-        <article class="card"><h3>Policy outside the model</h3><p>The LLM can propose actions. It cannot authorize risky ones.</p></article>
-        <article class="card"><h3>Visible and reversible</h3><p>Actions should happen on visible targets, include verification, and support handoff or undo where possible.</p></article>
-        <article class="card"><h3>Local by default</h3><p>Screenshots, clipboard, UI text, selectors, recipes, and audit logs stay local unless explicitly configured.</p></article>
+        <article class="card"><h3>Call it by name</h3><p>Say <strong>Callsign</strong> and your desktop quietly shifts into listening mode.</p></article>
+        <article class="card"><h3>Speak your callsign</h3><p>Your personal callsign confirms the request is coming from you before anything begins.</p></article>
+        <article class="card"><h3>Ask naturally</h3><p>Tell it what you want: organize a file, open an app, fill a field, or help move a task forward.</p></article>
+        <article class="card"><h3>Watch it happen</h3><p>Callsign shows what it intends to do, then carries out the work where you can see it.</p></article>
       </div>
     </section>
 
-    <section class="section">
-      <h2>Documentation</h2>
-      <input class="search" data-doc-search placeholder="Filter docs…" />
-      <div class="grid"><article class="card" data-doc-card>
-      <h3><a href="pages/product-spec.html">Product Spec</a></h3>
-      <p>Vision, users, MVP, non-goals, and product principles.</p>
-      <p><a href="reference/PRODUCT_SPEC.md">Markdown source</a></p>
-    </article>
-<article class="card" data-doc-card>
-      <h3><a href="pages/architecture.html">Architecture</a></h3>
-      <p>Host/server split, runtime loop, transport, resources, and adapters.</p>
-      <p><a href="reference/ARCHITECTURE.md">Markdown source</a></p>
-    </article>
-<article class="card" data-doc-card>
-      <h3><a href="pages/mcp-tools.html">MCP Tools</a></h3>
-      <p>Tool schemas, risk tiers, result envelopes, and examples.</p>
-      <p><a href="reference/MCP_TOOLS.md">Markdown source</a></p>
-    </article>
-<article class="card" data-doc-card>
-      <h3><a href="pages/windows-automation.html">Windows Automation</a></h3>
-      <p>UI Automation-first strategy with SendInput fallback rules.</p>
-      <p><a href="reference/WINDOWS_AUTOMATION.md">Markdown source</a></p>
-    </article>
-<article class="card" data-doc-card>
-      <h3><a href="pages/security-model.html">Security Model</a></h3>
-      <p>Policy engine, approvals, data handling, and blocked actions.</p>
-      <p><a href="reference/SECURITY_MODEL.md">Markdown source</a></p>
-    </article>
-<article class="card" data-doc-card>
-      <h3><a href="pages/threat-model.html">Threat Model</a></h3>
-      <p>Threat actors, abuse cases, mitigations, and security tests.</p>
-      <p><a href="reference/THREAT_MODEL.md">Markdown source</a></p>
-    </article>
-<article class="card" data-doc-card>
-      <h3><a href="pages/voice-ux.html">Voice UX</a></h3>
-      <p>Voice modes, confirmations, interruptions, and recovery.</p>
-      <p><a href="reference/VOICE_UX.md">Markdown source</a></p>
-    </article>
-<article class="card" data-doc-card>
-      <h3><a href="pages/data-model.html">Data Model</a></h3>
-      <p>Sessions, audit events, selectors, recipes, and configs.</p>
-      <p><a href="reference/DATA_MODEL.md">Markdown source</a></p>
-    </article>
-<article class="card" data-doc-card>
-      <h3><a href="pages/test-plan.html">Test Plan</a></h3>
-      <p>Unit, integration, desktop, safety, and manual QA tests.</p>
-      <p><a href="reference/TEST_PLAN.md">Markdown source</a></p>
-    </article>
-<article class="card" data-doc-card>
-      <h3><a href="pages/deployment.html">Deployment</a></h3>
-      <p>GitHub Pages setup, local preview, and future app deployment.</p>
-      <p><a href="reference/DEPLOYMENT.md">Markdown source</a></p>
-    </article>
-<article class="card" data-doc-card>
-      <h3><a href="pages/roadmap.html">Roadmap</a></h3>
-      <p>Milestones from docs starter to voice host and recipes.</p>
-      <p><a href="reference/ROADMAP.md">Markdown source</a></p>
-    </article>
-<article class="card" data-doc-card>
-      <h3><a href="pages/burndown.html">Burndown</a></h3>
-      <p>Prioritized implementation backlog and acceptance criteria.</p>
-      <p><a href="reference/BURNDOWN.md">Markdown source</a></p>
-    </article>
-<article class="card" data-doc-card>
-      <h3><a href="pages/github-pages.html">GitHub Pages</a></h3>
-      <p>How the static site is organized and published from /docs.</p>
-      <p><a href="reference/GITHUB_PAGES.md">Markdown source</a></p>
-    </article></div>
+    <section class="section" id="trust">
+      <h2>Magic With Manners</h2>
+      <div class="grid">
+        <article class="card"><h3>You stay in command</h3><p>High-impact actions ask first, and the assistant stays visible while it works.</p></article>
+        <article class="card"><h3>No secret handling</h3><p>Passwords, payment details, security settings, and account-ending actions stay out of bounds.</p></article>
+        <article class="card"><h3>Easy to stop</h3><p>A clear stop phrase and visible controls keep the experience interruptible.</p></article>
+        <article class="card"><h3>Built for everyday work</h3><p>Callsign is for practical desktop help: files, forms, apps, reminders, and repetitive tasks.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="future">
+      <h2>Windows First, More Coming</h2>
+      <div class="card">
+        <p>The first alpha is focused on Windows desktop control through voice. Linux support is planned as Callsign grows from a focused assistant into a broader personal computer companion.</p>
+      </div>
     </section>
 
   </main>
 
-  <footer class="footer">Callsign docs starter · Static site, no external assets.</footer>
+  <footer class="footer">Callsign · Your computer, on speaking terms.</footer>
   <script src="assets/site.js"></script>
 </body>
 </html>

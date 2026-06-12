@@ -45,7 +45,7 @@
 <h2>Overview</h2>
 <p>Callsign is moving toward a split architecture:</p>
 <ul><li>A visible Windows setup and onboarding app exists now.</li><li>A background voice service is the next major step.</li></ul>
-<p>The current repo state is not a full always-on agent yet. The code today focuses on account setup, voice enrollment state, session gating, and a visible Start menu launch flow.</p>
+<p>The current repo state is not a full always-on agent yet. The code today focuses on the Free tier foundation: account setup, voice enrollment state, session gating, local recognition, and a visible Start menu launch flow.</p>
 <h2>Current implementation shape</h2>
 <h3>Windows setup app</h3>
 <p>The current app is a WinForms onboarding experience that lets the user:</p>
@@ -66,14 +66,18 @@
 <p>The launcher and later automation logic should stay visible, safe, and easy to stop.</p>
 <p>For alpha, the visible app launch path is deliberately simple:</p>
 <ul><li>Open Start search.</li><li>Type the app name.</li><li>Launch the matching app.</li></ul>
-<h3>3. Future automation layer</h3>
-<p>Later phases can add richer desktop automation, but only after the alpha account and identity flow is reliable.</p>
+<h3>3. Pro automation layer</h3>
+<p>The Pro tier is planned to add full Windows, WSL, and Linux control by voice. This layer must include policy checks, visible approvals, and audit logging before it can execute deeper desktop workflows.</p>
+<h3>4. Advanced command layer</h3>
+<p>The Advanced tier is planned to add large command catalogs, recipe workflows, diagnostics, policy packs, and specialized power-user automation. Advanced-only implementation details and proprietary command packs belong in <code>/closed-source/</code> when they are not part of the open-source core.</p>
 <h2>Platform direction</h2>
 <h3>Windows and Linux MVP</h3>
 <p>Windows and Linux are both MVP targets.</p>
 <h3>WSL as the bridge</h3>
 <p>WSL is the bridge for Linux development and runtime workflows from Windows.</p>
 <p>The current alpha should keep the Windows desktop path visible while also keeping the Linux story realistic through WSL-first tooling and parity planning.</p>
+<h2>Tier architecture</h2>
+<ul><li>Free stays open source and local-first, limited to callsign identity and visible Start menu launch.</li><li>Pro adds paid Windows, WSL, and Linux control with policy and approval gates.</li><li>Advanced adds specialized power-user commands, recipes, diagnostics, and workflow memory.</li><li>Closed-source tier code or private business material must stay in <code>/closed-source/</code>.</li></ul>
 <h2>Design rules</h2>
 <ul><li>Keep the user visible to the system.</li><li>Keep identity before action.</li><li>Keep local state simple and inspectable.</li><li>Keep the product easy to explain.</li></ul>
     </article>

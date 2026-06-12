@@ -60,7 +60,7 @@ Future app packaging can add:
 - A real background service.
 - A tray helper.
 - Better update handling.
-- Optional Home and Advanced tier features.
+- Optional Pro and Advanced tier features.
 
 ## Linux and WSL
 

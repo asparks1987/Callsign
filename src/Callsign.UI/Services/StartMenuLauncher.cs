@@ -5,9 +5,18 @@ namespace Callsign.UI.Services;
 
 public sealed class StartMenuLauncher
 {
+    private static readonly string[] StartMenuRoots =
+    [
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.StartMenu), "Programs"),
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu), "Programs")
+    ];
+
     public bool Launch(string appName, out string message)
     {
-        var target = appName.Trim();
+        var target = ResolveAppName(appName);
+        if (TryResolveInstalledAppName(target, out var installed))
+            target = installed;
+
         if (string.IsNullOrWhiteSpace(target))
         {
             message = "Enter an app name first.";
@@ -36,6 +45,56 @@ public sealed class StartMenuLauncher
             return false;
         }
     }
+
+    public IReadOnlyList<string> GetInstalledAppNames()
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var root in StartMenuRoots.Where(Directory.Exists))
+        {
+            foreach (var shortcut in Directory.EnumerateFiles(root, "*.lnk", SearchOption.AllDirectories))
+            {
+                var name = Path.GetFileNameWithoutExtension(shortcut);
+                if (!string.IsNullOrWhiteSpace(name))
+                    names.Add(name);
+            }
+        }
+
+        return names.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    public bool TryResolveInstalledAppName(string input, out string resolvedName)
+    {
+        resolvedName = ResolveAppName(input);
+        if (string.IsNullOrWhiteSpace(resolvedName))
+            return false;
+
+        var candidates = GetInstalledAppNames();
+        var normalizedInput = NormalizeAppName(resolvedName);
+
+        var exact = candidates.FirstOrDefault(candidate =>
+            string.Equals(NormalizeAppName(candidate), normalizedInput, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(exact))
+        {
+            resolvedName = exact;
+            return true;
+        }
+
+        var fuzzyMatch = candidates
+            .Select(candidate => new { Candidate = candidate, Score = ScoreAppNameMatch(normalizedInput, NormalizeAppName(candidate)) })
+            .OrderByDescending(match => match.Score)
+            .FirstOrDefault();
+
+        if (fuzzyMatch != null && fuzzyMatch.Score >= 0.78)
+        {
+            resolvedName = fuzzyMatch.Candidate;
+            return true;
+        }
+
+        return false;
+    }
+
+    public static string ResolveAppName(string value) =>
+        NormalizeAppName(value).Length == 0 ? string.Empty : value.Trim();
 
     private static string EscapeSendKeysText(string value)
     {
@@ -96,5 +155,28 @@ public sealed class StartMenuLauncher
 
         message = string.Empty;
         return true;
+    }
+
+    private static string NormalizeAppName(string value) =>
+        string.Join(' ', value.ToLowerInvariant().Split([' ', '_', '-'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
+    private static double ScoreAppNameMatch(string input, string candidate)
+    {
+        if (string.IsNullOrWhiteSpace(input) || string.IsNullOrWhiteSpace(candidate))
+            return 0;
+
+        if (input == candidate)
+            return 1.0;
+
+        if (candidate.Contains(input, StringComparison.OrdinalIgnoreCase) || input.Contains(candidate, StringComparison.OrdinalIgnoreCase))
+            return 0.92;
+
+        var inputTokens = input.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var candidateTokens = candidate.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (inputTokens.Length == 0 || candidateTokens.Length == 0)
+            return 0;
+
+        var overlap = inputTokens.Intersect(candidateTokens, StringComparer.OrdinalIgnoreCase).Count();
+        return (double)overlap / Math.Max(inputTokens.Length, candidateTokens.Length);
     }
 }

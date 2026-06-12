@@ -16,7 +16,10 @@ var checks = new List<(string Name, Action Check)>
     ("matching callsign unlocks command capture and launch intent", MatchingCallsignUnlocksLaunchIntent),
     ("mismatched callsign locks out and blocks execution", MismatchedCallsignLocksOut),
     ("voice activation is required before identity confirmation", VoiceActivationRequired),
-    ("Start menu alpha scope accepts plain app names and rejects command text", StartMenuScopeValidation)
+    ("Start menu alpha scope accepts plain app names and rejects command text", StartMenuScopeValidation),
+    ("Start menu launcher can resolve installed app names", StartMenuResolution),
+    ("browser helper resolves URLs and search phrases", BrowserTargetResolution),
+    ("file search helper finds files in the intended scope", FileSearchResolution)
 };
 
 var failures = new List<string>();
@@ -157,6 +160,52 @@ static void StartMenuScopeValidation()
     Require(!StartMenuLauncher.ValidateAppName("powershell", out _), "Shell apps should be rejected in alpha free scope.");
     Require(!StartMenuLauncher.ValidateAppName("wsl", out _), "WSL should be rejected by the alpha free launcher.");
     Require(!StartMenuLauncher.ValidateAppName("notepad & calc", out _), "Shell-style command text should be rejected.");
+}
+
+static void StartMenuResolution()
+{
+    var launcher = new StartMenuLauncher();
+    Require(launcher.TryResolveInstalledAppName("Notepad", out var resolved) || resolved == "Notepad", "Resolver should preserve a plain app name.");
+    Require(!string.IsNullOrWhiteSpace(resolved), "Resolved app name should not be blank.");
+}
+
+static void BrowserTargetResolution()
+{
+    Require(BrowserLaunchService.TryBuildTargetUri("https://example.com", out var directUri, out _), "Direct https URL should resolve.");
+    Require(directUri?.Host == "example.com", "Direct URL should preserve host.");
+
+    Require(BrowserLaunchService.TryBuildTargetUri("Callsign desktop assistant", out var searchUri, out _), "Search phrase should resolve.");
+    Require(searchUri?.Host.Contains("bing", StringComparison.OrdinalIgnoreCase) == true, "Search phrase should route to the search engine.");
+
+    Require(!BrowserLaunchService.TryBuildTargetUri(@"C:\temp\notes.txt", out _, out _), "Local file paths should not be treated as browser targets.");
+}
+
+static void FileSearchResolution()
+{
+    var root = Path.Combine(Path.GetTempPath(), "Callsign.AlphaSmoke.FileSearch", Guid.NewGuid().ToString("N"));
+    try
+    {
+        Directory.CreateDirectory(root);
+        var document = Path.Combine(root, "alpha-notes.txt");
+        File.WriteAllText(document, "hello");
+        var nestedDir = Path.Combine(root, "Samples");
+        Directory.CreateDirectory(nestedDir);
+        var nestedFile = Path.Combine(nestedDir, "beta-plan.md");
+        File.WriteAllText(nestedFile, "world");
+
+        var service = new FileSearchService();
+        var report = service.Search("alpha", new[] { root }, maxResults: 10);
+        Require(report.Results.Any(result => result.FullPath == document), "File search should find matching file names.");
+        Require(report.Warnings.Count == 0, $"Search should not warn in temp scope, got {string.Join("; ", report.Warnings)}");
+
+        var emptyReport = service.Search("does-not-exist", new[] { root }, maxResults: 10);
+        Require(emptyReport.Results.Count == 0, "Non-matching file search should return no results.");
+    }
+    finally
+    {
+        if (Directory.Exists(root))
+            Directory.Delete(root, recursive: true);
+    }
 }
 
 static int LiveLaunch(string appName)

@@ -11,6 +11,11 @@ audit/
 cache/
 *.local.yaml
 *.local.json
+/fzf.exe
+/src/Callsign.Setup/Payload/fzf.exe
+
+# Proprietary/private Callsign material
+/closed-source/
 
 # OS files
 .DS_Store

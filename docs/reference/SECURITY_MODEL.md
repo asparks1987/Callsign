@@ -75,7 +75,16 @@ The alpha must provide:
 - Obvious status text.
 - No silent completion of external side effects.
 
-## Freemium note
+## Tier safety model
 
-If premium capabilities are added later, they must not weaken the local-first safety model or require hidden data collection for the core experience.
+Free, Pro, and Advanced must all preserve the local-first safety model.
 
+- Free is limited to voice/callsign identity and visible Start menu app launch.
+- Pro can add full Windows, WSL, and Linux control only with policy checks, visible approval prompts, and audit logging.
+- Advanced can add specialized commands and recipes only if dangerous, external, secret, or destructive actions are blocked or explicitly approved.
+
+Paid tiers must not require hidden data collection for the core experience. Cloud transcription, telemetry, licensing checks, and paid services must be disclosed and opt-in where they affect user data.
+
+## Closed-source boundary
+
+Private paid-tier material belongs in `/closed-source/`, which is ignored by git. Public security docs should describe the safety model, but proprietary implementation details should not be tracked in the open-source repo.

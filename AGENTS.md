@@ -2,9 +2,17 @@
 
 ## Mission
 
-Build Callsign as a Windows + WSL-first, voice-driven desktop assistant that feels visible, consent-first, and easy to stop. The alpha focus is account setup, voice enrollment, and launching installed apps after wake word plus callsign identity confirmation.
+Build Callsign as a Windows + WSL-first, voice-driven desktop assistant that feels visible, consent-first, and easy to stop. The alpha focus is the Free tier: account setup, voice enrollment, callsign recognition, and launching installed apps after wake word plus callsign identity confirmation.
 
-The project is not a general-purpose malware-like automation framework. It is an accessibility-oriented, user-visible desktop assistant with a free open-source core and future paid tiers.
+The project is not a general-purpose malware-like automation framework. It is an accessibility-oriented, user-visible desktop assistant with a free open-source core and future paid Pro and Advanced tiers.
+
+Canonical tier names:
+
+- Free: voice/callsign identity and visible Start menu application launch.
+- Pro: paid tier for full Windows, WSL, and Linux control by voice.
+- Advanced: paid tier for specialized command catalogs, recipes, diagnostics, and power-user automation.
+
+Closed-source or proprietary tier material belongs only in `/closed-source/`, which is ignored by git.
 
 ## Core architecture
 

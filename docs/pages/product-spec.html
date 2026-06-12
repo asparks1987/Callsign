@@ -51,21 +51,21 @@
 <p>The public promise is simple:</p>
 <p>1. The user speaks the wake word. 2. Callsign confirms the user by callsign. 3. Callsign shows what it is about to do. 4. Callsign performs the action in a visible, stoppable flow.</p>
 <h2>Alpha v1 interaction flow</h2>
-<p>The current alpha is focused on onboarding and app launch:</p>
-<p>1. User creates an account in the setup UI. 2. User records a few voice samples. 3. The profile is marked as voice-enrolled. 4. The user says <code>Callsign</code>. 5. The user says their callsign or username. 6. Callsign verifies identity against the enrolled profile. 7. The user speaks a command such as <code>launch Notepad</code>. 8. Callsign resolves the app name through a visible Start menu search flow. 9. Callsign launches the app and records what happened.</p>
+<p>The current alpha is focused on onboarding, voice identity, and the four visible MVP tools:</p>
+<p>1. User creates an account in the setup UI. 2. User records a few voice samples. 3. The profile is marked as voice-enrolled. 4. The user says <code>Callsign</code>. 5. The user says their callsign or username. 6. Callsign verifies identity against the enrolled profile. 7. The user speaks a command such as <code>launch Notepad</code>. 8. Callsign resolves the app name through a visible Start menu search flow. 9. Callsign launches the app and records what happened. 10. User can open the Dictation tool and capture dictated text visibly. 11. User can open the Browser tool and search or navigate through the default browser. 12. User can open the Files tool and search the intended local scope.</p>
 <p>If identity fails, the command window closes and nothing launches.</p>
 <h2>Current MVP scope</h2>
-<ul><li>Windows setup and onboarding UI.</li><li>User account creation and profile storage.</li><li>Voice sample recording and enrollment state.</li><li>Wake word plus callsign identity flow.</li><li>Visible app launch through the Start menu.</li><li>Clear status messages and stop/reset controls.</li></ul>
+<ul><li>Windows setup and onboarding UI.</li><li>User account creation and profile storage.</li><li>Voice sample recording and enrollment state.</li><li>Wake word plus callsign identity flow.</li><li>Visible app launch through the Start menu.</li><li>Clear status messages and stop/reset controls.</li><li>Dictation capture with visible text output.</li><li>Web browsing/search through the default browser.</li><li>Local file search with visible results and open actions.</li></ul>
 <h2>Product tiers</h2>
 <h3>Free</h3>
 <p>The free version should support:</p>
-<ul><li>Wake word plus callsign identity.</li><li>Launching installed apps through the Start menu.</li><li>Basic setup and voice enrollment.</li></ul>
-<h3>Home</h3>
-<p>The Home tier should add:</p>
-<ul><li>Deeper desktop control.</li><li>More guided workflows.</li><li>Broader routine task support.</li></ul>
+<ul><li>Wake word plus callsign identity.</li><li>Launching installed apps through the Start menu.</li><li>Basic setup and voice enrollment.</li><li>Local-first recognition and visible stop/reset controls.</li><li>Dictation, browser, and file-search tools that expose results visibly and fail with readable messages.</li></ul>
+<h3>Pro</h3>
+<p>The Pro tier should add:</p>
+<ul><li>Full Windows desktop control by voice.</li><li>WSL workflow control from Windows.</li><li>Linux desktop MVP control by voice.</li><li>Safer automation approvals, policy checks, and audit logs.</li></ul>
 <h3>Advanced</h3>
 <p>The Advanced tier should add:</p>
-<ul><li>More in-depth control of the system.</li><li>More automation depth and power-user tools.</li><li>Higher-value features that justify a paid subscription or license.</li></ul>
+<ul><li>Hundreds of specialized commands.</li><li>Recipe-style workflows and command packs.</li><li>Diagnostics, policy packs, workflow memory, and power-user tools.</li><li>Higher-value features that justify a paid subscription or license.</li></ul>
 <h2>Explicit non-goals for alpha</h2>
 <ul><li>Arbitrary shell execution.</li><li>Password, 2FA, or payment entry.</li><li>Hidden or minimized automation.</li><li>Remote control or background surveillance.</li><li>Silent email, upload, or submission actions.</li><li>Linux as a baseline target separate from Windows and WSL MVP support.</li></ul>
 <h2>Product principles</h2>
@@ -75,12 +75,14 @@
 <p>The user must say the wake word and their callsign before command capture begins.</p>
 <h3>3. Visibility beats cleverness</h3>
 <p>The user should be able to see what Callsign is doing, stop it, and understand the result.</p>
-<h3>4. Open source core, paid tiers</h3>
-<p>The core desktop experience should remain free and open source. Future paid tiers, including Home and Advanced, should help cover costs and create profit, but they must not undermine the local, visible workflow.</p>
+<h3>4. Open source core, Pro and Advanced tiers</h3>
+<p>The core desktop experience should remain free and open source. Future paid tiers, including Pro and Advanced, should help cover costs and create profit, but they must not undermine the local, visible workflow.</p>
 <h2>Success metrics</h2>
 <ul><li>A new user can create an account without help.</li><li>A new user can enroll voice in a few clear steps.</li><li>The app can launch a common installed application reliably.</li><li>The user can stop or reset the session at any time.</li><li>The app does not proceed when identity fails.</li></ul>
 <h2>Open product questions</h2>
-<ul><li>How much of the voice enrollment should be guided by the app versus spoken prompts later?</li><li>Should the next phase focus on background service reliability or broader app launch support?</li><li>What paid offerings, if any, should be introduced after the core alpha?</li></ul>
+<ul><li>How much of the voice enrollment should be guided by the app versus spoken prompts later?</li><li>Should the next phase focus on background service reliability or broader app launch support?</li><li>Which Pro workflows should ship first after the Free tier is reliable?</li></ul>
+<h2>Closed-source boundary</h2>
+<p>Private paid-tier implementation details, licensing experiments, proprietary command packs, and business materials belong in <code>/closed-source/</code>. Public docs can describe the tier direction, but tracked source should not include proprietary material.</p>
     </article>
   </main>
   <script src="../assets/site.js"></script>

@@ -7,7 +7,9 @@ Say `Callsign`, confirm your callsign, and ask it to open the app you want from 
 ## What Callsign is
 
 - Open source at the core.
-- Free version limited to launching apps from the Start menu.
+- Free version limited to voice/callsign identity and launching apps from the Start menu.
+- Pro tier planned for full Windows, WSL, and Linux control by voice.
+- Advanced tier planned for large command libraries, recipes, diagnostics, and power-user workflows.
 - Built around a visible, consent-first workflow.
 - Designed for voice identity, account setup, and safe app launching.
 
@@ -17,13 +19,16 @@ Say `Callsign`, confirm your callsign, and ask it to open the app you want from 
 - Enroll voice samples for a user profile.
 - Confirm the user with wake word plus spoken callsign.
 - Launch installed apps through a visible Start menu search flow.
+- Dictate text into a visible editor and copy or paste the result.
+- Open websites or search the web through the default browser.
+- Search the intended local file scope and open matching results.
 
 ## What makes it different
 
 - It stays visible while it works.
 - It asks for identity before it acts.
 - It keeps the first release focused on the desktop tasks people actually use.
-- It is being built as an open source product with future paid tiers called Home and Advanced to help cover costs and create profit, while the core experience stays free.
+- It is being built as an open source product with future paid tiers called Pro and Advanced to help cover costs and create profit, while the core experience stays free.
 
 ## Current app
 
@@ -47,11 +52,28 @@ The GitHub Pages site lives in `docs/` and is generated from the markdown refere
 
 ## Roadmap
 
-- Finish the alpha onboarding flow.
+- Finish the Free tier: voice/callsign recognition, reliable Start menu app launching, dictation, browsing, and file search.
 - Add a real always-on background service.
-- Add richer voice capture and recognition.
-- Expand desktop automation carefully.
+- Expand into Pro: full Windows, WSL, and Linux control by voice with policy and approvals.
+- Expand into Advanced: hundreds of commands, recipes, diagnostics, and specialized workflows.
 - Keep Linux as an MVP target alongside Windows, with WSL as the development and runtime bridge.
+
+## Build and Smoke Test
+
+From a fresh checkout:
+
+```powershell
+.\buildcallsign.ps1
+dotnet run --project tests/Callsign.AlphaSmoke/Callsign.AlphaSmoke.csproj
+```
+
+The build script emits `Callsign-Setup.exe` and `Callsign-Run.exe` in the repo root. The smoke test exercises profile persistence, voice/session gating, app launch validation, browser helper validation, and file-search helper validation.
+
+The canonical step-by-step product burndown lives in `burndown.md`.
+
+## Closed-source boundary
+
+Private paid-tier material, licensing experiments, proprietary command packs, and internal business work belong in `closed-source/`. That directory is intentionally ignored by git.
 
 ## Safety
 

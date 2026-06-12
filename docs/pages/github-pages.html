@@ -48,13 +48,14 @@
 <h2>Public landing page</h2>
 <p>The top-level <code>docs/index.html</code> is the marketing page.</p>
 <p>It should:</p>
-<ul><li>Explain the product in plain language.</li><li>Sell the open-source core and paid-tier story clearly.</li><li>Show the alpha workflow.</li><li>Avoid technical protocol details in the hero section.</li></ul>
+<ul><li>Explain the product in plain language.</li><li>Sell the Free, Pro, and Advanced tier story clearly.</li><li>Show the alpha workflow.</li><li>Avoid technical protocol details in the hero section.</li><li>Link readers to the canonical burndown.</li></ul>
 <h2>Reference pages</h2>
 <p>The rendered docs under <code>docs/pages/</code> are generated from <code>docs/reference/</code>.</p>
 <p>Those pages are for contributors and future implementation work.</p>
 <h2>Regeneration</h2>
 <p>Run:</p>
 <pre><code class="language-bash">python scripts/build_site.py</code></pre>
+<p>Before publishing, check that the generated site no longer uses deprecated middle-tier wording and that <code>docs/index.html</code> describes Free, Pro, and Advanced consistently.</p>
     </article>
   </main>
   <script src="../assets/site.js"></script>

@@ -33,6 +33,9 @@ $buildDir = Join-Path $root "build"
 $publishDir = Join-Path $buildDir "publish"
 $installerOutput = Join-Path $root "$InstallerName.exe"
 $portableOutput = Join-Path $root $PortableName
+$fzfRepoDir = Join-Path $root "fzf"
+$fzfBuildOutput = Join-Path $buildDir "fzf.exe"
+$setupPayloadFzf = Join-Path (Join-Path (Split-Path -Parent $SetupProjectPath) "Payload") "fzf.exe"
 
 function Copy-WithRetry([string]$Source, [string]$Destination, [int]$Attempts = 8) {
     for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
@@ -50,13 +53,72 @@ function Copy-WithRetry([string]$Source, [string]$Destination, [int]$Attempts = 
     }
 }
 
+function Build-FzfHelper([string]$RepositoryPath, [string]$OutputPath) {
+    if (!(Test-Path -LiteralPath $RepositoryPath)) {
+        Write-Warning "fzf repo was not found at $RepositoryPath. Callsign will fall back to built-in file search."
+        return $false
+    }
+
+    $go = Get-Command go -ErrorAction SilentlyContinue
+    if (-not $go) {
+        Write-Warning "Go was not found on PATH. Callsign will fall back to built-in file search."
+        return $false
+    }
+
+    Push-Location $RepositoryPath
+    try {
+        if (Test-Path -LiteralPath $OutputPath) {
+            Remove-Item -LiteralPath $OutputPath -Force
+        }
+
+        & $go.Source build -o $OutputPath .
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "fzf build failed with exit code $LASTEXITCODE. Callsign will fall back to built-in file search."
+            return $false
+        }
+
+        return Test-Path -LiteralPath $OutputPath
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function Remove-BuildOutputs([string]$ProjectPathToClean) {
+    $projectDir = Split-Path -Parent $ProjectPathToClean
+    foreach ($folder in @("bin", "obj")) {
+        $path = Join-Path $projectDir $folder
+        if (Test-Path -LiteralPath $path) {
+            Remove-Item -LiteralPath $path -Recurse -Force
+        }
+    }
+}
+
 if (Test-Path -LiteralPath $buildDir) {
     Remove-Item -LiteralPath $buildDir -Recurse -Force
 }
 New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
 New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
+Remove-BuildOutputs $ProjectPath
+if (Test-Path -LiteralPath $SetupProjectPath) {
+    Remove-BuildOutputs $SetupProjectPath
+}
+
+if (Test-Path -LiteralPath $setupPayloadFzf) {
+    Remove-Item -LiteralPath $setupPayloadFzf -Force
+}
+Build-FzfHelper -RepositoryPath $fzfRepoDir -OutputPath $fzfBuildOutput | Out-Null
+if (Test-Path -LiteralPath $fzfBuildOutput) {
+    Copy-WithRetry -Source $fzfBuildOutput -Destination $setupPayloadFzf
+    Write-Host "fzf helper staged for installer payload: $setupPayloadFzf"
+}
 
 Write-Host "Publishing Callsign to: $publishDir"
+dotnet restore $ProjectPath -r $Runtime
+if ($LASTEXITCODE -ne 0) {
+    throw "dotnet restore for Callsign failed with exit code $LASTEXITCODE"
+}
+
 dotnet publish $ProjectPath `
     -c $Configuration `
     -r $Runtime `
@@ -89,6 +151,10 @@ if (-not $publishedExe) {
 Write-Host "Published executable: $($publishedExe.FullName)"
 Copy-WithRetry -Source $publishedExe.FullName -Destination $portableOutput
 Write-Host "Always-generated launchable executable: $portableOutput"
+if (Test-Path -LiteralPath $fzfBuildOutput) {
+    Copy-WithRetry -Source $fzfBuildOutput -Destination (Join-Path $root "fzf.exe")
+    Copy-WithRetry -Source $fzfBuildOutput -Destination (Join-Path $publishDir "fzf.exe")
+}
 
 # Prefer a real installer by discovering `iscc` in PATH or common install locations.
 $iscc = Get-Command iscc -ErrorAction SilentlyContinue
@@ -172,6 +238,11 @@ else {
     New-Item -ItemType Directory -Path $setupPayloadDir -Force | Out-Null
     New-Item -ItemType Directory -Path $setupOutputDir -Force | Out-Null
     Copy-WithRetry -Source $publishedExe.FullName -Destination (Join-Path $setupPayloadDir "Callsign.UI.exe")
+
+    dotnet restore $SetupProjectPath -r $Runtime
+    if ($LASTEXITCODE -ne 0) {
+        throw "dotnet restore for Callsign setup failed with exit code $LASTEXITCODE"
+    }
 
     dotnet publish $SetupProjectPath `
         -c $Configuration `

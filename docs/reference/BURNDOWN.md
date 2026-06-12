@@ -1,32 +1,43 @@
-# Burndown List
+# Callsign v1 Alpha Burndown
 
-## Legend
+The canonical checklist lives at the repository root in [burndown.md](/burndown.md).
 
-- P0: required for the current alpha.
-- P1: required for a useful demo.
-- P2: important after the alpha.
-- P3: later enhancement.
+v1 alpha means a fresh checkout can be built, installed, launched, and smoke-tested, and the app can complete the four documented MVP flows:
 
-## Current alpha work
+- Start menu launching.
+- Text dictation.
+- Web browsing.
+- File search.
 
-| ID | Work item | Priority | Status | Acceptance criteria |
-|---:|---|---:|---|---|
-| 1 | Public landing page | P0 | Done | Home page sells Callsign clearly as open source with paid tiers |
-| 2 | Alpha setup UI | P0 | Done | User can create and save an account |
-| 3 | Voice enrollment state | P0 | Done | User can record samples and mark a profile as enrolled |
-| 4 | Session state machine | P0 | Done | Wake, verify, capture, launch, cancel, timeout |
-| 5 | Visible Start menu launch | P0 | Done | Installed app can be opened through visible search flow |
-| 6 | Startup error handling | P0 | Done | Failures are visible and logged |
-| 7 | Voice capture integration | P1 | Not started | Microphone input flows into real identity checks |
-| 8 | Always-on background service | P1 | Not started | Assistant listens in the background and wakes on demand |
-| 9 | Better app launch reliability | P1 | Not started | Common installed apps launch consistently |
-| 10 | Manual docs cleanup | P0 | In progress | Docs match current alpha state and public story |
-| 11 | WSL MVP planning | P1 | Not started | Linux MVP path is defined with WSL as the bridge |
+The alpha also requires:
 
-## Next phase ideas
+- Profile and callsign creation.
+- Voice enrollment and re-training.
+- Wake word plus spoken callsign identity confirmation.
+- Visible states for missing microphone, silence, transcription failure, cancel, and stop.
+- Human-readable action feedback before and after execution.
 
-- Add live voice recognition.
-- Improve identity matching.
-- Add simple task automation beyond app launch.
-- Keep Linux as an MVP item alongside Windows, with WSL support defined clearly.
-- Add paid Home and Advanced features only after the core experience is solid.
+## Phase map
+
+| Phase | Area | Goal |
+|---:|---|---|
+| 0 | Canon and release hygiene | Keep docs, site, and release claims aligned with the alpha contract. |
+| 1 | Profile foundation | Create, save, select, and delete user profiles with a personal callsign. |
+| 2 | Voice reliability | Record, replay, enroll, and recognize the user's voice and callsign reliably. |
+| 3 | Session control | Run the wake/identity/command flow with visible stop, cancel, timeout, and lockout behavior. |
+| 4 | Start menu launch | Launch installed apps reliably through the visible Start menu path. |
+| 5 | Dictation | Capture speech, transcribe it, and expose or insert the text per the documented UX. |
+| 6 | Web browsing | Open and navigate browsing targets with useful feedback and failure recovery. |
+| 7 | File search | Search the intended file scope and act on results safely. |
+| 8 | Build and install | Produce the executable installer and documented launch entry from a clean checkout. |
+| 9 | Alpha verification | Prove the full alpha flow through smoke tests, manual checks, and release gate criteria. |
+
+## Required gates
+
+- Root `burndown.md` is the source of truth.
+- Free remains the visible open-source core.
+- The alpha does not launch when identity fails or times out.
+- Unsafe launch text, secrets, hidden actions, and silent failures stay blocked.
+- Docs and generated pages must match the same alpha contract.
+
+See [burndown.md](/burndown.md) for the detailed checklist.

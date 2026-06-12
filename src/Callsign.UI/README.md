@@ -13,6 +13,9 @@ This folder contains the alpha setup experience for Callsign.
 - Activate and reset voice control for the selected callsign.
 - Run the visible wake word plus callsign session flow.
 - Launch an installed app through the Start menu search experience.
+- Dictate text into a visible editor and copy or paste the result.
+- Open websites or search the web through the default browser.
+- Search the intended local file scope and open matching results.
 
 ## Profile storage
 
@@ -41,6 +44,9 @@ The alpha audit file records only the callsign, requested app name, timestamp, a
 4. Confirm the listener is running.
 5. Say `Callsign Alpha open Notepad`, replacing `Alpha` with the saved callsign.
 6. Callsign should show the recognized phrase, verify the callsign, show the Start menu launch intent, and open the requested app through Start search.
+7. Open the Dictation tab, choose `Start Dictation`, speak a short sentence, and verify the text appears in the visible dictation box.
+8. Open the Browser tab, enter a URL or search phrase, and confirm the default browser opens the visible target.
+9. Open the Files tab, search for a known file name, and confirm the result list shows matching files or a clear empty state.
 
 If microphone recognition is unavailable, use `Launch test phrase` and `Test Phrase Launch` with the same phrase to exercise the same alpha state machine and Start menu launcher. This is a real launch test and can open the requested app. Passing this test proves the account, callsign, parser, policy boundary, audit, and Start menu launch path; it does not prove microphone recognition. You can also test the two-step flow by first entering `Callsign Alpha`, then entering `Notepad` after identity is verified.
 
@@ -68,6 +74,9 @@ Before calling the UI alpha ready, verify:
 8. `stop listening` stops the listener without launching anything.
 9. Path, URL, WSL, terminal, and shell-like command requests are rejected.
 10. `%LOCALAPPDATA%\Callsign\Profiles\Alpha\alpha-audit.jsonl` records the Start menu launch event.
+11. The Dictation tab captures speech and exposes the text visibly.
+12. The Browser tab opens a website or search query in the default browser.
+13. The Files tab finds a known local file and opens it from the results list.
 
 ## Troubleshooting alpha launch
 

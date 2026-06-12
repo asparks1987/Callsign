@@ -21,7 +21,7 @@ The public promise is simple:
 
 ## Alpha v1 interaction flow
 
-The current alpha is focused on onboarding and app launch:
+The current alpha is focused on onboarding, voice identity, and the four visible MVP tools:
 
 1. User creates an account in the setup UI.
 2. User records a few voice samples.
@@ -32,6 +32,9 @@ The current alpha is focused on onboarding and app launch:
 7. The user speaks a command such as `launch Notepad`.
 8. Callsign resolves the app name through a visible Start menu search flow.
 9. Callsign launches the app and records what happened.
+10. User can open the Dictation tool and capture dictated text visibly.
+11. User can open the Browser tool and search or navigate through the default browser.
+12. User can open the Files tool and search the intended local scope.
 
 If identity fails, the command window closes and nothing launches.
 
@@ -43,6 +46,9 @@ If identity fails, the command window closes and nothing launches.
 - Wake word plus callsign identity flow.
 - Visible app launch through the Start menu.
 - Clear status messages and stop/reset controls.
+- Dictation capture with visible text output.
+- Web browsing/search through the default browser.
+- Local file search with visible results and open actions.
 
 ## Product tiers
 
@@ -53,21 +59,25 @@ The free version should support:
 - Wake word plus callsign identity.
 - Launching installed apps through the Start menu.
 - Basic setup and voice enrollment.
+- Local-first recognition and visible stop/reset controls.
+- Dictation, browser, and file-search tools that expose results visibly and fail with readable messages.
 
-### Home
+### Pro
 
-The Home tier should add:
+The Pro tier should add:
 
-- Deeper desktop control.
-- More guided workflows.
-- Broader routine task support.
+- Full Windows desktop control by voice.
+- WSL workflow control from Windows.
+- Linux desktop MVP control by voice.
+- Safer automation approvals, policy checks, and audit logs.
 
 ### Advanced
 
 The Advanced tier should add:
 
-- More in-depth control of the system.
-- More automation depth and power-user tools.
+- Hundreds of specialized commands.
+- Recipe-style workflows and command packs.
+- Diagnostics, policy packs, workflow memory, and power-user tools.
 - Higher-value features that justify a paid subscription or license.
 
 ## Explicit non-goals for alpha
@@ -93,9 +103,9 @@ The user must say the wake word and their callsign before command capture begins
 
 The user should be able to see what Callsign is doing, stop it, and understand the result.
 
-### 4. Open source core, paid tiers
+### 4. Open source core, Pro and Advanced tiers
 
-The core desktop experience should remain free and open source. Future paid tiers, including Home and Advanced, should help cover costs and create profit, but they must not undermine the local, visible workflow.
+The core desktop experience should remain free and open source. Future paid tiers, including Pro and Advanced, should help cover costs and create profit, but they must not undermine the local, visible workflow.
 
 ## Success metrics
 
@@ -109,4 +119,8 @@ The core desktop experience should remain free and open source. Future paid tier
 
 - How much of the voice enrollment should be guided by the app versus spoken prompts later?
 - Should the next phase focus on background service reliability or broader app launch support?
-- What paid offerings, if any, should be introduced after the core alpha?
+- Which Pro workflows should ship first after the Free tier is reliable?
+
+## Closed-source boundary
+
+Private paid-tier implementation details, licensing experiments, proprietary command packs, and business materials belong in `/closed-source/`. Public docs can describe the tier direction, but tracked source should not include proprietary material.

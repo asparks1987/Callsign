@@ -9,5 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Payload\Callsign.UI.exe" LogicalName="Callsign.UI.exe" />
+    <EmbeddedResource Include="Payload\fzf.exe" LogicalName="fzf.exe" />
   </ItemGroup>
 </Project>

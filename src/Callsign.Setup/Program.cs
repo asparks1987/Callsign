@@ -12,14 +12,11 @@ internal static class Program
             var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             var installDir = Path.Combine(localAppData, "Callsign", "App");
             var installedExe = Path.Combine(installDir, "Callsign.UI.exe");
+            var fzfExe = Path.Combine(installDir, "fzf.exe");
 
             Directory.CreateDirectory(installDir);
-            using (var payload = Assembly.GetExecutingAssembly().GetManifestResourceStream("Callsign.UI.exe")
-                ?? throw new InvalidOperationException("Embedded Callsign payload was not found."))
-            using (var output = File.Create(installedExe))
-            {
-                payload.CopyTo(output);
-            }
+            ExtractResourceOrThrow("Callsign.UI.exe", installedExe);
+            TryExtractResource("fzf.exe", fzfExe);
 
             CreateShortcut(
                 Path.Combine(
@@ -64,6 +61,24 @@ internal static class Program
                 MessageBoxIcon.Error);
             return 1;
         }
+    }
+
+    private static void ExtractResourceOrThrow(string resourceName, string targetPath)
+    {
+        using var payload = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"Embedded resource '{resourceName}' was not found.");
+        using var output = File.Create(targetPath);
+        payload.CopyTo(output);
+    }
+
+    private static void TryExtractResource(string resourceName, string targetPath)
+    {
+        using var payload = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
+        if (payload == null)
+            return;
+
+        using var output = File.Create(targetPath);
+        payload.CopyTo(output);
     }
 
     private static void CreateShortcut(string shortcutPath, string targetPath, string workingDirectory)

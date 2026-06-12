@@ -15,6 +15,14 @@ public sealed class UserSettings
     public int VoiceSamplesRecorded { get; set; } = 0;
     public int VoiceSamplesRequired { get; set; } = 3;
     public DateTime? VoiceEnrolledUtc { get; set; }
+    public string VoiceRecognitionMode { get; set; } = "Local";
+    public string? VoiceModelPath { get; set; }
+    public double VoiceWakeThreshold { get; set; } = 0.010;
+    public int VoiceSilenceMilliseconds { get; set; } = 850;
+    public double VoiceCommandConfidenceThreshold { get; set; } = 0.65;
+    public bool VoiceCloudOptIn { get; set; }
+    public bool UseVoiceActivityDetection { get; set; } = true;
+    public bool UseNoiseSuppression { get; set; }
     public string? LastLaunchedApp { get; set; }
 }
 

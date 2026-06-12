@@ -44,7 +44,7 @@
       <h1>Test Plan</h1>
 <h2>Goals</h2>
 <p>The Callsign alpha must prove three things:</p>
-<p>1. A new user can set up the app. 2. Voice identity gates the session correctly. 3. The app can launch a visible installed application reliably.</p>
+<p>1. A new user can set up the app. 2. Voice identity gates the session correctly. 3. The app can launch a visible installed application reliably. 4. The documented dictation, browsing, and file-search tools work end to end.</p>
 <h2>Test layers</h2>
 <h3>Unit tests</h3>
 <p>Targets:</p>
@@ -55,6 +55,15 @@
 <h3>Launch tests</h3>
 <p>Targets:</p>
 <ul><li>Start menu search opens visibly.</li><li>App name is typed into search.</li><li>Matching installed app launches.</li><li>Failure path leaves the session in a safe state.</li></ul>
+<h3>Dictation tests</h3>
+<p>Targets:</p>
+<ul><li>Dictation mode starts and stops visibly.</li><li>Speech is transcribed into visible text.</li><li>Missing microphone, silence, and transcription failure are readable.</li><li>Copy and paste actions keep the dictated text user-visible.</li></ul>
+<h3>Browser tests</h3>
+<p>Targets:</p>
+<ul><li>Web address or search phrase resolves to a visible browser target.</li><li>The default browser opens without hidden automation.</li><li>Invalid local paths or shell text are rejected.</li><li>Search phrases produce a useful search URL.</li></ul>
+<h3>File search tests</h3>
+<p>Targets:</p>
+<ul><li>The intended local file scope is searched.</li><li>Matching results are shown in the UI.</li><li>Empty and access-denied states are readable.</li><li>Selected results can be opened or acted on.</li></ul>
 <h3>Safety tests</h3>
 <p>Targets:</p>
 <ul><li>Identity mismatch blocks launch.</li><li>Missing enrollment blocks launch.</li><li>Timeout blocks launch.</li><li>Cancel returns to idle.</li><li>Stop/reset clears the session.</li></ul>
@@ -76,7 +85,20 @@
 <ul><li>If the user waits too long, the session locks out.</li><li>Cancel returns to idle.</li><li>Reset clears the current session state.</li></ul>
 <h2>Release gate</h2>
 <p>A release candidate cannot ship unless:</p>
-<ul><li>The onboarding UI works from a clean profile store.</li><li>Voice enrollment is saved and restored.</li><li>Identity failure prevents launch.</li><li>App launch works on a common installed app.</li><li>Docs and the public site describe the current behavior.</li></ul>
+<ul><li>The onboarding UI works from a clean profile store.</li><li>Voice enrollment is saved and restored.</li><li>Identity failure prevents launch.</li><li>App launch works on a common installed app.</li><li>Dictation exposes transcribed text and clear error states.</li><li>Browser and file search work on the documented paths.</li><li>Docs and the public site describe the current behavior.</li></ul>
+<h2>Tier acceptance checks</h2>
+<h3>Free</h3>
+<p>Expected:</p>
+<ul><li>Voice/callsign recognition gates all spoken launch commands.</li><li>Start menu app launch works for common installed apps.</li><li>Free rejects paths, URLs, shells, command text, and non-launch automation.</li></ul>
+<h3>Pro</h3>
+<p>Expected:</p>
+<ul><li>Windows, WSL, and Linux control actions pass policy evaluation before execution.</li><li>Risky desktop actions show readable intent and require explicit approval.</li><li>Audit logs record approved, denied, failed, and cancelled actions.</li></ul>
+<h3>Advanced</h3>
+<p>Expected:</p>
+<ul><li>Advanced-only command packs are unavailable without the Advanced tier gate.</li><li>Dangerous, external, secret, or destructive commands are blocked unless explicitly approved by policy.</li><li>Recipe workflows show intent, approval points, and audit output before execution.</li></ul>
+<h3>Documentation and site drift</h3>
+<p>Expected:</p>
+<ul><li>Root <code>burndown.md</code> exists and describes Free, Pro, and Advanced.</li><li><code>docs/reference/BURNDOWN.md</code> points to the canonical burndown.</li><li>No user-facing docs use deprecated middle-tier wording.</li><li><code>docs/index.html</code> mentions Free, Pro, and Advanced after regeneration.</li><li><code>.gitignore</code> includes <code>/closed-source/</code>.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

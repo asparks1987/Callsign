@@ -16,12 +16,15 @@ public sealed class MainForm : Form
     private readonly AlphaAuditLog _auditLog;
     private readonly VoiceCommandService _voiceCommandService = new();
     private readonly VoiceSampleCaptureService _voiceSampleCapture = new();
+    private readonly BrowserLaunchService _browserLaunchService = new();
+    private readonly FileSearchService _fileSearchService = new();
     private readonly System.Windows.Forms.Timer _sessionTimer = new() { Interval = 1000 };
 
     private readonly List<UserProfile> _profiles = [];
     private UserProfile? _activeProfile;
     private bool _updatingUi;
     private bool _formReadyForListener;
+    private bool _dictationActive;
 
     private ComboBox _profilePicker = null!;
     private TextBox _callsignText = null!;
@@ -35,6 +38,7 @@ public sealed class MainForm : Form
     private Label _voiceStateLabel = null!;
     private Label _voiceSamplesLabel = null!;
     private Label _voiceLastTrainedLabel = null!;
+    private Label _voiceRecognitionModeLabel = null!;
     private Label _voiceRecordingStateLabel = null!;
     private Label _voicePlaybackStateLabel = null!;
     private TextBox _voicePromptText = null!;
@@ -69,6 +73,31 @@ public sealed class MainForm : Form
     private Button _saveProfileButton = null!;
     private Button _deleteProfileButton = null!;
 
+    private TextBox _dictationTextBox = null!;
+    private Label _dictationStatusLabel = null!;
+    private Label _dictationHintLabel = null!;
+    private Button _startDictationButton = null!;
+    private Button _stopDictationButton = null!;
+    private Button _copyDictationButton = null!;
+    private Button _pasteDictationButton = null!;
+    private Button _clearDictationButton = null!;
+
+    private TextBox _browserInputText = null!;
+    private Label _browserStatusLabel = null!;
+    private Button _openBrowserButton = null!;
+    private Button _searchBrowserButton = null!;
+    private Button _copyBrowserTargetButton = null!;
+
+    private TextBox _fileSearchQueryText = null!;
+    private Label _fileSearchStatusLabel = null!;
+    private ListBox _fileSearchResultsList = null!;
+    private Button _searchFilesButton = null!;
+    private Button _openFileResultButton = null!;
+    private Button _openFileFolderButton = null!;
+
+    private DateTime? _dictationStartedUtc;
+    private DateTime? _dictationLastTranscriptUtc;
+
     private Label _statusLabel = null!;
 
     public MainForm()
@@ -85,7 +114,11 @@ public sealed class MainForm : Form
 
         _voiceCommandService.TranscriptReceived += VoiceTranscriptReceived;
         _voiceCommandService.RecognitionError += VoiceRecognitionError;
-        _voiceCommandService.ListeningStateChanged += (_, _) => RunOnUiThread(UpdateListeningPanel);
+        _voiceCommandService.ListeningStateChanged += (_, _) => RunOnUiThread(() =>
+        {
+            UpdateListeningPanel();
+            RefreshVoicePanel();
+        });
 
         _sessionTimer.Tick += (_, _) => OnSessionTick();
         LoadProfiles();
@@ -115,6 +148,9 @@ public sealed class MainForm : Form
         tabs.TabPages.Add(BuildAccountTab());
         tabs.TabPages.Add(BuildVoiceTab());
         tabs.TabPages.Add(BuildSessionTab());
+        tabs.TabPages.Add(BuildDictationTab());
+        tabs.TabPages.Add(BuildBrowserTab());
+        tabs.TabPages.Add(BuildFileSearchTab());
         root.Controls.Add(tabs, 0, 0);
 
         _statusLabel = new Label
@@ -232,6 +268,7 @@ public sealed class MainForm : Form
         _voiceStateLabel = new Label { AutoSize = true, Text = "Not activated." };
         _voiceSamplesLabel = new Label { AutoSize = true, Text = "0 / 3 samples" };
         _voiceLastTrainedLabel = new Label { AutoSize = true, Text = "Never activated." };
+        _voiceRecognitionModeLabel = new Label { AutoSize = true, Text = "Recognition mode: initializing..." };
         _voiceRecordingStateLabel = new Label { AutoSize = true, Text = "No sample recording in progress." };
         _voicePlaybackStateLabel = new Label { AutoSize = true, Text = "No sample available for playback." };
 
@@ -269,6 +306,7 @@ public sealed class MainForm : Form
         AddRow(layout, "Voice status", _voiceStateLabel, row++);
         AddRow(layout, "Samples recorded", _voiceSamplesLabel, row++);
         AddRow(layout, "Last activated", _voiceLastTrainedLabel, row++);
+        AddRow(layout, "Recognition mode", _voiceRecognitionModeLabel, row++);
         AddRow(layout, "Recording", _voiceRecordingStateLabel, row++);
         AddRow(layout, "Playback", _voicePlaybackStateLabel, row++);
 
@@ -371,6 +409,165 @@ public sealed class MainForm : Form
         buttons.Controls.Add(_launchButton);
         buttons.Controls.Add(_cancelButton);
         buttons.Controls.Add(_resetSessionButton);
+        layout.Controls.Add(buttons, 1, row);
+        layout.SetColumnSpan(buttons, 2);
+
+        tab.Controls.Add(layout);
+        return tab;
+    }
+
+    private TabPage BuildDictationTab()
+    {
+        var tab = new TabPage("Dictation");
+        var layout = BuildTwoColumnLayout(9);
+
+        var heading = CreateHeading("Dictate text, review it, then copy or paste it");
+        var description = new Label
+        {
+            AutoSize = true,
+            MaximumSize = new Size(900, 0),
+            Text = "Dictation captures speech and exposes the transcribed text in a visible box. Use Start Dictation to begin listening, then stop or paste the result into the active app when you are ready."
+        };
+        _dictationHintLabel = new Label
+        {
+            AutoSize = true,
+            ForeColor = Color.DimGray,
+            Text = "Dictation is visible first: the app shows what it heard, the last error, and whether listening is active."
+        };
+        _dictationStatusLabel = new Label
+        {
+            AutoSize = true,
+            Text = "Dictation is stopped."
+        };
+        _dictationTextBox = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            Multiline = true,
+            ScrollBars = ScrollBars.Vertical,
+            Height = 180
+        };
+        _dictationTextBox.TextChanged += (_, _) => RefreshDictationPanel();
+
+        _startDictationButton = new Button { Text = "Start Dictation", Width = 130 };
+        _startDictationButton.Click += (_, _) => StartDictation();
+
+        _stopDictationButton = new Button { Text = "Stop Dictation", Width = 120 };
+        _stopDictationButton.Click += (_, _) => StopDictation();
+
+        _copyDictationButton = new Button { Text = "Copy Text", Width = 110 };
+        _copyDictationButton.Click += (_, _) => CopyDictationText();
+
+        _pasteDictationButton = new Button { Text = "Paste Into Active App", Width = 180 };
+        _pasteDictationButton.Click += (_, _) => PasteDictationText();
+
+        _clearDictationButton = new Button { Text = "Clear", Width = 90 };
+        _clearDictationButton.Click += (_, _) => ClearDictationText();
+
+        var row = 0;
+        AddFullWidth(layout, heading, row++);
+        AddFullWidth(layout, description, row++);
+        AddFullWidth(layout, _dictationHintLabel, row++);
+        AddRow(layout, "Dictation status", _dictationStatusLabel, row++);
+        AddRow(layout, "Dictated text", _dictationTextBox, row++);
+
+        var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
+        buttons.Controls.Add(_startDictationButton);
+        buttons.Controls.Add(_stopDictationButton);
+        buttons.Controls.Add(_copyDictationButton);
+        buttons.Controls.Add(_pasteDictationButton);
+        buttons.Controls.Add(_clearDictationButton);
+        layout.Controls.Add(buttons, 1, row);
+        layout.SetColumnSpan(buttons, 2);
+
+        tab.Controls.Add(layout);
+        return tab;
+    }
+
+    private TabPage BuildBrowserTab()
+    {
+        var tab = new TabPage("Browser");
+        var layout = BuildTwoColumnLayout(8);
+
+        var heading = CreateHeading("Open a website or search the web");
+        var description = new Label
+        {
+            AutoSize = true,
+            MaximumSize = new Size(900, 0),
+            Text = "Enter a URL or a search phrase. Callsign will open the default browser and hand the browser a visible target or web search."
+        };
+        _browserStatusLabel = new Label { AutoSize = true, Text = "Browser target not opened yet." };
+        _browserInputText = new TextBox { Dock = DockStyle.Fill, PlaceholderText = "Search the web or open a URL, such as example.com or callsign desktop assistant" };
+        _browserInputText.TextChanged += (_, _) => RefreshBrowserPanel();
+
+        _openBrowserButton = new Button { Text = "Open / Search", Width = 130 };
+        _openBrowserButton.Click += (_, _) => OpenBrowserTarget();
+
+        _searchBrowserButton = new Button { Text = "Search Web", Width = 110 };
+        _searchBrowserButton.Click += (_, _) => OpenBrowserTarget(forceSearch: true);
+
+        _copyBrowserTargetButton = new Button { Text = "Copy Target", Width = 110 };
+        _copyBrowserTargetButton.Click += (_, _) => CopyBrowserTarget();
+
+        var row = 0;
+        AddFullWidth(layout, heading, row++);
+        AddFullWidth(layout, description, row++);
+        AddRow(layout, "Target", _browserInputText, row++);
+        AddRow(layout, "Status", _browserStatusLabel, row++);
+
+        var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
+        buttons.Controls.Add(_openBrowserButton);
+        buttons.Controls.Add(_searchBrowserButton);
+        buttons.Controls.Add(_copyBrowserTargetButton);
+        layout.Controls.Add(buttons, 1, row);
+        layout.SetColumnSpan(buttons, 2);
+
+        tab.Controls.Add(layout);
+        return tab;
+    }
+
+    private TabPage BuildFileSearchTab()
+    {
+        var tab = new TabPage("Files");
+        var layout = BuildTwoColumnLayout(10);
+
+        var heading = CreateHeading("Search local files and open the result");
+        var description = new Label
+        {
+            AutoSize = true,
+            MaximumSize = new Size(900, 0),
+            Text = "Searches the intended alpha scope: common user folders plus Callsign data. Results show clearly, empty states are explained, and selected items can be opened."
+        };
+        _fileSearchStatusLabel = new Label { AutoSize = true, Text = "No file search run yet." };
+        _fileSearchQueryText = new TextBox { Dock = DockStyle.Fill, PlaceholderText = "Search for a filename or folder name" };
+        _fileSearchQueryText.TextChanged += (_, _) => RefreshFileSearchPanel();
+        _fileSearchResultsList = new ListBox
+        {
+            Dock = DockStyle.Fill,
+            Height = 220
+        };
+        _fileSearchResultsList.SelectedIndexChanged += (_, _) => RefreshFileSearchPanel();
+        _fileSearchResultsList.DoubleClick += (_, _) => OpenSelectedFileResult();
+
+        _searchFilesButton = new Button { Text = "Search Files", Width = 120 };
+        _searchFilesButton.Click += (_, _) => SearchFiles();
+
+        _openFileResultButton = new Button { Text = "Open Result", Width = 110 };
+        _openFileResultButton.Click += (_, _) => OpenSelectedFileResult();
+
+        _openFileFolderButton = new Button { Text = "Open Folder", Width = 110 };
+        _openFileFolderButton.Click += (_, _) => OpenSelectedFileFolder();
+
+        var row = 0;
+        AddFullWidth(layout, heading, row++);
+        AddFullWidth(layout, description, row++);
+        AddRow(layout, "Search", _fileSearchQueryText, row++);
+        AddRow(layout, "Status", _fileSearchStatusLabel, row++);
+        AddFullWidth(layout, _fileSearchResultsList, row++);
+
+        var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
+        buttons.Controls.Add(_searchFilesButton);
+        buttons.Controls.Add(_openFileResultButton);
+        buttons.Controls.Add(_openFileFolderButton);
         layout.Controls.Add(buttons, 1, row);
         layout.SetColumnSpan(buttons, 2);
 
@@ -538,6 +735,9 @@ public sealed class MainForm : Form
         RefreshAccountPanel();
         RefreshVoicePanel();
         RefreshSessionPanel();
+        RefreshDictationPanel();
+        RefreshBrowserPanel();
+        RefreshFileSearchPanel();
     }
 
     private void RefreshAccountPanel()
@@ -564,6 +764,7 @@ public sealed class MainForm : Form
             _voiceStateLabel.Text = "No account selected.";
             _voiceSamplesLabel.Text = "0 / 0 samples";
             _voiceLastTrainedLabel.Text = "Never activated.";
+            _voiceRecognitionModeLabel.Text = $"Recognition mode: {_voiceCommandService.CurrentModeDescription}";
             _voiceRecordingStateLabel.Text = "No sample recording in progress.";
             _voicePlaybackStateLabel.Text = "No sample available for playback.";
             _voiceProgress.Value = 0;
@@ -586,6 +787,7 @@ public sealed class MainForm : Form
         _voiceLastTrainedLabel.Text = settings.VoiceEnrolledUtc.HasValue
             ? settings.VoiceEnrolledUtc.Value.ToLocalTime().ToString("f", CultureInfo.CurrentCulture)
             : "Never activated.";
+        _voiceRecognitionModeLabel.Text = $"Recognition mode: {_voiceCommandService.CurrentModeDescription}";
         _voiceProgress.Maximum = settings.VoiceSamplesRequired;
         _voiceProgress.Value = Math.Min(settings.VoiceSamplesRecorded, _voiceProgress.Maximum);
         _voicePromptText.Text = GetVoicePrompt(_activeProfile, settings);
@@ -644,12 +846,78 @@ public sealed class MainForm : Form
         _resetSessionButton.Enabled = _session.State != AlphaSessionState.Idle;
     }
 
+    private void RefreshDictationPanel()
+    {
+        if (_dictationStatusLabel == null || _startDictationButton == null)
+            return;
+
+        if (!_dictationActive)
+        {
+            _dictationStatusLabel.Text = "Dictation is stopped.";
+        }
+        else if (!_voiceCommandService.IsListening)
+        {
+            _dictationStatusLabel.Text = "Dictation is active but the microphone listener is stopped.";
+        }
+        else if (_dictationTextBox.TextLength > 0)
+        {
+            _dictationStatusLabel.Text = $"Dictation is active. Captured {_dictationTextBox.Text.Length} characters.";
+        }
+        else if (_dictationLastTranscriptUtc.HasValue)
+        {
+            _dictationStatusLabel.Text = $"Dictation is active with {_voiceCommandService.CurrentModeDescription}.";
+        }
+        else if (_dictationStartedUtc.HasValue && DateTime.UtcNow - _dictationStartedUtc.Value > TimeSpan.FromSeconds(6))
+        {
+            _dictationStatusLabel.Text = "No speech detected yet. Check microphone permission or speak closer to the mic.";
+        }
+        else
+        {
+            _dictationStatusLabel.Text = $"Dictation is active with {_voiceCommandService.CurrentModeDescription}.";
+        }
+
+        _startDictationButton.Enabled = !_dictationActive;
+        _stopDictationButton.Enabled = _dictationActive;
+        _copyDictationButton.Enabled = !string.IsNullOrWhiteSpace(_dictationTextBox.Text);
+        _pasteDictationButton.Enabled = !string.IsNullOrWhiteSpace(_dictationTextBox.Text);
+        _clearDictationButton.Enabled = !string.IsNullOrWhiteSpace(_dictationTextBox.Text);
+    }
+
+    private void RefreshBrowserPanel()
+    {
+        if (_browserStatusLabel == null)
+            return;
+
+        var value = _browserInputText?.Text?.Trim();
+        _browserStatusLabel.Text = string.IsNullOrWhiteSpace(value)
+            ? "Browser target not opened yet."
+            : $"Ready to open: {value}";
+        _openBrowserButton.Enabled = !string.IsNullOrWhiteSpace(value);
+        _searchBrowserButton.Enabled = !string.IsNullOrWhiteSpace(value);
+        _copyBrowserTargetButton.Enabled = !string.IsNullOrWhiteSpace(value);
+    }
+
+    private void RefreshFileSearchPanel()
+    {
+        if (_fileSearchStatusLabel == null)
+            return;
+
+        var query = _fileSearchQueryText?.Text?.Trim();
+        _fileSearchStatusLabel.Text = string.IsNullOrWhiteSpace(query)
+            ? "No file search run yet."
+            : $"Ready to search for: {query}";
+        _searchFilesButton.Enabled = !string.IsNullOrWhiteSpace(query);
+        _openFileResultButton.Enabled = _fileSearchResultsList?.SelectedItem is FileSearchResult;
+        _openFileFolderButton.Enabled = _fileSearchResultsList?.SelectedItem is FileSearchResult;
+    }
+
     private void OnSessionTick()
     {
         if (_updatingUi)
             return;
 
         RefreshSessionPanel();
+        RefreshDictationPanel();
     }
 
     private void SaveProfile()
@@ -799,6 +1067,8 @@ public sealed class MainForm : Form
     private void StartVoiceListening()
     {
         StopVoiceSampleRecording();
+        _dictationActive = false;
+        RefreshDictationPanel();
         if (_voiceCommandService.IsListening)
         {
             UpdateStatus("Callsign is already listening.");
@@ -831,7 +1101,7 @@ public sealed class MainForm : Form
             var warning = string.IsNullOrWhiteSpace(_voiceCommandService.LastStartupWarning)
                 ? string.Empty
                 : $" {_voiceCommandService.LastStartupWarning}";
-            UpdateStatus($"Listening. Say 'Callsign', your callsign, and the app you want to launch.{warning}");
+            UpdateStatus($"Listening with {_voiceCommandService.CurrentModeDescription} Say 'Callsign', your callsign, and the app you want to launch.{warning}");
         }
     }
 
@@ -848,6 +1118,9 @@ public sealed class MainForm : Form
 
     private void StopVoiceListening()
     {
+        _dictationActive = false;
+        RefreshDictationPanel();
+
         if (!_voiceCommandService.IsListening)
         {
             UpdateListeningPanel();
@@ -1071,6 +1344,24 @@ public sealed class MainForm : Form
     {
         _lastHeardLabel.Text = $"{displayTranscript} ({confidence:P0} confidence)";
 
+        if (_dictationActive)
+        {
+            if (IsStopDictationCommand(transcript))
+            {
+                StopDictation();
+                return;
+            }
+
+            if (confidence < 0.45f)
+            {
+                UpdateStatus("Dictation heard speech, but confidence was too low. Try again clearly.");
+                return;
+            }
+
+            AppendDictationTranscript(displayTranscript);
+            return;
+        }
+
         if (IsStopListeningCommand(transcript))
         {
             StopVoiceListening();
@@ -1155,6 +1446,21 @@ public sealed class MainForm : Form
         }
     }
 
+    private void AppendDictationTranscript(string transcript)
+    {
+        var normalized = transcript.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+            return;
+
+        _dictationLastTranscriptUtc = DateTime.UtcNow;
+        if (_dictationTextBox.TextLength > 0 && !_dictationTextBox.Text.EndsWith(" "))
+            _dictationTextBox.AppendText(" ");
+
+        _dictationTextBox.AppendText(normalized);
+        RefreshDictationPanel();
+        UpdateStatus("Dictation updated.");
+    }
+
     private void VerifyIdentity()
     {
         if (!EnsureActiveProfile(out var profile))
@@ -1183,7 +1489,12 @@ public sealed class MainForm : Form
 
         var inferredApp = InferAppName(_spokenCommandText.Text);
         if (!string.IsNullOrWhiteSpace(inferredApp) && string.IsNullOrWhiteSpace(_appNameText.Text))
-            _appNameText.Text = inferredApp;
+        {
+            if (_launcher.TryResolveInstalledAppName(inferredApp, out var resolvedApp))
+                _appNameText.Text = resolvedApp;
+            else
+                _appNameText.Text = inferredApp;
+        }
 
         RefreshSessionPanel();
         UpdateStatus(message);
@@ -1197,6 +1508,9 @@ public sealed class MainForm : Form
         var target = string.IsNullOrWhiteSpace(_appNameText.Text)
             ? InferAppName(_spokenCommandText.Text)
             : _appNameText.Text.Trim();
+
+        if (!string.IsNullOrWhiteSpace(target) && _launcher.TryResolveInstalledAppName(target, out var resolvedTarget))
+            target = resolvedTarget;
 
         if (!_session.TryBeginLaunch(target, out var beginMessage))
         {
@@ -1227,6 +1541,202 @@ public sealed class MainForm : Form
         _session.FailLaunch(launchMessage);
         RefreshSessionPanel();
         UpdateStatus(launchMessage);
+    }
+
+    private void StartDictation()
+    {
+        StopVoiceSampleRecording(commit: false);
+        if (_voiceCommandService.IsListening)
+            StopVoiceListening();
+
+        _dictationActive = true;
+        _dictationStartedUtc = DateTime.UtcNow;
+        _dictationLastTranscriptUtc = null;
+        _session.Reset();
+        RefreshSessionPanel();
+
+        _voiceCommandService.Start(
+            _activeProfile?.Settings.LanguageCode ?? "en-US",
+            "Dictation",
+            string.Empty);
+
+        if (!_voiceCommandService.IsListening)
+        {
+            _dictationActive = false;
+            RefreshDictationPanel();
+            UpdateListeningPanel();
+            UpdateStatus("Unable to start dictation.");
+            return;
+        }
+
+        RefreshDictationPanel();
+        UpdateListeningPanel();
+        UpdateStatus("Dictation started. Speak naturally and watch the text appear below.");
+    }
+
+    private void StopDictation()
+    {
+        _dictationActive = false;
+        _dictationStartedUtc = null;
+        _dictationLastTranscriptUtc = null;
+
+        if (_voiceCommandService.IsListening)
+            _voiceCommandService.Stop();
+
+        RefreshDictationPanel();
+        UpdateListeningPanel();
+        UpdateStatus("Dictation stopped.");
+    }
+
+    private void ClearDictationText()
+    {
+        _dictationTextBox.Clear();
+        RefreshDictationPanel();
+        UpdateStatus("Dictation text cleared.");
+    }
+
+    private void CopyDictationText()
+    {
+        if (string.IsNullOrWhiteSpace(_dictationTextBox.Text))
+        {
+            UpdateStatus("There is no dictated text to copy.");
+            return;
+        }
+
+        Clipboard.SetText(_dictationTextBox.Text);
+        UpdateStatus("Dictated text copied to the clipboard.");
+    }
+
+    private void PasteDictationText()
+    {
+        if (string.IsNullOrWhiteSpace(_dictationTextBox.Text))
+        {
+            UpdateStatus("There is no dictated text to paste.");
+            return;
+        }
+
+        Clipboard.SetText(_dictationTextBox.Text);
+        SendKeys.SendWait("^v");
+        UpdateStatus("Dictated text copied to the clipboard and sent as a paste request.");
+    }
+
+    private void OpenBrowserTarget(bool forceSearch = false)
+    {
+        var input = _browserInputText.Text.Trim();
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            UpdateStatus("Enter a web address or search phrase first.");
+            return;
+        }
+
+        if (_browserLaunchService.TryOpen(input, out var message, out var targetUri, forceSearch))
+        {
+            _browserStatusLabel.Text = $"Opened: {targetUri}";
+            UpdateStatus(message);
+            return;
+        }
+
+        _browserStatusLabel.Text = "Browser target failed.";
+        UpdateStatus(message);
+    }
+
+    private void CopyBrowserTarget()
+    {
+        if (string.IsNullOrWhiteSpace(_browserInputText.Text))
+        {
+            UpdateStatus("Enter a web address or search phrase first.");
+            return;
+        }
+
+        if (!BrowserLaunchService.TryBuildTargetUri(_browserInputText.Text, out var targetUri, out var reason))
+        {
+            UpdateStatus(reason);
+            return;
+        }
+
+        Clipboard.SetText(targetUri!.ToString());
+        UpdateStatus("Resolved browser target copied to the clipboard.");
+    }
+
+    private void SearchFiles()
+    {
+        var query = _fileSearchQueryText.Text.Trim();
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            UpdateStatus("Enter a file or folder name to search for.");
+            return;
+        }
+
+        var report = _fileSearchService.Search(query, maxResults: 50);
+        _fileSearchResultsList.BeginUpdate();
+        try
+        {
+            _fileSearchResultsList.Items.Clear();
+            foreach (var result in report.Results)
+                _fileSearchResultsList.Items.Add(result);
+        }
+        finally
+        {
+            _fileSearchResultsList.EndUpdate();
+        }
+
+        RefreshFileSearchPanel();
+
+        var message = report.Results.Count == 0
+            ? $"No files matched '{query}'."
+            : $"Found {report.Results.Count} file result(s) for '{query}'.";
+
+        if (report.Warnings.Count > 0)
+            message += $" Warnings: {string.Join(" ", report.Warnings)}";
+
+        UpdateStatus(message);
+    }
+
+    private void OpenSelectedFileResult()
+    {
+        if (_fileSearchResultsList.SelectedItem is not FileSearchResult result)
+        {
+            UpdateStatus("Select a file search result first.");
+            return;
+        }
+
+        if (_fileSearchService.TryOpen(result, out var message))
+        {
+            UpdateStatus(message);
+            return;
+        }
+
+        UpdateStatus(message);
+    }
+
+    private void OpenSelectedFileFolder()
+    {
+        if (_fileSearchResultsList.SelectedItem is not FileSearchResult result)
+        {
+            UpdateStatus("Select a file search result first.");
+            return;
+        }
+
+        var folderPath = result.IsDirectory ? result.FullPath : Path.GetDirectoryName(result.FullPath);
+        if (string.IsNullOrWhiteSpace(folderPath))
+        {
+            UpdateStatus("Could not resolve the folder for the selected item.");
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = folderPath,
+                UseShellExecute = true
+            });
+            UpdateStatus($"Opened folder '{folderPath}'.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to open the folder: {ex.Message}");
+        }
     }
 
     private void CancelSession()
@@ -1390,7 +1900,9 @@ public sealed class MainForm : Form
     private void UpdateListeningPanel()
     {
         _listeningStateLabel.Text = _voiceCommandService.IsListening
-            ? "Microphone listener is running."
+            ? _dictationActive
+                ? $"Microphone listener is running for dictation. {_voiceCommandService.CurrentModeDescription}"
+                : $"Microphone listener is running. {_voiceCommandService.CurrentModeDescription}"
             : "Microphone listener is stopped.";
         _startListeningButton.Enabled = !_voiceCommandService.IsListening;
         _stopListeningButton.Enabled = _voiceCommandService.IsListening;
@@ -1523,6 +2035,16 @@ public sealed class MainForm : Form
     {
         var normalized = NormalizeSpeechText(transcript);
         return normalized is "stop listening" or "callsign stop listening" or "call sign stop listening";
+    }
+
+    private static bool IsStopDictationCommand(string transcript)
+    {
+        var normalized = NormalizeSpeechText(transcript);
+        return normalized is "stop dictation"
+            or "callsign stop dictation"
+            or "call sign stop dictation"
+            or "end dictation"
+            or "finish dictation";
     }
 
     private static string RemoveSpeechPhrase(string transcript, string phrase)

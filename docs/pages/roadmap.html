@@ -42,32 +42,37 @@
     </aside>
     <article class="doc-content">
       <h1>Roadmap</h1>
-<h2>Phase 0: Public alpha shell</h2>
+<h2>Phase 0: Canon and repo hygiene</h2>
 <p>Status: current focus.</p>
 <p>Deliverables:</p>
-<ul><li>Public GitHub Pages landing page.</li><li>Clear open-source core and paid-tier product story.</li><li>Windows setup and onboarding UI.</li><li>Account creation and profile storage.</li><li>Voice enrollment state.</li><li>Visible app launch flow.</li></ul>
-<h2>Phase 1: Always-on voice service</h2>
-<p>Deliverables:</p>
-<ul><li>Background service process.</li><li>Wake word listener.</li><li>Callsign identity gate.</li><li>Session timeout and lockout.</li><li>Visible stop and reset controls.</li></ul>
+<ul><li>Root <code>burndown.md</code> as the canonical multiphase checklist.</li><li>Free, Pro, and Advanced tier language across all docs and the website.</li><li><code>/closed-source/</code> ignored by git for private paid-tier material.</li><li>Generated GitHub Pages output aligned with source docs.</li></ul>
 <p>Exit criteria:</p>
-<ul><li>The service can sit in the background and wait for the user.</li><li>The service does not launch anything until identity is confirmed.</li></ul>
-<h2>Phase 2: Better desktop launch and control</h2>
+<ul><li>No deprecated middle-tier wording remains in user-facing docs.</li><li>Public docs explain what exists now versus what is planned.</li></ul>
+<h2>Phase 1: Free tier completion</h2>
 <p>Deliverables:</p>
-<ul><li>More reliable Start menu launch handling.</li><li>Visible launch feedback.</li><li>App launch history.</li><li>Better error recovery.</li></ul>
+<ul><li>Account creation and profile storage.</li><li>Voice sample recording and playback.</li><li>Callsign identity and wake-word flow.</li><li>Reliable Start menu application launch.</li><li>Local recognition quality checks and ambiguous transcript confirmation.</li><li>Dictation, browser, and file-search tools with readable errors and visible output.</li><li>Build/install path that emits the installer and launchable executable from a fresh checkout.</li></ul>
 <p>Exit criteria:</p>
-<ul><li>Common installed apps launch reliably from the visible flow.</li></ul>
-<h2>Phase 3: Broader desktop automation</h2>
+<ul><li>A user can create a callsign profile and launch common installed apps by voice.</li><li>Free rejects paths, URLs, shells, command text, and non-launch automation.</li><li>A user can dictate text, open a website or search query, and search local files with visible results or clear empty/error states.</li><li>The documented build/install path works from a clean checkout.</li></ul>
+<h2>Phase 2: Always-on background service</h2>
 <p>Deliverables:</p>
-<ul><li>Safer UI automation.</li><li>Text entry helpers.</li><li>File workflow support.</li><li>Approval prompts for state-changing tasks.</li></ul>
+<ul><li>Background service process.</li><li>Wake-word listener.</li><li>Callsign identity gate.</li><li>Tray/status controls.</li><li>Local launch audit log.</li></ul>
 <p>Exit criteria:</p>
-<ul><li>The assistant can handle routine desktop work without becoming hidden or fragile.</li></ul>
-<h2>Phase 4: Product expansion</h2>
-<p>Potential additions:</p>
-<ul><li>Home tier features.</li><li>Advanced tier features.</li><li>Better voice models.</li><li>More identity options.</li><li>Workflow memory.</li><li>Recipe-style automation.</li></ul>
-<h2>Platform roadmap</h2>
-<ul><li>Windows and Linux MVP together.</li><li>WSL-first Linux development and runtime bridge from Windows.</li><li>Free tier stays limited to Start menu launching and the visible onboarding flow.</li><li>Paid tiers provide deeper system control and higher-value automation.</li></ul>
-<h2>Roadmap principles</h2>
-<ul><li>Ship visible behavior before broad automation.</li><li>Keep the core experience usable without a subscription.</li><li>Do not add hidden power before trust.</li><li>Expand only after the current alpha is reliable.</li></ul>
+<ul><li>Callsign can wait in the background and act only after identity is confirmed.</li><li>Stop, cancel, timeout, and lockout paths work without opening hidden actions.</li></ul>
+<h2>Phase 3: Pro tier</h2>
+<p>Deliverables:</p>
+<ul><li>Full Windows desktop control by voice.</li><li>WSL workflow bridge.</li><li>Linux desktop MVP support.</li><li>Policy engine, approvals, and audit dashboard.</li><li>Pro command catalog for routine desktop workflows.</li></ul>
+<p>Exit criteria:</p>
+<ul><li>Pro can safely control Windows, WSL, and Linux workflows with visible approvals.</li><li>Risky actions require policy approval before execution.</li></ul>
+<h2>Phase 4: Advanced tier</h2>
+<p>Deliverables:</p>
+<ul><li>Hundreds of specialized commands.</li><li>Recipe workflow system.</li><li>Policy packs.</li><li>Developer, admin, data, and document workflow packs.</li><li>Diagnostics center, workflow memory, and advanced voice modes.</li></ul>
+<p>Exit criteria:</p>
+<ul><li>Advanced supports power-user workflows without weakening the safety model.</li><li>Dangerous, external, secret, and destructive actions are blocked unless explicitly designed and approved.</li></ul>
+<h2>Phase 5: Productization</h2>
+<p>Deliverables:</p>
+<ul><li>Licensing and tier gates.</li><li>Installer, updater, release notes, and rollback strategy.</li><li>Opt-in telemetry and privacy-preserving diagnostics.</li><li>Support and feedback path.</li><li>Signed release packages when distribution begins.</li></ul>
+<p>Exit criteria:</p>
+<ul><li>Free remains useful without a subscription.</li><li>Pro and Advanced are monetizable without hiding the open-source core.</li><li>Public docs, website, and release artifacts match the tier model.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

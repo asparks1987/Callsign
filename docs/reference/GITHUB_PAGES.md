@@ -14,9 +14,10 @@ The top-level `docs/index.html` is the marketing page.
 It should:
 
 - Explain the product in plain language.
-- Sell the open-source core and paid-tier story clearly.
+- Sell the Free, Pro, and Advanced tier story clearly.
 - Show the alpha workflow.
 - Avoid technical protocol details in the hero section.
+- Link readers to the canonical burndown.
 
 ## Reference pages
 
@@ -31,3 +32,5 @@ Run:
 ```bash
 python scripts/build_site.py
 ```
+
+Before publishing, check that the generated site no longer uses deprecated middle-tier wording and that `docs/index.html` describes Free, Pro, and Advanced consistently.

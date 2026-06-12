@@ -39,7 +39,7 @@ Examples:
 - `open Calculator`
 - `start Visual Studio Code`
 
-For the free version, the main supported action is launching installed apps from the Start menu. Deeper control belongs in the Home and Advanced tiers.
+For the Free tier, the main supported action is launching installed apps from the Start menu. Full Windows, WSL, and Linux control belongs in Pro. Specialized command packs, recipes, diagnostics, and power-user workflows belong in Advanced.
 
 ### Recovery mode
 

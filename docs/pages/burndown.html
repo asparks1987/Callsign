@@ -41,13 +41,17 @@
 <a href="github-pages.html">GitHub Pages</a>
     </aside>
     <article class="doc-content">
-      <h1>Burndown List</h1>
-<h2>Legend</h2>
-<ul><li>P0: required for the current alpha.</li><li>P1: required for a useful demo.</li><li>P2: important after the alpha.</li><li>P3: later enhancement.</li></ul>
-<h2>Current alpha work</h2>
-<p>| ID | Work item | Priority | Status | Acceptance criteria | |---:|---|---:|---|---| | 1 | Public landing page | P0 | Done | Home page sells Callsign clearly as open source with paid tiers | | 2 | Alpha setup UI | P0 | Done | User can create and save an account | | 3 | Voice enrollment state | P0 | Done | User can record samples and mark a profile as enrolled | | 4 | Session state machine | P0 | Done | Wake, verify, capture, launch, cancel, timeout | | 5 | Visible Start menu launch | P0 | Done | Installed app can be opened through visible search flow | | 6 | Startup error handling | P0 | Done | Failures are visible and logged | | 7 | Voice capture integration | P1 | Not started | Microphone input flows into real identity checks | | 8 | Always-on background service | P1 | Not started | Assistant listens in the background and wakes on demand | | 9 | Better app launch reliability | P1 | Not started | Common installed apps launch consistently | | 10 | Manual docs cleanup | P0 | In progress | Docs match current alpha state and public story | | 11 | WSL MVP planning | P1 | Not started | Linux MVP path is defined with WSL as the bridge |</p>
-<h2>Next phase ideas</h2>
-<ul><li>Add live voice recognition.</li><li>Improve identity matching.</li><li>Add simple task automation beyond app launch.</li><li>Keep Linux as an MVP item alongside Windows, with WSL support defined clearly.</li><li>Add paid Home and Advanced features only after the core experience is solid.</li></ul>
+      <h1>Callsign v1 Alpha Burndown</h1>
+<p>The canonical checklist lives at the repository root in <a href="/burndown.md">burndown.md</a>.</p>
+<p>v1 alpha means a fresh checkout can be built, installed, launched, and smoke-tested, and the app can complete the four documented MVP flows:</p>
+<ul><li>Start menu launching.</li><li>Text dictation.</li><li>Web browsing.</li><li>File search.</li></ul>
+<p>The alpha also requires:</p>
+<ul><li>Profile and callsign creation.</li><li>Voice enrollment and re-training.</li><li>Wake word plus spoken callsign identity confirmation.</li><li>Visible states for missing microphone, silence, transcription failure, cancel, and stop.</li><li>Human-readable action feedback before and after execution.</li></ul>
+<h2>Phase map</h2>
+<p>| Phase | Area | Goal | |---:|---|---| | 0 | Canon and release hygiene | Keep docs, site, and release claims aligned with the alpha contract. | | 1 | Profile foundation | Create, save, select, and delete user profiles with a personal callsign. | | 2 | Voice reliability | Record, replay, enroll, and recognize the user&#x27;s voice and callsign reliably. | | 3 | Session control | Run the wake/identity/command flow with visible stop, cancel, timeout, and lockout behavior. | | 4 | Start menu launch | Launch installed apps reliably through the visible Start menu path. | | 5 | Dictation | Capture speech, transcribe it, and expose or insert the text per the documented UX. | | 6 | Web browsing | Open and navigate browsing targets with useful feedback and failure recovery. | | 7 | File search | Search the intended file scope and act on results safely. | | 8 | Build and install | Produce the executable installer and documented launch entry from a clean checkout. | | 9 | Alpha verification | Prove the full alpha flow through smoke tests, manual checks, and release gate criteria. |</p>
+<h2>Required gates</h2>
+<ul><li>Root <code>burndown.md</code> is the source of truth.</li><li>Free remains the visible open-source core.</li><li>The alpha does not launch when identity fails or times out.</li><li>Unsafe launch text, secrets, hidden actions, and silent failures stay blocked.</li><li>Docs and generated pages must match the same alpha contract.</li></ul>
+<p>See <a href="/burndown.md">burndown.md</a> for the detailed checklist.</p>
     </article>
   </main>
   <script src="../assets/site.js"></script>

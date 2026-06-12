@@ -205,8 +205,16 @@ public sealed class AlphaSessionStateMachine
         return remaining <= TimeSpan.Zero ? TimeSpan.Zero : remaining;
     }
 
-    private static string Normalize(string? value) =>
-        string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToLowerInvariant();
+    private static string Normalize(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        return string.Join(
+            ' ',
+            value.ToLowerInvariant()
+                .Split([' ', '_', '-'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+    }
 
     private string GetLockedOutMessage()
     {
@@ -220,13 +228,49 @@ public sealed class AlphaSessionStateMachine
     private static string? InferAppName(string command)
     {
         var normalized = command.Trim();
-        var prefixes = new[] { "launch ", "open ", "start ", "run " };
+        var prefixes = new[]
+        {
+            "launch the application called ",
+            "launch the application named ",
+            "launch the app called ",
+            "launch the app named ",
+            "launch application ",
+            "launch app ",
+            "launch the application ",
+            "launch the app ",
+            "open the application called ",
+            "open the application named ",
+            "open the app called ",
+            "open the app named ",
+            "open application ",
+            "open app ",
+            "open the application ",
+            "open the app ",
+            "open up ",
+            "open up the app ",
+            "open up the application ",
+            "launch ",
+            "open ",
+            "start ",
+            "run "
+        };
         foreach (var prefix in prefixes)
         {
             if (normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                return normalized[prefix.Length..].Trim();
+                return TrimPoliteSuffix(normalized[prefix.Length..].Trim());
         }
 
-        return string.Empty;
+        return TrimPoliteSuffix(normalized);
+    }
+
+    private static string TrimPoliteSuffix(string value)
+    {
+        foreach (var suffix in new[] { " please", " thanks", " thank you" })
+        {
+            if (value.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                return value[..^suffix.Length].Trim();
+        }
+
+        return value;
     }
 }

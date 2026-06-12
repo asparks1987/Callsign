@@ -5,13 +5,15 @@ Behavior:
 1. dotnet publish a self-contained Windows desktop binary package.
 2. If Inno Setup Compiler (`iscc`) is installed, generate and build a real installer
    named Callsign-Setup.exe in the repo root.
-3. If Inno Setup is not available, create a root-level portable executable fallback
-   (Callsign-Portable.exe) and emit clear instructions.
+3. If Inno Setup is not available, use Windows IExpress to generate a per-user
+   installer executable named Callsign-Setup.exe in the repo root.
+4. Always create a root-level portable executable fallback (Callsign-Run.exe).
 #>
 
 [CmdletBinding()]
 param(
     [string]$ProjectPath = "$PSScriptRoot\src\Callsign.UI\Callsign.UI.csproj",
+    [string]$SetupProjectPath = "$PSScriptRoot\src\Callsign.Setup\Callsign.Setup.csproj",
     [string]$Runtime = "win-x64",
     [string]$Configuration = "Release",
     [string]$InstallerName = "Callsign-Setup",
@@ -31,6 +33,22 @@ $buildDir = Join-Path $root "build"
 $publishDir = Join-Path $buildDir "publish"
 $installerOutput = Join-Path $root "$InstallerName.exe"
 $portableOutput = Join-Path $root $PortableName
+
+function Copy-WithRetry([string]$Source, [string]$Destination, [int]$Attempts = 8) {
+    for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+        try {
+            Copy-Item -LiteralPath $Source -Destination $Destination -Force
+            return
+        }
+        catch {
+            if ($attempt -eq $Attempts) {
+                throw
+            }
+
+            Start-Sleep -Milliseconds (500 * $attempt)
+        }
+    }
+}
 
 if (Test-Path -LiteralPath $buildDir) {
     Remove-Item -LiteralPath $buildDir -Recurse -Force
@@ -69,7 +87,7 @@ if (-not $publishedExe) {
 }
 
 Write-Host "Published executable: $($publishedExe.FullName)"
-Copy-Item -LiteralPath $publishedExe.FullName -Destination $portableOutput -Force
+Copy-WithRetry -Source $publishedExe.FullName -Destination $portableOutput
 Write-Host "Always-generated launchable executable: $portableOutput"
 
 # Prefer a real installer by discovering `iscc` in PATH or common install locations.
@@ -143,9 +161,42 @@ Filename: "{app}\$publishedExeEsc"; Description: "Launch $appNameEsc"; Flags: no
     }
 }
 else {
-    Write-Warning "Inno Setup compiler (`iscc`) not found."
-    Write-Host "Use launchable executable: $portableOutput"
-    Write-Host "To create a real installer, install Inno Setup and re-run this script."
+    Write-Warning "Inno Setup compiler (`iscc`) not found. Building the bundled Callsign installer."
+
+    if (!(Test-Path -LiteralPath $SetupProjectPath)) {
+        throw "Setup project file not found: $SetupProjectPath"
+    }
+
+    $setupPayloadDir = Join-Path (Split-Path -Parent $SetupProjectPath) "Payload"
+    $setupOutputDir = Join-Path $buildDir "setup"
+    New-Item -ItemType Directory -Path $setupPayloadDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $setupOutputDir -Force | Out-Null
+    Copy-WithRetry -Source $publishedExe.FullName -Destination (Join-Path $setupPayloadDir "Callsign.UI.exe")
+
+    dotnet publish $SetupProjectPath `
+        -c $Configuration `
+        -r $Runtime `
+        --self-contained true `
+        -p:PublishSingleFile=true `
+        -p:IncludeNativeLibrariesForSelfExtract=true `
+        -p:EnableCompressionInSingleFile=true `
+        -p:DebugType=None `
+        -p:DebugSymbols=false `
+        -o $setupOutputDir
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "dotnet publish for Callsign setup failed with exit code $LASTEXITCODE"
+    }
+
+    $setupExe = Get-ChildItem -Path $setupOutputDir -Filter "Callsign-Setup.exe" -File |
+        Select-Object -First 1
+
+    if (-not $setupExe) {
+        throw "No setup executable found under $setupOutputDir"
+    }
+
+    Copy-WithRetry -Source $setupExe.FullName -Destination $installerOutput
+    Write-Host "Installer created: $installerOutput"
 }
 
 Write-Host "Done."

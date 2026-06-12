@@ -7,7 +7,7 @@ Status: current focus.
 Deliverables:
 
 - Public GitHub Pages landing page.
-- Clear open-source and freemium product story.
+- Clear open-source core and paid-tier product story.
 - Windows setup and onboarding UI.
 - Account creation and profile storage.
 - Voice enrollment state.
@@ -58,7 +58,8 @@ Exit criteria:
 
 Potential additions:
 
-- Freemium premium features.
+- Home tier features.
+- Advanced tier features.
 - Better voice models.
 - More identity options.
 - Workflow memory.
@@ -66,8 +67,10 @@ Potential additions:
 
 ## Platform roadmap
 
-- Windows first.
-- Linux support later, after the Windows alpha is stable and understandable.
+- Windows and Linux MVP together.
+- WSL-first Linux development and runtime bridge from Windows.
+- Free tier stays limited to Start menu launching and the visible onboarding flow.
+- Paid tiers provide deeper system control and higher-value automation.
 
 ## Roadmap principles
 
@@ -75,4 +78,3 @@ Potential additions:
 - Keep the core experience usable without a subscription.
 - Do not add hidden power before trust.
 - Expand only after the current alpha is reliable.
-

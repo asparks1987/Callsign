@@ -15,9 +15,9 @@ public sealed class ProfileStore
         WriteIndented = true
     };
 
-    public ProfileStore()
+    public ProfileStore(string? rootPath = null)
     {
-        _rootPath = Path.Combine(
+        _rootPath = rootPath ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Callsign",
             ProfilesFolderName);

@@ -72,13 +72,15 @@ Later phases can add richer desktop automation, but only after the alpha account
 
 ## Platform direction
 
-### Windows first
+### Windows and Linux MVP
 
-Windows is the alpha baseline.
+Windows and Linux are both MVP targets.
 
-### Linux later
+### WSL as the bridge
 
-Linux support is a roadmap target, not a baseline promise for alpha.
+WSL is the bridge for Linux development and runtime workflows from Windows.
+
+The current alpha should keep the Windows desktop path visible while also keeping the Linux story realistic through WSL-first tooling and parity planning.
 
 ## Design rules
 
@@ -86,4 +88,3 @@ Linux support is a roadmap target, not a baseline promise for alpha.
 - Keep identity before action.
 - Keep local state simple and inspectable.
 - Keep the product easy to explain.
-

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
+using System.Media;
 using System.Text.RegularExpressions;
 using Callsign.UI.Models;
 using Callsign.UI.Services;
@@ -12,11 +13,15 @@ public sealed class MainForm : Form
     private readonly ProfileStore _profileStore = new();
     private readonly AlphaSessionStateMachine _session = new();
     private readonly StartMenuLauncher _launcher = new();
+    private readonly AlphaAuditLog _auditLog;
+    private readonly VoiceCommandService _voiceCommandService = new();
+    private readonly VoiceSampleCaptureService _voiceSampleCapture = new();
     private readonly System.Windows.Forms.Timer _sessionTimer = new() { Interval = 1000 };
 
     private readonly List<UserProfile> _profiles = [];
     private UserProfile? _activeProfile;
     private bool _updatingUi;
+    private bool _formReadyForListener;
 
     private ComboBox _profilePicker = null!;
     private TextBox _callsignText = null!;
@@ -30,6 +35,8 @@ public sealed class MainForm : Form
     private Label _voiceStateLabel = null!;
     private Label _voiceSamplesLabel = null!;
     private Label _voiceLastTrainedLabel = null!;
+    private Label _voiceRecordingStateLabel = null!;
+    private Label _voicePlaybackStateLabel = null!;
     private TextBox _voicePromptText = null!;
     private ProgressBar _voiceProgress = null!;
 
@@ -38,14 +45,21 @@ public sealed class MainForm : Form
     private Label _sessionCommandLabel = null!;
     private Label _sessionCountdownLabel = null!;
     private Label _sessionResultLabel = null!;
+    private Label _listeningStateLabel = null!;
+    private Label _lastHeardLabel = null!;
     private TextBox _spokenCallsignText = null!;
     private TextBox _spokenCommandText = null!;
     private TextBox _appNameText = null!;
+    private TextBox _voicePhraseText = null!;
 
     private Button _recordSampleButton = null!;
+    private Button _playSampleButton = null!;
     private Button _trainVoiceButton = null!;
     private Button _resetVoiceButton = null!;
     private Button _wakeButton = null!;
+    private Button _startListeningButton = null!;
+    private Button _stopListeningButton = null!;
+    private Button _rehearsePhraseButton = null!;
     private Button _verifyButton = null!;
     private Button _captureButton = null!;
     private Button _launchButton = null!;
@@ -59,6 +73,8 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
+        _auditLog = new AlphaAuditLog(_profileStore);
+
         Text = "Callsign Alpha Setup";
         Width = 1080;
         Height = 780;
@@ -67,11 +83,20 @@ public sealed class MainForm : Form
 
         BuildForm();
 
+        _voiceCommandService.TranscriptReceived += VoiceTranscriptReceived;
+        _voiceCommandService.RecognitionError += VoiceRecognitionError;
+        _voiceCommandService.ListeningStateChanged += (_, _) => RunOnUiThread(UpdateListeningPanel);
+
         _sessionTimer.Tick += (_, _) => OnSessionTick();
         LoadProfiles();
         _sessionTimer.Start();
 
-        UpdateStatus("Create an account, enroll voice, then launch installed apps with wake word + callsign.");
+        UpdateStatus("Create an account, activate voice, then launch installed apps with wake word + callsign.");
+        Shown += (_, _) =>
+        {
+            _formReadyForListener = true;
+            TryStartListenerForActiveProfile();
+        };
     }
 
     private void BuildForm()
@@ -108,7 +133,7 @@ public sealed class MainForm : Form
     private TabPage BuildAccountTab()
     {
         var tab = new TabPage("Account");
-        var layout = BuildTwoColumnLayout(11);
+        var layout = BuildTwoColumnLayout(12);
 
         var heading = CreateHeading("Create the user account Callsign will verify against");
 
@@ -140,12 +165,18 @@ public sealed class MainForm : Form
         openFolderButton.Click += (_, _) => OpenProfileFolder();
 
         _accountPathLabel = new Label { AutoSize = true, ForeColor = Color.DimGray, Text = "No profile selected." };
-        _accountStateLabel = new Label { AutoSize = true, ForeColor = Color.DimGray, Text = "Voice not enrolled." };
+        _accountStateLabel = new Label { AutoSize = true, ForeColor = Color.DimGray, Text = "Voice not activated." };
 
         var row = 0;
         AddFullWidth(layout, heading, row++);
         AddRow(layout, "Active account", _profilePicker, row++);
         AddRow(layout, "Callsign", _callsignText, row++);
+        AddFullWidth(layout, new Label
+        {
+            AutoSize = true,
+            ForeColor = Color.DimGray,
+            Text = "Tip: choose something easy to say out loud, like Alpha or Aryn One. Prefer spoken words over digits."
+        }, row++);
         AddRow(layout, "Display name", _displayNameText, row++);
         AddRow(layout, "Email", _emailText, row++);
         AddRow(layout, "Department", _departmentText, row++);
@@ -153,7 +184,7 @@ public sealed class MainForm : Form
 
         layout.Controls.Add(new Label { Text = "Profile folder" }, 0, row);
         layout.Controls.Add(_accountPathLabel, 1, row++);
-        layout.Controls.Add(new Label { Text = "Enrollment status" }, 0, row);
+        layout.Controls.Add(new Label { Text = "Voice status" }, 0, row);
         layout.Controls.Add(_accountStateLabel, 1, row++);
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
@@ -173,12 +204,19 @@ public sealed class MainForm : Form
         var tab = new TabPage("Voice");
         var layout = BuildTwoColumnLayout(10);
 
-        var heading = CreateHeading("Train the service to recognize the user's voice");
+        var heading = CreateHeading("Record and review the callsign that unlocks voice control");
         var description = new Label
         {
             AutoSize = true,
             MaximumSize = new Size(900, 0),
-            Text = "Alpha v1 uses voice-only identity. Record a few clear samples, then mark the profile as enrolled."
+            Text = "Alpha v1 uses the activated callsign as the voice command gate. Hold the red record button while you speak, release to save the sample, then play it back before you activate voice control for this account."
+        };
+        var recordingTip = new Label
+        {
+            AutoSize = true,
+            MaximumSize = new Size(900, 0),
+            ForeColor = Color.DimGray,
+            Text = "The red button is press-and-hold only: keep it down while speaking so the user always knows when recording is live."
         };
 
         _voicePromptText = new TextBox
@@ -191,14 +229,32 @@ public sealed class MainForm : Form
         };
 
         _voiceProgress = new ProgressBar { Dock = DockStyle.Fill, Minimum = 0, Maximum = 3, Value = 0 };
-        _voiceStateLabel = new Label { AutoSize = true, Text = "Not enrolled." };
+        _voiceStateLabel = new Label { AutoSize = true, Text = "Not activated." };
         _voiceSamplesLabel = new Label { AutoSize = true, Text = "0 / 3 samples" };
-        _voiceLastTrainedLabel = new Label { AutoSize = true, Text = "Never trained." };
+        _voiceLastTrainedLabel = new Label { AutoSize = true, Text = "Never activated." };
+        _voiceRecordingStateLabel = new Label { AutoSize = true, Text = "No sample recording in progress." };
+        _voicePlaybackStateLabel = new Label { AutoSize = true, Text = "No sample available for playback." };
 
-        _recordSampleButton = new Button { Text = "Record Sample", Width = 130 };
-        _recordSampleButton.Click += (_, _) => RecordVoiceSample();
+        _recordSampleButton = new Button
+        {
+            Text = "● Hold to Record",
+            Width = 160,
+            Height = 44,
+            BackColor = Color.Firebrick,
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font(Font, FontStyle.Bold),
+            Cursor = Cursors.Hand
+        };
+        _recordSampleButton.FlatAppearance.BorderSize = 0;
+        _recordSampleButton.MouseDown += RecordSampleButtonMouseDown;
+        _recordSampleButton.MouseUp += RecordSampleButtonMouseUp;
+        _recordSampleButton.MouseLeave += RecordSampleButtonMouseLeave;
 
-        _trainVoiceButton = new Button { Text = "Train Voice", Width = 130 };
+        _playSampleButton = new Button { Text = "Play Sample", Width = 120, Height = 44 };
+        _playSampleButton.Click += (_, _) => PlayLatestVoiceSample();
+
+        _trainVoiceButton = new Button { Text = "Activate Voice", Width = 130 };
         _trainVoiceButton.Click += (_, _) => TrainVoiceIdentity();
 
         _resetVoiceButton = new Button { Text = "Reset Voice", Width = 130 };
@@ -207,14 +263,18 @@ public sealed class MainForm : Form
         var row = 0;
         AddFullWidth(layout, heading, row++);
         AddFullWidth(layout, description, row++);
+        AddFullWidth(layout, recordingTip, row++);
         AddRow(layout, "Sample prompt", _voicePromptText, row++);
         AddRow(layout, "Training progress", _voiceProgress, row++);
-        AddRow(layout, "Enrollment status", _voiceStateLabel, row++);
+        AddRow(layout, "Voice status", _voiceStateLabel, row++);
         AddRow(layout, "Samples recorded", _voiceSamplesLabel, row++);
-        AddRow(layout, "Last trained", _voiceLastTrainedLabel, row++);
+        AddRow(layout, "Last activated", _voiceLastTrainedLabel, row++);
+        AddRow(layout, "Recording", _voiceRecordingStateLabel, row++);
+        AddRow(layout, "Playback", _voicePlaybackStateLabel, row++);
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
         buttons.Controls.Add(_recordSampleButton);
+        buttons.Controls.Add(_playSampleButton);
         buttons.Controls.Add(_trainVoiceButton);
         buttons.Controls.Add(_resetVoiceButton);
         layout.Controls.Add(buttons, 1, row);
@@ -227,25 +287,45 @@ public sealed class MainForm : Form
     private TabPage BuildSessionTab()
     {
         var tab = new TabPage("Session");
-        var layout = BuildTwoColumnLayout(11);
+        var layout = BuildTwoColumnLayout(15);
 
         var heading = CreateHeading("Wake word, verify callsign, then launch an installed app");
         var description = new Label
         {
             AutoSize = true,
             MaximumSize = new Size(900, 0),
-            Text = "The visible alpha flow is: say 'Callsign', say your callsign, speak the command, then launch the app through Start search."
+            Text = "The alpha flow is: save a callsign, start listening, say 'Callsign' plus your callsign, then ask Callsign to launch an installed app through Start search. Starting the listener can activate voice for the saved callsign."
+        };
+        var examples = new Label
+        {
+            AutoSize = true,
+            MaximumSize = new Size(900, 0),
+            ForeColor = Color.DimGray,
+            Text = "Try: 'Callsign Alpha open Notepad', or say 'Callsign Alpha' then 'Notepad'. Test Phrase Launch can open the app. Say 'cancel' to clear the current command or 'stop listening' to turn off the microphone. Alpha accepts app names only, not paths, URLs, or terminal commands."
         };
 
         _spokenCallsignText = BuildTextInput();
         _spokenCommandText = BuildTextInput();
         _appNameText = BuildTextInput();
+        _voicePhraseText = BuildTextInput();
+        _voicePhraseText.PlaceholderText = "Callsign Alpha open Notepad";
 
         _sessionStateLabel = new Label { AutoSize = true, Text = "Idle." };
         _sessionIdentityLabel = new Label { AutoSize = true, Text = "Waiting for wake word." };
         _sessionCommandLabel = new Label { AutoSize = true, Text = "No command captured." };
         _sessionCountdownLabel = new Label { AutoSize = true, Text = "No timer running." };
         _sessionResultLabel = new Label { AutoSize = true, Text = "No launch yet." };
+        _listeningStateLabel = new Label { AutoSize = true, Text = "Microphone listener is stopped." };
+        _lastHeardLabel = new Label { AutoSize = true, MaximumSize = new Size(760, 0), Text = "Nothing heard yet." };
+
+        _startListeningButton = new Button { Text = "Start Listening", Width = 140 };
+        _startListeningButton.Click += (_, _) => StartVoiceListening();
+
+        _stopListeningButton = new Button { Text = "Stop Listening", Width = 130, Enabled = false };
+        _stopListeningButton.Click += (_, _) => StopVoiceListening();
+
+        _rehearsePhraseButton = new Button { Text = "Test Phrase Launch", Width = 150 };
+        _rehearsePhraseButton.Click += (_, _) => RehearseVoicePhrase();
 
         _wakeButton = new Button { Text = "Wake Word", Width = 120 };
         _wakeButton.Click += (_, _) => WakeSession();
@@ -268,6 +348,10 @@ public sealed class MainForm : Form
         var row = 0;
         AddFullWidth(layout, heading, row++);
         AddFullWidth(layout, description, row++);
+        AddFullWidth(layout, examples, row++);
+        AddRow(layout, "Launch test phrase", _voicePhraseText, row++);
+        AddRow(layout, "Listener", _listeningStateLabel, row++);
+        AddRow(layout, "Last heard", _lastHeardLabel, row++);
         AddRow(layout, "Spoken callsign", _spokenCallsignText, row++);
         AddRow(layout, "Spoken command", _spokenCommandText, row++);
         AddRow(layout, "App to launch", _appNameText, row++);
@@ -278,6 +362,9 @@ public sealed class MainForm : Form
         AddRow(layout, "Result", _sessionResultLabel, row++);
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
+        buttons.Controls.Add(_startListeningButton);
+        buttons.Controls.Add(_stopListeningButton);
+        buttons.Controls.Add(_rehearsePhraseButton);
         buttons.Controls.Add(_wakeButton);
         buttons.Controls.Add(_verifyButton);
         buttons.Controls.Add(_captureButton);
@@ -376,6 +463,10 @@ public sealed class MainForm : Form
 
     private void CreateNewProfile()
     {
+        StopVoiceSampleRecording(commit: false);
+        if (_voiceCommandService.IsListening)
+            StopVoiceListening();
+
         _updatingUi = true;
         try
         {
@@ -390,6 +481,7 @@ public sealed class MainForm : Form
             _spokenCallsignText.Text = string.Empty;
             _spokenCommandText.Text = "Launch Notepad";
             _appNameText.Text = "Notepad";
+            _voicePhraseText.Text = "Callsign Alpha open Notepad";
             _session.Reset();
         }
         finally
@@ -398,11 +490,15 @@ public sealed class MainForm : Form
         }
 
         RefreshAllPanels();
-        UpdateStatus("Create a new account, then save it before voice enrollment.");
+        UpdateStatus("Create a new account, then save it before voice activation.");
     }
 
     private void SelectProfile(UserProfile profile)
     {
+        StopVoiceSampleRecording(commit: false);
+        if (_voiceCommandService.IsListening)
+            StopVoiceListening();
+
         _activeProfile = profile;
         _updatingUi = true;
         try
@@ -414,6 +510,7 @@ public sealed class MainForm : Form
                 ? "Launch Notepad"
                 : $"Launch {profile.Settings.LastLaunchedApp}";
             _appNameText.Text = profile.Settings.LastLaunchedApp ?? "Notepad";
+            _voicePhraseText.Text = $"Callsign {profile.Callsign} open {_appNameText.Text}";
             _session.Reset();
         }
         finally
@@ -423,6 +520,8 @@ public sealed class MainForm : Form
 
         RefreshAllPanels();
         UpdateStatus($"Editing account '{profile.Callsign}'.");
+        if (_formReadyForListener)
+            TryStartListenerForActiveProfile();
     }
 
     private void LoadProfileIntoControls(UserProfile profile)
@@ -446,14 +545,14 @@ public sealed class MainForm : Form
         if (_activeProfile == null || string.IsNullOrWhiteSpace(_activeProfile.Callsign))
         {
             _accountPathLabel.Text = "No profile selected.";
-            _accountStateLabel.Text = "Voice not enrolled.";
+            _accountStateLabel.Text = "Voice not activated.";
             _newProfileButton.Enabled = true;
             _saveProfileButton.Enabled = true;
             _deleteProfileButton.Enabled = false;
             return;
         }
 
-        _accountPathLabel.Text = _profileStore.ResolveCallsSignFolder(_activeProfile.Callsign);
+        _accountPathLabel.Text = $"{_profileStore.ResolveCallsSignFolder(_activeProfile.Callsign)} (settings.json and alpha-audit.jsonl)";
         _accountStateLabel.Text = GetVoiceStatusText(_activeProfile.Settings);
         _deleteProfileButton.Enabled = true;
     }
@@ -464,13 +563,17 @@ public sealed class MainForm : Form
         {
             _voiceStateLabel.Text = "No account selected.";
             _voiceSamplesLabel.Text = "0 / 0 samples";
-            _voiceLastTrainedLabel.Text = "Never trained.";
+            _voiceLastTrainedLabel.Text = "Never activated.";
+            _voiceRecordingStateLabel.Text = "No sample recording in progress.";
+            _voicePlaybackStateLabel.Text = "No sample available for playback.";
             _voiceProgress.Value = 0;
             _voiceProgress.Maximum = 1;
             _voicePromptText.Text = "Create an account first.";
             _recordSampleButton.Enabled = false;
+            _playSampleButton.Enabled = false;
             _trainVoiceButton.Enabled = false;
             _resetVoiceButton.Enabled = false;
+            UpdateRecordButtonAppearance();
             return;
         }
 
@@ -482,13 +585,27 @@ public sealed class MainForm : Form
         _voiceSamplesLabel.Text = $"{settings.VoiceSamplesRecorded} / {settings.VoiceSamplesRequired} samples";
         _voiceLastTrainedLabel.Text = settings.VoiceEnrolledUtc.HasValue
             ? settings.VoiceEnrolledUtc.Value.ToLocalTime().ToString("f", CultureInfo.CurrentCulture)
-            : "Never trained.";
+            : "Never activated.";
         _voiceProgress.Maximum = settings.VoiceSamplesRequired;
         _voiceProgress.Value = Math.Min(settings.VoiceSamplesRecorded, _voiceProgress.Maximum);
-        _voicePromptText.Text = GetVoicePrompt(settings);
+        _voicePromptText.Text = GetVoicePrompt(_activeProfile, settings);
+        var latestSamplePath = GetLatestVoiceSamplePath(_activeProfile);
+        var hasSample = File.Exists(latestSamplePath);
+
+        _voiceRecordingStateLabel.Text = _voiceSampleCapture.IsRecording
+            ? "Recording now. Keep holding the red button until you finish speaking."
+            : hasSample
+                ? "Latest sample is ready for playback."
+                : "No sample recording in progress.";
+        _voicePlaybackStateLabel.Text = hasSample
+            ? $"Latest sample: {Path.GetFileName(latestSamplePath)}"
+            : "No sample available for playback.";
+
         _recordSampleButton.Enabled = true;
+        _playSampleButton.Enabled = hasSample && !_voiceSampleCapture.IsRecording;
         _trainVoiceButton.Enabled = true;
         _resetVoiceButton.Enabled = true;
+        UpdateRecordButtonAppearance();
     }
 
     private void RefreshSessionPanel()
@@ -508,7 +625,10 @@ public sealed class MainForm : Form
             ? $"Lockout remaining: {Math.Ceiling(lockoutRemaining.Value.TotalSeconds):0} seconds"
             : "No timeout active.";
 
-        _sessionResultLabel.Text = _session.StatusMessage;
+        _sessionResultLabel.Text = _session.State is AlphaSessionState.Idle or AlphaSessionState.Completed
+            && !string.IsNullOrWhiteSpace(_activeProfile?.Settings.LastLaunchedApp)
+            ? $"Last launched through Start menu: {_activeProfile.Settings.LastLaunchedApp}"
+            : _session.StatusMessage;
 
         var hasProfile = _activeProfile != null;
         var isEnrolled = hasProfile && IsVoiceEnrolled(_activeProfile!.Settings);
@@ -556,7 +676,7 @@ public sealed class MainForm : Form
                 _profilePicker.SelectedIndex = loadedIndex;
                 SelectProfile(_profiles[loadedIndex]);
             }
-            UpdateStatus($"Account '{normalizedCallsign}' saved.");
+            UpdateStatus($"Account '{normalizedCallsign}' saved. Try: Callsign {normalizedCallsign} open Notepad.");
             return;
         }
 
@@ -578,17 +698,20 @@ public sealed class MainForm : Form
         SaveVoiceState(profile);
         _profileStore.Save(profile);
         LoadProfiles();
-        var loadedIndex = _profiles.FindIndex(p => string.Equals(p.Callsign, profile.Callsign, StringComparison.OrdinalIgnoreCase));
-        if (loadedIndex >= 0)
+        var createdProfileIndex = _profiles.FindIndex(p => string.Equals(p.Callsign, profile.Callsign, StringComparison.OrdinalIgnoreCase));
+        if (createdProfileIndex >= 0)
         {
-            _profilePicker.SelectedIndex = loadedIndex;
-            SelectProfile(_profiles[loadedIndex]);
+            _profilePicker.SelectedIndex = createdProfileIndex;
+            SelectProfile(_profiles[createdProfileIndex]);
         }
-        UpdateStatus($"Account '{profile.Callsign}' created.");
+        UpdateStatus($"Account '{profile.Callsign}' created. Try: Callsign {profile.Callsign} open Notepad.");
     }
 
     private void DeleteProfile()
     {
+        if (_voiceCommandService.IsListening)
+            StopVoiceListening();
+
         if (_activeProfile == null || string.IsNullOrWhiteSpace(_activeProfile.Callsign))
         {
             UpdateStatus("Choose an account to delete.");
@@ -614,58 +737,56 @@ public sealed class MainForm : Form
 
     private void RecordVoiceSample()
     {
-        if (!EnsureActiveProfile(out var profile))
-            return;
-
-        profile.Settings.VoiceSamplesRequired = Math.Max(1, profile.Settings.VoiceSamplesRequired);
-        profile.Settings.VoiceSamplesRecorded = Math.Min(profile.Settings.VoiceSamplesRequired, profile.Settings.VoiceSamplesRecorded + 1);
-        profile.Settings.VoiceEnrollmentStatus = profile.Settings.VoiceSamplesRecorded >= profile.Settings.VoiceSamplesRequired
-            ? "Ready to train"
-            : $"Collecting sample {profile.Settings.VoiceSamplesRecorded} of {profile.Settings.VoiceSamplesRequired}";
-        profile.Settings.VoiceEnrolledUtc = null;
-        SaveVoiceState(profile);
-        _profileStore.Save(profile);
-        RefreshAllPanels();
-        UpdateStatus("Voice sample recorded.");
+        throw new NotSupportedException("Use press-and-hold recording events.");
     }
 
     private void TrainVoiceIdentity()
     {
+        StopVoiceSampleRecording();
+        if ((_activeProfile == null || string.IsNullOrWhiteSpace(_activeProfile.Callsign))
+            && !string.IsNullOrWhiteSpace(_callsignText.Text))
+        {
+            SaveProfile();
+        }
+
         if (!EnsureActiveProfile(out var profile))
             return;
 
+        ActivateVoiceForProfile(profile, startingListener: true);
+        StartVoiceListening();
+    }
+
+    private void ActivateVoiceForProfile(UserProfile profile, bool startingListener)
+    {
         var settings = profile.Settings;
         settings.VoiceSamplesRequired = Math.Max(1, settings.VoiceSamplesRequired);
         if (settings.VoiceSamplesRecorded < settings.VoiceSamplesRequired)
-        {
-            settings.VoiceEnrollmentStatus = $"Need {settings.VoiceSamplesRequired - settings.VoiceSamplesRecorded} more sample(s).";
-            SaveVoiceState(profile);
-            _profileStore.Save(profile);
-            RefreshAllPanels();
-            UpdateStatus(settings.VoiceEnrollmentStatus);
-            return;
-        }
+            settings.VoiceSamplesRecorded = settings.VoiceSamplesRequired;
 
-        settings.VoiceEnrollmentStatus = "Enrolled";
+        settings.VoiceEnrollmentStatus = "Activated";
         settings.VoiceEnrolledUtc = DateTime.UtcNow;
         SaveVoiceState(profile);
         _profileStore.Save(profile);
         RefreshAllPanels();
-        UpdateStatus($"Voice enrolled for '{profile.Callsign}'.");
+        UpdateStatus(startingListener
+            ? $"Voice activated for '{profile.Callsign}'. Starting listener."
+            : $"Voice activated for '{profile.Callsign}'.");
     }
 
     private void ResetVoiceIdentity()
     {
+        StopVoiceSampleRecording(commit: false);
         if (!EnsureActiveProfile(out var profile))
             return;
 
         profile.Settings.VoiceSamplesRecorded = 0;
-        profile.Settings.VoiceEnrollmentStatus = "Not enrolled";
+        profile.Settings.VoiceEnrollmentStatus = "Not activated";
         profile.Settings.VoiceEnrolledUtc = null;
+        StopVoiceListening();
         SaveVoiceState(profile);
         _profileStore.Save(profile);
         RefreshAllPanels();
-        UpdateStatus("Voice enrollment reset.");
+        UpdateStatus("Voice activation reset.");
     }
 
     private void WakeSession()
@@ -673,6 +794,365 @@ public sealed class MainForm : Form
         _session.DetectWakeWord();
         RefreshSessionPanel();
         UpdateStatus(_session.StatusMessage);
+    }
+
+    private void StartVoiceListening()
+    {
+        StopVoiceSampleRecording();
+        if (_voiceCommandService.IsListening)
+        {
+            UpdateStatus("Callsign is already listening.");
+            return;
+        }
+
+        if ((_activeProfile == null || string.IsNullOrWhiteSpace(_activeProfile.Callsign))
+            && !string.IsNullOrWhiteSpace(_callsignText.Text))
+        {
+            SaveProfile();
+        }
+
+        if (!EnsureActiveProfile(out var profile))
+            return;
+
+        if (!IsVoiceEnrolled(profile.Settings))
+        {
+            ActivateVoiceForProfile(profile, startingListener: true);
+        }
+
+        _spokenCallsignText.Text = string.Empty;
+        _spokenCommandText.Text = string.Empty;
+        _appNameText.Text = string.Empty;
+        _session.Reset();
+        RefreshSessionPanel();
+        _voiceCommandService.Start(profile.Settings.LanguageCode, profile.Settings.WakeWord, profile.Callsign);
+        UpdateListeningPanel();
+        if (_voiceCommandService.IsListening)
+        {
+            var warning = string.IsNullOrWhiteSpace(_voiceCommandService.LastStartupWarning)
+                ? string.Empty
+                : $" {_voiceCommandService.LastStartupWarning}";
+            UpdateStatus($"Listening. Say 'Callsign', your callsign, and the app you want to launch.{warning}");
+        }
+    }
+
+    private void TryStartListenerForActiveProfile()
+    {
+        if (_activeProfile == null || _voiceCommandService.IsListening)
+            return;
+
+        if (!IsVoiceEnrolled(_activeProfile.Settings))
+            return;
+
+        StartVoiceListening();
+    }
+
+    private void StopVoiceListening()
+    {
+        if (!_voiceCommandService.IsListening)
+        {
+            UpdateListeningPanel();
+            UpdateStatus("Voice listener is already stopped.");
+            return;
+        }
+
+        _voiceCommandService.Stop();
+        UpdateListeningPanel();
+        UpdateStatus("Voice listener stopped.");
+    }
+
+    private void RecordSampleButtonMouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left)
+            return;
+
+        StartVoiceSampleRecording();
+    }
+
+    private void RecordSampleButtonMouseUp(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left)
+            return;
+
+        StopVoiceSampleRecording();
+    }
+
+    private void RecordSampleButtonMouseLeave(object? sender, EventArgs e)
+    {
+        if (_voiceSampleCapture.IsRecording)
+            _recordSampleButton.Capture = true;
+    }
+
+    private void StartVoiceSampleRecording()
+    {
+        if (!EnsureActiveProfile(out var profile))
+            return;
+
+        if (_voiceSampleCapture.IsRecording)
+            return;
+
+        if (_voiceCommandService.IsListening)
+            StopVoiceListening();
+
+        var samplePath = GetLatestVoiceSamplePath(profile);
+        try
+        {
+            _voiceSampleCapture.Start(samplePath);
+            _recordSampleButton.Capture = true;
+            UpdateRecordButtonAppearance();
+            _voiceRecordingStateLabel.Text = "Recording now. Keep holding the red button while you speak.";
+            _voicePlaybackStateLabel.Text = "Playback is available after you release the button.";
+            UpdateStatus("Recording sample. Keep holding the red button while you speak.");
+        }
+        catch (Exception ex)
+        {
+            _recordSampleButton.Capture = false;
+            UpdateRecordButtonAppearance();
+            UpdateStatus($"Unable to start recording: {ex.Message}");
+        }
+    }
+
+    private void StopVoiceSampleRecording(bool commit = true)
+    {
+        if (!_voiceSampleCapture.IsRecording)
+        {
+            UpdateRecordButtonAppearance();
+            return;
+        }
+
+        var profile = _activeProfile;
+        var samplePath = profile == null ? null : GetLatestVoiceSamplePath(profile);
+
+        try
+        {
+            _voiceSampleCapture.Stop();
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to stop recording cleanly: {ex.Message}");
+        }
+        finally
+        {
+            _recordSampleButton.Capture = false;
+            UpdateRecordButtonAppearance();
+        }
+
+        if (!commit || profile == null || string.IsNullOrWhiteSpace(samplePath))
+        {
+            if (!commit && !string.IsNullOrWhiteSpace(samplePath) && File.Exists(samplePath))
+            {
+                try
+                {
+                    File.Delete(samplePath);
+                }
+                catch
+                {
+                    // Best-effort cleanup only.
+                }
+            }
+
+            RefreshVoicePanel();
+            return;
+        }
+
+        try
+        {
+            var fileInfo = new FileInfo(samplePath);
+            if (!fileInfo.Exists || fileInfo.Length <= 64)
+            {
+                if (fileInfo.Exists)
+                    fileInfo.Delete();
+
+                _voiceRecordingStateLabel.Text = "Recording was too short. Hold the button a little longer next time.";
+                _voicePlaybackStateLabel.Text = "No sample available for playback.";
+                UpdateStatus("Recording was too short to save.");
+                RefreshVoicePanel();
+                return;
+            }
+
+            profile.Settings.VoiceSamplesRequired = Math.Max(1, profile.Settings.VoiceSamplesRequired);
+            profile.Settings.VoiceSamplesRecorded = Math.Min(profile.Settings.VoiceSamplesRequired, profile.Settings.VoiceSamplesRecorded + 1);
+            profile.Settings.VoiceEnrollmentStatus = profile.Settings.VoiceSamplesRecorded >= profile.Settings.VoiceSamplesRequired
+                ? "Ready to activate"
+                : $"Collecting sample {profile.Settings.VoiceSamplesRecorded} of {profile.Settings.VoiceSamplesRequired}";
+            profile.Settings.VoiceEnrolledUtc = null;
+            SaveVoiceState(profile);
+            _profileStore.Save(profile);
+            RefreshAllPanels();
+
+            var remaining = Math.Max(0, profile.Settings.VoiceSamplesRequired - profile.Settings.VoiceSamplesRecorded);
+            UpdateStatus(remaining == 0
+                ? "Sample saved. You can play it back or activate voice now."
+                : $"Sample saved. {remaining} more sample(s) before activation.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Recording was captured, but profile save failed: {ex.Message}");
+        }
+    }
+
+    private void PlayLatestVoiceSample()
+    {
+        if (!EnsureActiveProfile(out var profile))
+            return;
+
+        var samplePath = GetLatestVoiceSamplePath(profile);
+        if (!File.Exists(samplePath))
+        {
+            UpdateStatus("Record a sample before playing it back.");
+            return;
+        }
+
+        try
+        {
+            using var player = new SoundPlayer(samplePath);
+            player.Play();
+            UpdateStatus("Playing back the latest voice sample.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to play voice sample: {ex.Message}");
+        }
+    }
+
+    private void RehearseVoicePhrase()
+    {
+        if ((_activeProfile == null || string.IsNullOrWhiteSpace(_activeProfile.Callsign))
+            && !string.IsNullOrWhiteSpace(_callsignText.Text))
+        {
+            SaveProfile();
+        }
+
+        if (!EnsureActiveProfile(out var profile))
+            return;
+
+        if (!IsVoiceEnrolled(profile.Settings))
+            ActivateVoiceForProfile(profile, startingListener: false);
+
+        var phrase = _voicePhraseText.Text.Trim();
+        if (string.IsNullOrWhiteSpace(phrase))
+        {
+            var appName = string.IsNullOrWhiteSpace(_appNameText.Text) ? "Notepad" : _appNameText.Text.Trim();
+            phrase = _session.State == AlphaSessionState.WaitingForCommand
+                ? appName
+                : $"Callsign {profile.Callsign} open {appName}";
+            _voicePhraseText.Text = phrase;
+        }
+
+        if (string.IsNullOrWhiteSpace(phrase))
+        {
+            UpdateStatus("Enter a launch test phrase, such as 'Callsign Alpha open Notepad'.");
+            return;
+        }
+
+        HandleVoiceTranscript($"[rehearsal] {phrase}", phrase, 1.0f);
+    }
+
+    private void VoiceTranscriptReceived(object? sender, VoiceTranscriptEventArgs e)
+    {
+        if (IsDisposed)
+            return;
+
+        RunOnUiThread(() => HandleVoiceTranscript(e.Text, e.Text, e.Confidence));
+    }
+
+    private void VoiceRecognitionError(object? sender, VoiceRecognitionErrorEventArgs e)
+    {
+        if (IsDisposed)
+            return;
+
+        RunOnUiThread(() =>
+        {
+            UpdateListeningPanel();
+            UpdateStatus(e.Message);
+        });
+    }
+
+    private void HandleVoiceTranscript(string displayTranscript, string transcript, float confidence)
+    {
+        _lastHeardLabel.Text = $"{displayTranscript} ({confidence:P0} confidence)";
+
+        if (IsStopListeningCommand(transcript))
+        {
+            StopVoiceListening();
+            return;
+        }
+
+        if (IsCancelCommand(transcript))
+        {
+            CancelSession();
+            return;
+        }
+
+        if (confidence < 0.45f)
+        {
+            UpdateStatus("Heard speech, but confidence was too low. Try again clearly.");
+            return;
+        }
+
+        if (!EnsureActiveProfile(out var profile))
+            return;
+
+        var wakeWord = string.IsNullOrWhiteSpace(profile.Settings.WakeWord)
+            ? "Callsign"
+            : profile.Settings.WakeWord;
+
+        if (ContainsWakeWord(transcript, wakeWord)
+            && _session.State is AlphaSessionState.Idle or AlphaSessionState.Completed)
+        {
+            WakeSession();
+        }
+
+        var normalizedCommand = NormalizeLaunchCommand(ExtractCommandFromTranscript(transcript, wakeWord, profile.Callsign));
+        var hasCommandHint = !string.IsNullOrWhiteSpace(normalizedCommand);
+        if (_session.State == AlphaSessionState.WaitingForIdentity
+            && ContainsSpeechPhrase(transcript, profile.Callsign))
+        {
+            _spokenCallsignText.Text = profile.Callsign;
+            VerifyIdentity();
+
+            if (hasCommandHint && _session.State == AlphaSessionState.WaitingForCommand)
+            {
+                _spokenCommandText.Text = normalizedCommand;
+            }
+        }
+
+        if (_session.State == AlphaSessionState.WaitingForCommand)
+        {
+            if (!string.IsNullOrWhiteSpace(normalizedCommand))
+            {
+                _spokenCommandText.Text = normalizedCommand;
+                var appName = InferAppName(normalizedCommand);
+                if (!string.IsNullOrWhiteSpace(appName))
+                {
+                    _appNameText.Text = appName;
+                    _sessionResultLabel.Text = $"Parsed Start menu target: {appName}";
+                }
+
+                CaptureCommand();
+            }
+            else
+            {
+                var normalizedTranscript = NormalizeSpeechText(transcript);
+                if (normalizedTranscript.Contains(" open ", StringComparison.OrdinalIgnoreCase)
+                    || normalizedTranscript.Contains(" launch ", StringComparison.OrdinalIgnoreCase)
+                    || normalizedTranscript.Contains(" start ", StringComparison.OrdinalIgnoreCase)
+                    || normalizedTranscript.Contains(" run ", StringComparison.OrdinalIgnoreCase))
+                {
+                    UpdateStatus("Identity verified, but I could not parse a clear app name. Try: 'Callsign <callsign> open Notepad'.");
+                }
+                else
+                {
+                    UpdateStatus("Identity verified. Say an app command like 'open Notepad'.");
+                }
+            }
+        }
+
+        if (_session.State == AlphaSessionState.ReadyToLaunch
+            && !string.IsNullOrWhiteSpace(_appNameText.Text))
+        {
+            _sessionResultLabel.Text = $"Action intent: launch '{_appNameText.Text.Trim()}' through Start menu search.";
+            LaunchAppFromStartMenu();
+        }
     }
 
     private void VerifyIdentity()
@@ -731,9 +1211,16 @@ public sealed class MainForm : Form
             profile.Settings.LastLaunchedApp = target;
             SaveVoiceState(profile);
             _profileStore.Save(profile);
+            var auditRecorded = _auditLog.TryRecordStartMenuLaunch(profile, target, out var auditWarning);
             _session.CompleteLaunch();
+            _spokenCallsignText.Text = string.Empty;
+            _spokenCommandText.Text = string.Empty;
+            _appNameText.Text = string.Empty;
             RefreshAllPanels();
-            UpdateStatus($"Launched '{target}' from Start menu.");
+            _sessionResultLabel.Text = $"Launched '{target}' through Start menu search.";
+            UpdateStatus(auditRecorded
+                ? $"Launched '{target}' from Start menu and recorded the local alpha audit event. Say 'Callsign {profile.Callsign}' to launch another app."
+                : auditWarning ?? $"Launched '{target}' from Start menu, but audit logging reported a warning.");
             return;
         }
 
@@ -744,6 +1231,7 @@ public sealed class MainForm : Form
 
     private void CancelSession()
     {
+        StopVoiceSampleRecording(commit: false);
         _session.Cancel("Session cancelled.");
         RefreshSessionPanel();
         UpdateStatus("Session cancelled.");
@@ -751,6 +1239,10 @@ public sealed class MainForm : Form
 
     private void ResetSession()
     {
+        StopVoiceSampleRecording(commit: false);
+        if (_voiceCommandService.IsListening)
+            StopVoiceListening();
+
         _session.Reset();
         RefreshSessionPanel();
         UpdateStatus("Session reset to idle.");
@@ -809,31 +1301,44 @@ public sealed class MainForm : Form
         profile.Settings.VoiceSamplesRequired = Math.Max(1, profile.Settings.VoiceSamplesRequired);
         profile.Settings.VoiceSamplesRecorded = Math.Max(0, profile.Settings.VoiceSamplesRecorded);
         if (string.IsNullOrWhiteSpace(profile.Settings.VoiceEnrollmentStatus))
-            profile.Settings.VoiceEnrollmentStatus = "Not enrolled";
+            profile.Settings.VoiceEnrollmentStatus = "Not activated";
+        else
+            profile.Settings.VoiceEnrollmentStatus = NormalizeVoiceStatus(profile.Settings.VoiceEnrollmentStatus);
     }
 
     private static string GetVoiceStatusText(UserSettings settings)
     {
         if (settings.VoiceEnrolledUtc.HasValue)
-            return $"Enrolled on {settings.VoiceEnrolledUtc.Value.ToLocalTime():f}";
+            return $"Activated on {settings.VoiceEnrolledUtc.Value.ToLocalTime():f}. Listener resumes when Callsign opens.";
 
         return string.IsNullOrWhiteSpace(settings.VoiceEnrollmentStatus)
-            ? "Not enrolled."
-            : settings.VoiceEnrollmentStatus;
+            ? "Not activated."
+            : NormalizeVoiceStatus(settings.VoiceEnrollmentStatus);
     }
+
+    private static string NormalizeVoiceStatus(string status) =>
+        status.Trim() switch
+        {
+            "Enrolled" => "Activated",
+            "Not enrolled" => "Not activated",
+            "Ready to train" => "Ready to activate",
+            var value when value.StartsWith("Need ", StringComparison.OrdinalIgnoreCase) => value.Replace("sample(s).", "sample(s) before activation.", StringComparison.OrdinalIgnoreCase),
+            var value => value
+        };
 
     private static bool IsVoiceEnrolled(UserSettings settings) =>
         settings.VoiceEnrolledUtc.HasValue && settings.VoiceSamplesRecorded >= settings.VoiceSamplesRequired;
 
-    private static string GetVoicePrompt(UserSettings settings)
+    private static string GetVoicePrompt(UserProfile? profile, UserSettings settings)
     {
         var nextSample = Math.Min(settings.VoiceSamplesRecorded + 1, settings.VoiceSamplesRequired);
+        var callsign = string.IsNullOrWhiteSpace(profile?.Callsign) ? "your callsign" : profile.Callsign;
         return nextSample switch
         {
-            1 => "Sample 1: Say 'Callsign'.",
-            2 => "Sample 2: Say 'Callsign, open Notepad'.",
-            3 => "Sample 3: Say 'Callsign, launch an app'.",
-            _ => "Review your samples and train the profile."
+            1 => $"Sample 1: Say 'Callsign {callsign}'.",
+            2 => $"Sample 2: Say 'Callsign {callsign}, open Notepad'.",
+            3 => $"Sample 3: Say 'Callsign {callsign}, launch Calculator'.",
+            _ => "Review your samples and activate voice control."
         };
     }
 
@@ -843,7 +1348,37 @@ public sealed class MainForm : Form
         if (string.IsNullOrWhiteSpace(trimmed))
             return string.Empty;
 
-        foreach (var prefix in new[] { "launch ", "open ", "start ", "run " })
+        foreach (var prefix in new[]
+        {
+            "to open ",
+            "to launch ",
+            "to start ",
+            "to run ",
+            "to ",
+            "launch the application called ",
+            "launch the application named ",
+            "launch the app called ",
+            "launch the app named ",
+            "launch application ",
+            "launch app ",
+            "launch the application ",
+            "launch the app ",
+            "open the application called ",
+            "open the application named ",
+            "open the app called ",
+            "open the app named ",
+            "open application ",
+            "open app ",
+            "open the application ",
+            "open the app ",
+            "open up ",
+            "open up the app ",
+            "open up the application ",
+            "launch ",
+            "open ",
+            "start ",
+            "run "
+        })
         {
             if (trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 return trimmed[prefix.Length..].Trim();
@@ -852,9 +1387,191 @@ public sealed class MainForm : Form
         return trimmed;
     }
 
+    private void UpdateListeningPanel()
+    {
+        _listeningStateLabel.Text = _voiceCommandService.IsListening
+            ? "Microphone listener is running."
+            : "Microphone listener is stopped.";
+        _startListeningButton.Enabled = !_voiceCommandService.IsListening;
+        _stopListeningButton.Enabled = _voiceCommandService.IsListening;
+    }
+
+    private void UpdateRecordButtonAppearance()
+    {
+        if (_recordSampleButton == null)
+            return;
+
+        if (_voiceSampleCapture.IsRecording)
+        {
+            _recordSampleButton.Text = "■ Recording - release to stop";
+            _recordSampleButton.BackColor = Color.Maroon;
+        }
+        else
+        {
+            _recordSampleButton.Text = "● Hold to Record";
+            _recordSampleButton.BackColor = Color.Firebrick;
+        }
+    }
+
+    private string GetLatestVoiceSamplePath(UserProfile profile)
+    {
+        var folder = Path.Combine(_profileStore.ResolveCallsSignFolder(profile.Callsign), "voice-samples");
+        return Path.Combine(folder, "latest.wav");
+    }
+
+    private static bool ContainsSpeechPhrase(string transcript, string phrase)
+    {
+        var normalizedTranscript = $" {NormalizeSpeechText(transcript)} ";
+        var normalizedPhrase = NormalizeSpeechText(phrase);
+        return !string.IsNullOrWhiteSpace(normalizedPhrase)
+            && normalizedTranscript.Contains($" {normalizedPhrase} ", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ContainsWakeWord(string transcript, string wakeWord) =>
+        ContainsSpeechPhrase(transcript, wakeWord)
+        || ContainsSpeechPhrase(transcript, "call sign");
+
+    private static string ExtractCommandFromTranscript(string transcript, string wakeWord, string callsign)
+    {
+        var command = NormalizeSpeechText(transcript);
+        command = RemoveSpeechPhrase(command, wakeWord);
+        command = RemoveSpeechPhrase(command, "call sign");
+        command = RemoveSpeechPhrase(command, callsign);
+        return command.Trim();
+    }
+
+    private static string NormalizeLaunchCommand(string command)
+    {
+        var normalized = command.Trim();
+        var prefixes = new[]
+        {
+            "to open ",
+            "to launch ",
+            "to start ",
+            "to run ",
+            "to ",
+            "please ",
+            "can you ",
+            "could you ",
+            "would you ",
+            "i want you to "
+        };
+
+        var changed = true;
+        while (changed)
+        {
+            changed = false;
+            foreach (var prefix in prefixes)
+            {
+                if (!normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                normalized = normalized[prefix.Length..].Trim();
+                changed = true;
+                break;
+            }
+        }
+
+        var trim = true;
+        while (trim)
+        {
+            trim = false;
+            foreach (var suffix in new[]
+                     {
+                         " please please",
+                         " please",
+                         " thanks",
+                         " thank you"
+                     })
+            {
+                if (!normalized.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                normalized = normalized[..^suffix.Length].Trim();
+                trim = true;
+                break;
+            }
+        }
+
+        if (normalized is "please" or "thanks" or "thank you")
+            return string.Empty;
+
+        return normalized;
+    }
+
+    private static bool IsCancelCommand(string transcript)
+    {
+        var normalized = NormalizeSpeechText(transcript);
+        return normalized is "cancel"
+            or "callsign cancel"
+            or "call sign cancel"
+            or "cancel session"
+            or "callsign cancel session"
+            or "call sign cancel session"
+            or "never mind"
+            or "callsign never mind"
+            or "call sign never mind"
+            or "nevermind"
+            or "callsign nevermind"
+            or "call sign nevermind"
+            or "stop command"
+            or "callsign stop command"
+            or "call sign stop command";
+    }
+
+    private static bool IsStopListeningCommand(string transcript)
+    {
+        var normalized = NormalizeSpeechText(transcript);
+        return normalized is "stop listening" or "callsign stop listening" or "call sign stop listening";
+    }
+
+    private static string RemoveSpeechPhrase(string transcript, string phrase)
+    {
+        var normalizedPhrase = NormalizeSpeechText(phrase);
+        if (string.IsNullOrWhiteSpace(normalizedPhrase))
+            return transcript;
+
+        return Regex.Replace(
+            $" {transcript} ",
+            $@"\s{Regex.Escape(normalizedPhrase)}\s",
+            " ",
+            RegexOptions.IgnoreCase).Trim();
+    }
+
+    private static string NormalizeSpeechText(string value) =>
+        Regex.Replace(value.ToLowerInvariant(), @"[^a-z0-9]+", " ").Trim();
+
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        _voiceSampleCapture.Dispose();
+        _voiceCommandService.Dispose();
+        base.OnFormClosing(e);
+    }
+
     private void UpdateStatus(string message)
     {
         _statusLabel.Text = message;
+    }
+
+    private void RunOnUiThread(Action action)
+    {
+        if (IsDisposed)
+            return;
+
+        if (!IsHandleCreated)
+            return;
+
+        if (!InvokeRequired)
+        {
+            action();
+            return;
+        }
+
+        BeginInvoke((Action)(() =>
+        {
+            if (!IsDisposed)
+                action();
+        }));
     }
 
     private static bool ValidateCallsign(string callsign, out string normalized)

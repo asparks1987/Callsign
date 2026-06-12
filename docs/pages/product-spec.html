@@ -45,7 +45,7 @@
 <h2>Product name</h2>
 <p>Callsign</p>
 <h2>One-line description</h2>
-<p>Callsign is a Windows-first voice assistant that wakes on the word <code>Callsign</code>, confirms the user&#x27;s callsign, and helps launch installed apps and complete routine desktop tasks in a visible way.</p>
+<p>Callsign is a Windows + WSL-first voice assistant that wakes on the word <code>Callsign</code>, confirms the user&#x27;s callsign, and helps launch installed apps in a visible way.</p>
 <h2>Product thesis</h2>
 <p>Callsign should feel like a helpful desktop companion, not a hidden macro recorder.</p>
 <p>The public promise is simple:</p>
@@ -56,8 +56,18 @@
 <p>If identity fails, the command window closes and nothing launches.</p>
 <h2>Current MVP scope</h2>
 <ul><li>Windows setup and onboarding UI.</li><li>User account creation and profile storage.</li><li>Voice sample recording and enrollment state.</li><li>Wake word plus callsign identity flow.</li><li>Visible app launch through the Start menu.</li><li>Clear status messages and stop/reset controls.</li></ul>
+<h2>Product tiers</h2>
+<h3>Free</h3>
+<p>The free version should support:</p>
+<ul><li>Wake word plus callsign identity.</li><li>Launching installed apps through the Start menu.</li><li>Basic setup and voice enrollment.</li></ul>
+<h3>Home</h3>
+<p>The Home tier should add:</p>
+<ul><li>Deeper desktop control.</li><li>More guided workflows.</li><li>Broader routine task support.</li></ul>
+<h3>Advanced</h3>
+<p>The Advanced tier should add:</p>
+<ul><li>More in-depth control of the system.</li><li>More automation depth and power-user tools.</li><li>Higher-value features that justify a paid subscription or license.</li></ul>
 <h2>Explicit non-goals for alpha</h2>
-<ul><li>Arbitrary shell execution.</li><li>Password, 2FA, or payment entry.</li><li>Hidden or minimized automation.</li><li>Remote control or background surveillance.</li><li>Silent email, upload, or submission actions.</li><li>Linux as a baseline target before the Windows alpha is stable.</li></ul>
+<ul><li>Arbitrary shell execution.</li><li>Password, 2FA, or payment entry.</li><li>Hidden or minimized automation.</li><li>Remote control or background surveillance.</li><li>Silent email, upload, or submission actions.</li><li>Linux as a baseline target separate from Windows and WSL MVP support.</li></ul>
 <h2>Product principles</h2>
 <h3>1. The user stays in command</h3>
 <p>Callsign only acts after the user has clearly asked it to.</p>
@@ -65,8 +75,8 @@
 <p>The user must say the wake word and their callsign before command capture begins.</p>
 <h3>3. Visibility beats cleverness</h3>
 <p>The user should be able to see what Callsign is doing, stop it, and understand the result.</p>
-<h3>4. Open source core, paid future</h3>
-<p>The core desktop experience should remain free and open source. Future paid offerings should help cover costs and create profit, but they must not undermine the local, visible workflow.</p>
+<h3>4. Open source core, paid tiers</h3>
+<p>The core desktop experience should remain free and open source. Future paid tiers, including Home and Advanced, should help cover costs and create profit, but they must not undermine the local, visible workflow.</p>
 <h2>Success metrics</h2>
 <ul><li>A new user can create an account without help.</li><li>A new user can enroll voice in a few clear steps.</li><li>The app can launch a common installed application reliably.</li><li>The user can stop or reset the session at any time.</li><li>The app does not proceed when identity fails.</li></ul>
 <h2>Open product questions</h2>

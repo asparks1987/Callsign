@@ -60,9 +60,8 @@ Future app packaging can add:
 - A real background service.
 - A tray helper.
 - Better update handling.
-- Optional premium cloud-connected features.
+- Optional Home and Advanced tier features.
 
-## Linux roadmap
+## Linux and WSL
 
-Linux packaging is a later phase and should not be treated as a current alpha promise.
-
+Linux packaging is part of the MVP direction, with WSL as the bridge for development and runtime workflows from Windows.

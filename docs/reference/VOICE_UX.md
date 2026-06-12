@@ -39,6 +39,8 @@ Examples:
 - `open Calculator`
 - `start Visual Studio Code`
 
+For the free version, the main supported action is launching installed apps from the Start menu. Deeper control belongs in the Home and Advanced tiers.
+
 ### Recovery mode
 
 If identity fails or times out, the assistant should clearly tell the user to try again.
@@ -82,4 +84,3 @@ Required behavior:
 - Keep the session state visible.
 - Make the current phase obvious.
 - Allow voice enrollment to be retried.
-

@@ -6,7 +6,7 @@ Callsign
 
 ## One-line description
 
-Callsign is a Windows-first voice assistant that wakes on the word `Callsign`, confirms the user's callsign, and helps launch installed apps and complete routine desktop tasks in a visible way.
+Callsign is a Windows + WSL-first voice assistant that wakes on the word `Callsign`, confirms the user's callsign, and helps launch installed apps in a visible way.
 
 ## Product thesis
 
@@ -44,6 +44,32 @@ If identity fails, the command window closes and nothing launches.
 - Visible app launch through the Start menu.
 - Clear status messages and stop/reset controls.
 
+## Product tiers
+
+### Free
+
+The free version should support:
+
+- Wake word plus callsign identity.
+- Launching installed apps through the Start menu.
+- Basic setup and voice enrollment.
+
+### Home
+
+The Home tier should add:
+
+- Deeper desktop control.
+- More guided workflows.
+- Broader routine task support.
+
+### Advanced
+
+The Advanced tier should add:
+
+- More in-depth control of the system.
+- More automation depth and power-user tools.
+- Higher-value features that justify a paid subscription or license.
+
 ## Explicit non-goals for alpha
 
 - Arbitrary shell execution.
@@ -51,7 +77,7 @@ If identity fails, the command window closes and nothing launches.
 - Hidden or minimized automation.
 - Remote control or background surveillance.
 - Silent email, upload, or submission actions.
-- Linux as a baseline target before the Windows alpha is stable.
+- Linux as a baseline target separate from Windows and WSL MVP support.
 
 ## Product principles
 
@@ -67,9 +93,9 @@ The user must say the wake word and their callsign before command capture begins
 
 The user should be able to see what Callsign is doing, stop it, and understand the result.
 
-### 4. Open source core, paid future
+### 4. Open source core, paid tiers
 
-The core desktop experience should remain free and open source. Future paid offerings should help cover costs and create profit, but they must not undermine the local, visible workflow.
+The core desktop experience should remain free and open source. Future paid tiers, including Home and Advanced, should help cover costs and create profit, but they must not undermine the local, visible workflow.
 
 ## Success metrics
 

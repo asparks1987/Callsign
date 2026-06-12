@@ -2,9 +2,9 @@
 
 ## Mission
 
-Build Callsign as a Windows-first, voice-driven desktop assistant that feels visible, consent-first, and easy to stop. The alpha focus is account setup, voice enrollment, and launching installed apps after wake word plus callsign identity confirmation.
+Build Callsign as a Windows + WSL-first, voice-driven desktop assistant that feels visible, consent-first, and easy to stop. The alpha focus is account setup, voice enrollment, and launching installed apps after wake word plus callsign identity confirmation.
 
-The project is not a general-purpose malware-like automation framework. It is an accessibility-oriented, user-visible desktop assistant with a free open-source core and a freemium future.
+The project is not a general-purpose malware-like automation framework. It is an accessibility-oriented, user-visible desktop assistant with a free open-source core and future paid tiers.
 
 ## Core architecture
 

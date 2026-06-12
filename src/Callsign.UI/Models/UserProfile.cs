@@ -11,7 +11,7 @@ public sealed class UserSettings
     public bool StartWithWindows { get; set; } = false;
     public bool ShowCommandFeed { get; set; } = true;
     public string DashboardTitle { get; set; } = "Callsign";
-    public string VoiceEnrollmentStatus { get; set; } = "Not enrolled";
+    public string VoiceEnrollmentStatus { get; set; } = "Not activated";
     public int VoiceSamplesRecorded { get; set; } = 0;
     public int VoiceSamplesRequired { get; set; } = 3;
     public DateTime? VoiceEnrolledUtc { get; set; }

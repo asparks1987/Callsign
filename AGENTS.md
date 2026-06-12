@@ -2,17 +2,17 @@
 
 ## Mission
 
-Build Callsign: a local-first background service and MCP-driven automation layer for Windows that lets a user control desktop applications through voice and/or text using an LLM, while preserving user consent, privacy, reversibility, and auditability.
+Build Callsign as a Windows-first, voice-driven desktop assistant that feels visible, consent-first, and easy to stop. The alpha focus is account setup, voice enrollment, and launching installed apps after wake word plus callsign identity confirmation.
 
-The project is not a general-purpose malware-like automation framework. It is an accessibility-oriented, user-visible, consent-driven desktop assistant.
+The project is not a general-purpose malware-like automation framework. It is an accessibility-oriented, user-visible desktop assistant with a free open-source core and a freemium future.
 
 ## Core architecture
 
-Callsign is split into two primary layers.
+Callsign is moving toward a two-layer design, but the current repo state is the visible setup/onboarding app first.
 
 ### 1. Voice / Agent Host
 
-Callsign runs as a background service process and is composed of two primary layers:
+Callsign will run as a background service process and is composed of two primary layers:
 
 - Wake-word listener.
 - Callsign identity/authorization gate.
@@ -33,6 +33,13 @@ The host handles:
 - Session state.
 
 The host does **not** directly manipulate the Windows desktop.
+
+Current alpha state:
+
+- The visible setup app exists now.
+- Voice enrollment is tracked locally in the profile.
+- The wake word plus callsign session flow is represented in the UI.
+- Visible Start menu launching is the first desktop action.
 
 ### 2. Windows Automation MCP Server
 
@@ -178,13 +185,15 @@ When adding or changing a tool, update:
 
 The v1 alpha session contract is:
 
-- The service continuously listens in the background for the wake word `Callsign`.
-- After wake word detection, the service enters a short command window.
-- The user must provide their callsign (e.g., `Alpha` or any configured identifier) before command parsing proceeds.
-- If identity is not provided or does not match, the command window closes and no action is executed.
-- Once identity is confirmed, the host captures the spoken command and translates it into readable action steps before attempting execution.
-- Execution only proceeds after policy and consent checks pass.
-- The service remains visible/stoppable during execution.
+- The user opens the Callsign setup app and creates an account.
+- The user records voice samples and marks the profile as enrolled.
+- The user says the wake word `Callsign`.
+- The user says their callsign or username.
+- If the identity matches, the session accepts a command.
+- The user speaks the app name or launch request.
+- Callsign launches the app through visible Start menu search.
+- If identity fails or times out, no launch occurs.
+- The user can cancel or reset the session at any time.
 
 Assume the model may misunderstand the UI.
 

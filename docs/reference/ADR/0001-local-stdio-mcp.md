@@ -1,4 +1,4 @@
-# ADR-0001: Local stdio MCP server by default
+# ADR-0001: Local stdio automation service by default
 
 ## Status
 
@@ -6,11 +6,11 @@ Accepted for MVP.
 
 ## Context
 
-Callsign needs to expose local Windows automation capabilities to an AI host. Exposing those capabilities through a network listener would create a larger attack surface.
+Callsign will need to expose local Windows automation capabilities to a future voice or task host. Exposing those capabilities through a network listener would create a larger attack surface.
 
 ## Decision
 
-The Windows automation component runs as a local MCP server over stdio by default.
+The Windows automation component should run locally over stdio by default when that service layer exists.
 
 ## Rationale
 
@@ -24,4 +24,4 @@ The Windows automation component runs as a local MCP server over stdio by defaul
 
 - Server diagnostics must go to stderr, not stdout.
 - The host launches the server process.
-- Remote/mobile scenarios are out of scope for MVP.
+- Remote/mobile scenarios are out of scope for the alpha.

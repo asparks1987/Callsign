@@ -1,33 +1,21 @@
 # Callsign Reference Docs
 
-This folder contains the source Markdown design documentation for Callsign.
+This folder contains the source markdown that defines the product, the current alpha shape, and the future desktop agent direction.
 
-Generated HTML pages live in `docs/pages/` and are linked from the GitHub Pages site at `docs/index.html`.
+The public landing page in `docs/index.html` is generated from these docs together with the site builder in `scripts/build_site.py`.
 
-## Core docs
+## What to read first
 
-- `PRODUCT_SPEC.md`
-- `ARCHITECTURE.md`
-- `MCP_TOOLS.md`
-- `WINDOWS_AUTOMATION.md`
-- `SECURITY_MODEL.md`
-- `THREAT_MODEL.md`
-- `VOICE_UX.md`
-- `DATA_MODEL.md`
-- `TEST_PLAN.md`
-- `DEPLOYMENT.md`
-- `ROADMAP.md`
-- `BURNDOWN.md`
-- `GITHUB_PAGES.md`
+- `PRODUCT_SPEC.md` for the alpha product shape.
+- `ARCHITECTURE.md` for the current implementation split and future service plan.
+- `ROADMAP.md` for the next phases.
+- `TEST_PLAN.md` for how alpha behavior should be verified.
 
-## ADRs
+## Site generation
 
-Architecture Decision Records live in `ADR/`.
-
-## Regenerate the site
-
-From the repository root:
+Regenerate the rendered pages from the repository root:
 
 ```bash
 python scripts/build_site.py
 ```
+

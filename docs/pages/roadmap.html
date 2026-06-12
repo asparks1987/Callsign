@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Roadmap · Callsign</title>
+  <title>Roadmap - Callsign</title>
   <link rel="stylesheet" href="../assets/styles.css" />
 </head>
 <body>
@@ -42,68 +42,32 @@
     </aside>
     <article class="doc-content">
       <h1>Roadmap</h1>
-<h2>Phase 0: Documentation starter</h2>
-<p>Status: included in this package.</p>
+<h2>Phase 0: Public alpha shell</h2>
+<p>Status: current focus.</p>
 <p>Deliverables:</p>
-<ul><li>README.</li><li>Product spec.</li><li>Architecture.</li><li>MCP tool design.</li><li>Security model.</li><li>Threat model.</li><li>Windows automation strategy.</li><li>Voice UX.</li><li>Data model.</li><li>Test plan.</li><li>Deployment guide.</li><li>Burndown list.</li><li>AGENTS.md.</li><li>GitHub Pages site under <code>/docs</code>.</li></ul>
-<h2>Phase 1: MCP server skeleton</h2>
+<ul><li>Public GitHub Pages landing page.</li><li>Clear open-source and freemium product story.</li><li>Windows setup and onboarding UI.</li><li>Account creation and profile storage.</li><li>Voice enrollment state.</li><li>Visible app launch flow.</li></ul>
+<h2>Phase 1: Always-on voice service</h2>
 <p>Deliverables:</p>
-<ul><li>C#/.NET solution.</li><li>Stdio MCP server.</li><li><code>server.info</code>.</li><li><code>server.ping</code>.</li><li>Structured result envelopes.</li><li>JSONL audit writer.</li><li>Policy engine stub.</li><li>Unit test project.</li></ul>
+<ul><li>Background service process.</li><li>Wake word listener.</li><li>Callsign identity gate.</li><li>Session timeout and lockout.</li><li>Visible stop and reset controls.</li></ul>
 <p>Exit criteria:</p>
-<ul><li>A host/client can start the server and call <code>server.ping</code>.</li><li>Every tool call writes an audit event.</li><li>Policy is invoked for all action tools, even if only stubbed.</li></ul>
-<h2>Phase 2: Observe-only Windows capabilities</h2>
+<ul><li>The service can sit in the background and wait for the user.</li><li>The service does not launch anything until identity is confirmed.</li></ul>
+<h2>Phase 2: Better desktop launch and control</h2>
 <p>Deliverables:</p>
-<ul><li>Active window metadata.</li><li>Visible window list.</li><li>Bounded UIA tree inspection.</li><li>Basic redaction.</li><li>Resource URIs for active window and UI tree.</li></ul>
+<ul><li>More reliable Start menu launch handling.</li><li>Visible launch feedback.</li><li>App launch history.</li><li>Better error recovery.</li></ul>
 <p>Exit criteria:</p>
-<ul><li>Calculator and Notepad UI trees can be inspected.</li><li>Tree extraction respects max depth and node count.</li><li>No screenshots required.</li></ul>
-<h2>Phase 3: Safe local UI actions</h2>
+<ul><li>Common installed apps launch reliably from the visible flow.</li></ul>
+<h2>Phase 3: Broader desktop automation</h2>
 <p>Deliverables:</p>
-<ul><li>Element finder.</li><li>UIA invoke.</li><li>UIA set text.</li><li>Focus element.</li><li>Approved hotkeys.</li><li>Verification helpers.</li><li>Approval flow.</li></ul>
+<ul><li>Safer UI automation.</li><li>Text entry helpers.</li><li>File workflow support.</li><li>Approval prompts for state-changing tasks.</li></ul>
 <p>Exit criteria:</p>
-<ul><li>Notepad typing demo works.</li><li>Calculator button demo works.</li><li>Policy blocks unsafe hotkeys.</li></ul>
-<h2>Phase 4: File tools</h2>
-<p>Deliverables:</p>
-<ul><li>Approved root config.</li><li>File list recent.</li><li>Rename.</li><li>Move.</li><li>Copy.</li><li>Path traversal protection.</li><li>Approval for writes.</li></ul>
-<p>Exit criteria:</p>
-<ul><li>Newest PNG rename demo works.</li><li>File operation outside approved root is denied.</li><li>No overwrite by default.</li></ul>
-<h2>Phase 5: Text host and local model provider</h2>
-<p>Deliverables:</p>
-<ul><li>CLI host.</li><li>MCP client.</li><li>Model provider abstraction.</li><li>Mock provider.</li><li>Ollama/OpenAI-compatible provider.</li><li>Tool-call planning prompt.</li></ul>
-<p>Exit criteria:</p>
-<ul><li>User can type a command.</li><li>Model can plan a bounded tool call.</li><li>Host can route call through MCP server.</li><li>Policy/approval is enforced.</li></ul>
-<h2>Phase 6: Voice host</h2>
-<p>Deliverables:</p>
-<ul><li>STT/TTS or realtime voice provider.</li><li>Push-to-talk or wake mode.</li><li>Interrupt phrase.</li><li>Voice confirmations.</li><li>Transcript.</li></ul>
-<p>Exit criteria:</p>
-<ul><li>User can perform Notepad demo by voice.</li><li>“Stop now” interrupts workflow.</li><li>External side effects are still gated.</li></ul>
-<h2>Phase 7: Selector repository</h2>
-<p>Deliverables:</p>
-<ul><li>Selector schema.</li><li>Selector matcher.</li><li>Confidence scoring.</li><li>App selector packs.</li><li>Selector debugging output.</li></ul>
-<p>Exit criteria:</p>
-<ul><li>Notepad Save As selector works across launches.</li><li>Calculator selectors work across sessions.</li></ul>
-<h2>Phase 8: Recipe system</h2>
-<p>Deliverables:</p>
-<ul><li>Recipe schema.</li><li>Recipe runner.</li><li>Recipe permission model.</li><li>Recipe verification.</li><li>Manual recipe authoring.</li></ul>
-<p>Exit criteria:</p>
-<ul><li>Process-invoice example recipe can be dry-run.</li><li>Recipe writes are policy-gated.</li></ul>
-<h2>Phase 9: Teach mode</h2>
-<p>Deliverables:</p>
-<ul><li>Observation recording.</li><li>Step inference.</li><li>Selector capture.</li><li>User review UI.</li><li>Recipe generation.</li></ul>
-<p>Exit criteria:</p>
-<ul><li>User can demonstrate a simple file workflow and save it as a recipe.</li></ul>
-<h2>Phase 10: App adapters</h2>
-<p>Potential adapters:</p>
-<ul><li>Browser extension / DOM adapter.</li><li>Office adapter.</li><li>PDF adapter.</li><li>File Explorer adapter.</li></ul>
-<h2>Phase 11: Linux roadmap</h2>
-<ul><li>Linux host shell and desktop adapter plan.</li><li>Linux desktop abstraction for Linux-specific window/query APIs.</li><li>Separate policy profiles and configuration migration.</li><li>Identity flow retained with per-user callsign mapping.</li></ul>
-<p>Exit criteria:</p>
-<ul><li>Linux desktop adapter validates parity for safe local actions.</li><li>Linux strategy is documented for future release.</li></ul>
-<p>Exit criteria:</p>
-<ul><li>Adapters expose semantic tools while still using policy and audit.</li></ul>
-<h2>Long-term ideas</h2>
-<ul><li>Tray app.</li><li>Local audit viewer.</li><li>Per-app profiles.</li><li>Screen-region privacy masks.</li><li>Signed recipe packs.</li><li>Multi-monitor visual overlays.</li><li>Local-only voice pipeline.</li><li>Enterprise policy templates.</li><li>Accessibility-focused onboarding.</li></ul>
+<ul><li>The assistant can handle routine desktop work without becoming hidden or fragile.</li></ul>
+<h2>Phase 4: Product expansion</h2>
+<p>Potential additions:</p>
+<ul><li>Freemium premium features.</li><li>Better voice models.</li><li>More identity options.</li><li>Workflow memory.</li><li>Recipe-style automation.</li></ul>
+<h2>Platform roadmap</h2>
+<ul><li>Windows first.</li><li>Linux support later, after the Windows alpha is stable and understandable.</li></ul>
 <h2>Roadmap principles</h2>
-<ul><li>Do not add power faster than safety.</li><li>Do not add hidden automation before visible automation is reliable.</li><li>Do not add external side effects until approvals are excellent.</li><li>Do not add arbitrary shell.</li><li>Keep local-first behavior as the default.</li></ul>
+<ul><li>Ship visible behavior before broad automation.</li><li>Keep the core experience usable without a subscription.</li><li>Do not add hidden power before trust.</li><li>Expand only after the current alpha is reliable.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

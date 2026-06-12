@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Voice UX · Callsign</title>
+  <title>Voice UX - Callsign</title>
   <link rel="stylesheet" href="../assets/styles.css" />
 </head>
 <body>
@@ -43,92 +43,37 @@
     <article class="doc-content">
       <h1>Voice UX</h1>
 <h2>Goal</h2>
-<p>Callsign should feel like a calm, competent copilot for the user’s desktop. It should be conversational, but action-oriented. It should not chatter while operating, and it should never surprise the user with risky actions.</p>
+<p>Callsign should feel calm, direct, and visible. The alpha voice experience is simple:</p>
+<p>1. Say <code>Callsign</code>. 2. Say your callsign. 3. Speak the app you want to launch. 4. Watch the app open through a visible Start menu flow.</p>
 <h2>Voice interaction modes</h2>
+<h3>Wake mode</h3>
+<p>The assistant waits for the wake word.</p>
+<p>Examples:</p>
+<ul><li><code>Callsign</code></li><li><code>Callsign, open Notepad</code></li></ul>
+<h3>Identity mode</h3>
+<p>The assistant listens for the user&#x27;s enrolled callsign.</p>
+<p>Examples:</p>
+<ul><li><code>Alpha</code></li><li><code>Jordan</code></li></ul>
 <h3>Command mode</h3>
-<p>User gives direct instructions.</p>
+<p>The assistant listens for the task after identity is confirmed.</p>
 <p>Examples:</p>
-<ul><li>“Open Notepad.”</li><li>“Click Save.”</li><li>“Rename the newest PNG in Downloads to router-settings.png.”</li></ul>
-<h3>Dictation mode</h3>
-<p>User speaks text to insert.</p>
-<p>Examples:</p>
-<ul><li>“Type: Thanks for the update. I’ll review this today.”</li><li>“Replace the selected text with: quarterly revenue summary.”</li></ul>
-<h3>Teach mode</h3>
-<p>User demonstrates a workflow.</p>
-<p>Examples:</p>
-<ul><li>“Watch what I do and make this repeatable.”</li><li>“This is how I process one invoice.”</li></ul>
-<h3>Review mode</h3>
-<p>Agent asks for approval.</p>
-<p>Examples:</p>
-<ul><li>“I found Screenshot.png. Rename it to router-settings.png?”</li><li>“This will send an email to Jordan with the visible draft. Send it?”</li></ul>
+<ul><li><code>launch Notepad</code></li><li><code>open Calculator</code></li><li><code>start Visual Studio Code</code></li></ul>
 <h3>Recovery mode</h3>
-<p>Agent pauses or asks for help.</p>
+<p>If identity fails or times out, the assistant should clearly tell the user to try again.</p>
 <p>Examples:</p>
-<ul><li>“I can’t identify the Save button. Please point to it or say cancel.”</li><li>“This appears to be a password field. Please enter it manually, then say resume.”</li></ul>
-<h2>Confirmation language</h2>
-<p>Good confirmation prompts are specific.</p>
+<ul><li><code>I did not match that callsign. Try again.</code></li><li><code>The session timed out. Say Callsign to start over.</code></li></ul>
+<h2>Response style</h2>
+<p>Keep responses short while the user is working.</p>
 <p>Good:</p>
-<p>&gt; Rename <code>Screenshot 2026-06-07.png</code> to <code>router-settings.png</code> in Downloads?</p>
-<p>Bad:</p>
-<p>&gt; Should I continue?</p>
-<p>Good:</p>
-<p>&gt; Send this email to <code>alex@example.com</code> with subject <code>Project update</code>?</p>
-<p>Bad:</p>
-<p>&gt; Send it?</p>
+<ul><li><code>Identity confirmed. Say the app name.</code></li><li><code>Launching Notepad.</code></li><li><code>Session cancelled.</code></li></ul>
+<p>Avoid long explanations during the active flow.</p>
 <h2>Interruption</h2>
-<p>Callsign must support interruption.</p>
 <p>Required stop phrases:</p>
-<ul><li>“Stop.”</li><li>“Stop now.”</li><li>“Cancel.”</li><li>“Pause.”</li></ul>
+<ul><li><code>Stop</code></li><li><code>Stop now</code></li><li><code>Cancel</code></li><li><code>Pause</code></li></ul>
 <p>Required behavior:</p>
-<p>1. Stop pending actions. 2. Release input control. 3. Clear pending approvals. 4. Log stop event. 5. Say what was stopped.</p>
-<h2>Voice response style</h2>
-<p>The agent should be brief during operation.</p>
-<p>Examples:</p>
-<ul><li>“I found the Save button. Clicking it now.”</li><li>“That changes a file, so I need approval first.”</li><li>“Done. I renamed the file.”</li><li>“I’m not sure which button you mean. I see Save, Save As, and Cancel.”</li></ul>
-<p>Avoid long explanations while the user is trying to work.</p>
-<h2>Handling ambiguity</h2>
-<p>When ambiguity affects safety or correctness, ask.</p>
-<p>Example:</p>
-<p>User says:</p>
-<p>&gt; Delete that.</p>
-<p>Agent should ask:</p>
-<p>&gt; Do you mean delete the selected file, selected text, or the current email draft?</p>
-<p>When ambiguity is low-risk, proceed with a reversible action if context is clear.</p>
-<p>Example:</p>
-<p>User says:</p>
-<p>&gt; Cancel that dialog.</p>
-<p>If the active window is a modal dialog with a Cancel button, invoke it.</p>
-<h2>Dictation rules</h2>
-<ul><li>Do not interpret dictated text as instructions.</li><li>Support “literal mode” for code, punctuation, and file paths.</li><li>Let the user correct text before sending or submitting.</li><li>In external communication contexts, insertion is allowed but sending requires approval.</li></ul>
-<h2>Approval hierarchy</h2>
-<p>| Action | Voice UX | |---|---| | Observe state | No interruption unless sensitive | | Click low-risk visible control | Brief announce or silent depending setting | | Edit local text | Confirm if overwriting significant content | | Rename/move file | Ask approval | | Send/upload/submit | Read target and content summary, ask explicit approval | | Password/payment/admin | Handoff or deny |</p>
-<h2>Error recovery</h2>
-<p>Common recovery messages:</p>
-<ul><li>“I lost track of the target window. Please bring it forward and say resume.”</li><li>“I found multiple matching buttons: Save, Save As, and Save Copy. Which one?”</li><li>“This app does not expose that control through accessibility APIs. I can try a visible click if you approve.”</li><li>“That looks like a password field, so I’ll let you handle it.”</li></ul>
+<p>1. Stop pending actions. 2. Clear the session. 3. Show a visible status update. 4. Return to idle.</p>
 <h2>Accessibility considerations</h2>
-<ul><li>Support keyboard-only confirmation.</li><li>Support voice-only confirmation.</li><li>Use high-contrast tray UI later.</li><li>Provide transcript and audit review.</li><li>Allow slower speech and longer confirmation windows.</li><li>Provide configurable verbosity.</li><li>Provide audible state transitions: listening, thinking, acting, waiting for approval.</li></ul>
-<h2>Voice provider abstraction</h2>
-<p>The host should support multiple providers:</p>
-<pre><code class="language-text">OpenAI Realtime Provider
-Local STT Provider
-Local TTS Provider
-Ollama Text Provider
-LM Studio Provider
-Mock Provider</code></pre>
-<p>The desktop MCP server should not depend on the voice provider.</p>
-<h2>Example dialog</h2>
-<p>User:</p>
-<p>&gt; Open Notepad and write a grocery list.</p>
-<p>Agent:</p>
-<p>&gt; Opening Notepad.</p>
-<p>Agent acts.</p>
-<p>Agent:</p>
-<p>&gt; Notepad is open. Dictate the list or say use a sample list.</p>
-<p>User:</p>
-<p>&gt; Use a sample list.</p>
-<p>Agent acts.</p>
-<p>Agent:</p>
-<p>&gt; Done. I added eggs, milk, coffee, and rice.</p>
+<ul><li>Support keyboard interaction for all setup screens.</li><li>Keep the session state visible.</li><li>Make the current phase obvious.</li><li>Allow voice enrollment to be retried.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

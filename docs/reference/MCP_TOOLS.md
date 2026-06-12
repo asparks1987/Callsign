@@ -1,4 +1,8 @@
-# MCP Tool Design
+# Automation Tool Design
+
+This document describes the future automation surface for Callsign.
+
+The current alpha focuses on the setup UI, voice enrollment, and visible app launch. The tool design below is the next-step automation contract for the background service and later desktop features.
 
 ## Naming convention
 
@@ -94,7 +98,7 @@ Output data:
 
 ```json
 {
-  "name": "Callsign Windows MCP Server",
+  "name": "Callsign Automation Service",
   "version": "0.1.0",
   "transport": "stdio",
   "platform": "windows",

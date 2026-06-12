@@ -2,326 +2,88 @@
 
 ## Overview
 
-Callsign is split into a background service host and a Windows Automation MCP server.
-
-The split matters because MCP is a tool/resource/prompt interface, not the entire agent. The host owns conversation, wake-word + identity flow, voice handling, model provider choice, task planning, and user-facing approval UX. The MCP server owns Windows-specific capabilities, tool validation, policy checks, execution, and audit logging.
-
-Callsign v1 is Windows-first.
-
-## Component diagram
-
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Voice / Agent Host                          │
-│                                                                     │
-│  ┌──────────────┐   ┌───────────────┐   ┌───────────────────────┐   │
-│  │ Voice Input  │ → │ Transcription │ → │ Conversation Manager  │   │
-│  └──────────────┘   └───────────────┘   └──────────┬────────────┘   │
-│                                                     │                │
-│  ┌──────────────┐   ┌───────────────┐   ┌──────────▼────────────┐   │
-│  │ Voice Output │ ← │ Response Synth│ ← │ Planner / Tool Router │   │
-│  └──────────────┘   └───────────────┘   └──────────┬────────────┘   │
-│                                                     │                │
-│                                             ┌───────▼────────┐       │
-│                                             │ MCP Client     │       │
-│                                             └───────┬────────┘       │
-└─────────────────────────────────────────────────────┼────────────────┘
-                                                      │ stdio
-                                                      ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    Windows Automation MCP Server                     │
-│                                                                     │
-│  ┌──────────────┐   ┌──────────────┐   ┌────────────────────────┐   │
-│  │ MCP Protocol │ → │ Tool Router  │ → │ Policy Engine          │   │
-│  └──────────────┘   └──────────────┘   └───────────┬────────────┘   │
-│                                                     │                │
-│                                             ┌───────▼────────┐       │
-│                                             │ Execution Core │       │
-│                                             └───────┬────────┘       │
-│                                                     │                │
-│           ┌─────────────────────────┬───────────────┼──────────────┐ │
-│           ▼                         ▼               ▼              ▼ │
-│  UI Automation Adapter      Win32 Adapter     File Adapter   Audit Log│
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-## Runtime loop
-
-Callsign uses an observe-plan-act-verify loop.
-
-```text
-1. User wakes service and confirms callsign identity.
-2. Host captures command text.
-3. Host asks the model to produce a bounded plan.
-4. Host routes read-only observations to the MCP server.
-5. MCP server returns structured desktop context.
-6. Model proposes typed tool calls.
-7. MCP server validates arguments.
-8. Policy engine allows, denies, or requires approval.
-9. If needed, host asks the user for approval.
-10. MCP server executes the approved action.
-11. MCP server verifies the outcome where possible.
-12. Audit log records the full chain.
-13. Host summarizes the result.
-```
-
-## Alpha session flow
-
-The v1 canonical session flow is:
-
-1. Background service detects wake word `Callsign`.
-2. Identity prompt captures a user callsign.
-3. If identity matches a configured user, command capture opens.
-4. If identity fails or times out, session expires and no action runs.
-5. Approved command intent is translated into readable action text and proposed as typed MCP calls.
-6. Execution and verification only occur after policy pass and user confirmation where required.
+Callsign is moving toward a split architecture:
 
-## Process boundaries
+- A visible Windows setup and onboarding app exists now.
+- A background voice service is the next major step.
 
-### Host process
+The current repo state is not a full always-on agent yet. The code today focuses on account setup, voice enrollment state, session gating, and a visible Start menu launch flow.
 
-Responsibilities:
+## Current implementation shape
 
-- Voice session.
-- Model provider abstraction.
-- Conversation state.
-- Approval UX.
-- MCP client connection.
-- Task-level planning.
-- User-facing explanations.
+### Windows setup app
 
-The host should not contain direct Windows automation code.
+The current app is a WinForms onboarding experience that lets the user:
 
-### MCP server process
+- Create and select an account.
+- Save a callsign profile.
+- Record and reset voice samples.
+- Start the wake word plus identity session flow.
+- Launch an installed app through Start search.
 
-Responsibilities:
+### Local profile store
 
-- Tool registration.
-- Resource registration.
-- Prompt registration.
-- Argument validation.
-- Policy enforcement.
-- Windows automation adapters.
-- File allowlist enforcement.
-- Audit log.
-- Safe error handling.
+Profiles are stored locally under `%LOCALAPPDATA%\Callsign\Profiles\<callsign>\settings.json`.
 
-The server should not choose high-level task intent. It should execute validated, policy-approved capabilities.
+The storage model is simple on purpose:
 
-## Transport
+- One folder per callsign.
+- One settings file per profile.
+- Local-only by default.
 
-Default transport: local stdio.
+### Session state machine
 
-Reasons:
+The alpha session flow is:
 
-- No open local port by default.
-- Natural fit for local MCP clients.
-- Simple process lifetime management.
-- Lower attack surface than an unauthenticated local HTTP server.
+1. Idle.
+2. Wake word detected.
+3. Identity verification.
+4. Command capture.
+5. Launch or cancel.
+6. Timeout or lockout on failed identity.
 
-Future transport options:
+This is the first step toward a real service process.
 
-- Authenticated local HTTP for tray app integration.
-- Named pipe transport.
-- Remote bridge only through a separate authenticated component.
+## Target architecture
 
-Linux roadmap: Linux support is planned after Windows v1, with a separate Linux service adapter and desktop abstraction layer.
+### 1. Background service
 
-## Tool categories
+The future service will handle:
 
-### Observe tools
+- Wake word listening.
+- Identity confirmation.
+- Command capture.
+- Session timing and lockout.
+- Task handoff to the desktop launcher or future automation layers.
 
-Read local desktop state.
+### 2. Windows desktop interaction layer
 
-Examples:
+The launcher and later automation logic should stay visible, safe, and easy to stop.
 
-- `server.info`
-- `desktop.get_active_window`
-- `desktop.list_windows`
-- `desktop.inspect_window`
-- `desktop.find_element`
+For alpha, the visible app launch path is deliberately simple:
 
-### Act tools
+- Open Start search.
+- Type the app name.
+- Launch the matching app.
 
-Change local state or interact with UI.
+### 3. Future automation layer
 
-Examples:
+Later phases can add richer desktop automation, but only after the alpha account and identity flow is reliable.
 
-- `desktop.invoke_element`
-- `desktop.set_text`
-- `desktop.focus_element`
-- `desktop.send_hotkey`
-- `file.rename`
+## Platform direction
 
-### Recovery tools
+### Windows first
 
-Stop, undo, cancel, or hand off.
+Windows is the alpha baseline.
 
-Examples:
+### Linux later
 
-- `workflow.pause`
-- `workflow.stop`
-- `desktop.escape`
-- `desktop.undo_last_input`
-- `workflow.handoff`
+Linux support is a roadmap target, not a baseline promise for alpha.
 
-### Policy tools
+## Design rules
 
-Expose approval and policy outcomes.
+- Keep the user visible to the system.
+- Keep identity before action.
+- Keep local state simple and inspectable.
+- Keep the product easy to explain.
 
-Examples:
-
-- `policy.evaluate`
-- `policy.request_approval`
-
-## Resources
-
-Resources provide passive context to hosts and clients.
-
-Recommended resource URIs:
-
-```text
-windows://active
-windows://windows
-windows://window/{hwnd}/tree
-windows://window/{hwnd}/text
-windows://processes
-audit://session/{session_id}
-config://policy
-config://selectors
-```
-
-## Prompts
-
-Prompts provide reusable task templates.
-
-Recommended prompts:
-
-```text
-perform_desktop_task
-inspect_before_acting
-teach_new_task
-recover_from_failed_action
-explain_last_action
-create_selector_recipe
-```
-
-## Automation adapters
-
-### UI Automation adapter
-
-Primary adapter for semantic desktop interaction.
-
-Responsibilities:
-
-- Enumerate top-level windows.
-- Inspect UIA tree.
-- Extract properties.
-- Identify supported patterns.
-- Invoke controls.
-- Set values.
-- Read text.
-- Scroll when safe.
-
-### Win32 adapter
-
-Fallback adapter.
-
-Responsibilities:
-
-- Get foreground window.
-- Activate windows.
-- Send approved hotkeys.
-- Type text when semantic text setting fails.
-- Click coordinates only after selector/vision resolution and approval.
-
-### File adapter
-
-Native deterministic file operations.
-
-Responsibilities:
-
-- List files inside approved roots.
-- Rename files.
-- Move files.
-- Copy files.
-- Verify existence.
-- Prevent path traversal.
-
-### Vision adapter
-
-Future adapter for screenshots, OCR, and visual target finding.
-
-This adapter should be disabled by default for cloud providers because screenshots may contain sensitive information.
-
-## State model
-
-The MCP server should maintain minimal in-memory state:
-
-- Current session ID.
-- Correlation IDs.
-- Recent tool call history.
-- Pending approvals.
-- Cached UI tree snapshots with short TTL.
-- Selector cache.
-
-Durable state:
-
-- Audit JSONL.
-- Selector repository.
-- Policy config.
-- Recipes.
-
-## Error handling
-
-Errors should be structured and recoverable when possible.
-
-Example:
-
-```json
-{
-  "ok": false,
-  "error": {
-    "code": "POLICY_APPROVAL_REQUIRED",
-    "message": "Renaming a file requires user approval.",
-    "recoverable": true,
-    "approval_request_id": "approval_01"
-  }
-}
-```
-
-## Verification strategy
-
-Every action tool should declare a verification strategy.
-
-Examples:
-
-| Action | Verification |
-|---|---|
-| `desktop.invoke_element` | State changed, dialog closed, focused element changed, or user-visible confirmation requested |
-| `desktop.set_text` | Read back value when possible |
-| `file.rename` | Target exists and source no longer exists |
-| `desktop.send_hotkey` | Active window or UI tree changed as expected |
-| `desktop.open_app` | Process/window appears within timeout |
-
-## Extension points
-
-- Model providers.
-- Voice providers.
-- App-specific adapters.
-- Browser DOM adapters.
-- Policy packs.
-- Selector packs.
-- Recipes.
-- Test fixtures.
-
-## Architectural risks
-
-| Risk | Mitigation |
-|---|---|
-| UIA tree too large | Bounded extraction and summarization |
-| Model proposes unsafe tool call | Policy engine outside model |
-| App exposes poor accessibility data | Fallback adapter and human handoff |
-| Screenshots leak secrets | Disabled by default, redaction hooks |
-| SendInput fails on elevated windows | Detect integrity issues and hand off |
-| Prompt injection through UI text | Treat UI text as untrusted data |

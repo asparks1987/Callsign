@@ -9,24 +9,26 @@ PAGES = DOCS / "pages"
 PAGES.mkdir(parents=True, exist_ok=True)
 
 DOC_ORDER = [
-    ("Product Spec", "PRODUCT_SPEC.md", "product-spec.html", "Vision, users, MVP, non-goals, and product principles."),
-    ("Architecture", "ARCHITECTURE.md", "architecture.html", "Host/server split, runtime loop, transport, resources, and adapters."),
-    ("MCP Tools", "MCP_TOOLS.md", "mcp-tools.html", "Tool schemas, risk tiers, result envelopes, and examples."),
-    ("Windows Automation", "WINDOWS_AUTOMATION.md", "windows-automation.html", "UI Automation-first strategy with SendInput fallback rules."),
-    ("Security Model", "SECURITY_MODEL.md", "security-model.html", "Policy engine, approvals, data handling, and blocked actions."),
-    ("Threat Model", "THREAT_MODEL.md", "threat-model.html", "Threat actors, abuse cases, mitigations, and security tests."),
-    ("Voice UX", "VOICE_UX.md", "voice-ux.html", "Voice modes, confirmations, interruptions, and recovery."),
-    ("Data Model", "DATA_MODEL.md", "data-model.html", "Sessions, audit events, selectors, recipes, and configs."),
-    ("Test Plan", "TEST_PLAN.md", "test-plan.html", "Unit, integration, desktop, safety, and manual QA tests."),
-    ("Deployment", "DEPLOYMENT.md", "deployment.html", "GitHub Pages setup, local preview, and future app deployment."),
-    ("Roadmap", "ROADMAP.md", "roadmap.html", "Milestones from docs starter to voice host and recipes."),
-    ("Burndown", "BURNDOWN.md", "burndown.html", "Prioritized implementation backlog and acceptance criteria."),
-    ("GitHub Pages", "GITHUB_PAGES.md", "github-pages.html", "How the static site is organized and published from /docs."),
+    ("Product Spec", "PRODUCT_SPEC.md", "product-spec.html", "Current alpha scope, user flow, and product principles."),
+    ("Architecture", "ARCHITECTURE.md", "architecture.html", "Current UI shell and future service split."),
+    ("MCP Tools", "MCP_TOOLS.md", "mcp-tools.html", "Future automation contract and tool design."),
+    ("Windows Automation", "WINDOWS_AUTOMATION.md", "windows-automation.html", "Visible app launching and future desktop control."),
+    ("Security Model", "SECURITY_MODEL.md", "security-model.html", "Identity, local data handling, and blocked actions."),
+    ("Threat Model", "THREAT_MODEL.md", "threat-model.html", "Threats and mitigations for the alpha and future service."),
+    ("Voice UX", "VOICE_UX.md", "voice-ux.html", "Wake word, callsign identity, and launch prompts."),
+    ("Data Model", "DATA_MODEL.md", "data-model.html", "Profile storage, enrollment state, and launch history."),
+    ("Test Plan", "TEST_PLAN.md", "test-plan.html", "UI, identity, launch, and safety checks."),
+    ("Deployment", "DEPLOYMENT.md", "deployment.html", "Current build flow, GitHub Pages, and packaging notes."),
+    ("Roadmap", "ROADMAP.md", "roadmap.html", "Alpha priorities, service work, and future expansion."),
+    ("Burndown", "BURNDOWN.md", "burndown.html", "Current backlog and acceptance criteria."),
+    ("GitHub Pages", "GITHUB_PAGES.md", "github-pages.html", "How the public site and reference docs fit together."),
 ]
 
 try:
-    import mistune  # Optional; nicer Markdown rendering when installed.
+    import mistune
+
     _markdown = mistune.create_markdown(plugins=["table", "strikethrough", "task_lists"])
+
     def render_markdown(text: str) -> str:
         return _markdown(text)
 except Exception:
@@ -90,113 +92,144 @@ except Exception:
             out.append("<ul>" + "".join(f"<li>{inline_md(x)}</li>" for x in list_buf) + "</ul>")
         return "\n".join(out)
 
+
 nav_links = "\n".join(
     f'<a href="{out}">{html.escape(title)}</a>' for title, _src, out, _desc in DOC_ORDER
 )
 
 PAGE_TEMPLATE = """<!doctype html>
-<html lang=\"en\">
+<html lang="en">
 <head>
-  <meta charset=\"utf-8\" />
-  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
-  <title>{title} · Callsign</title>
-  <link rel=\"stylesheet\" href=\"../assets/styles.css\" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{title} - Callsign</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
 </head>
 <body>
-  <header class=\"site-header\">
-    <a class=\"brand\" href=\"../index.html\">Callsign</a>
+  <header class="site-header">
+    <a class="brand" href="../index.html">Callsign</a>
     <nav>{nav}</nav>
   </header>
-  <main class=\"doc-shell\">
-    <aside class=\"doc-sidebar\">
+  <main class="doc-shell">
+    <aside class="doc-sidebar">
       <strong>Docs</strong>
       {nav}
     </aside>
-    <article class=\"doc-content\">
+    <article class="doc-content">
       {body}
     </article>
   </main>
-  <script src=\"../assets/site.js\"></script>
+  <script src="../assets/site.js"></script>
 </body>
 </html>
 """
+
 
 for title, src, out, _desc in DOC_ORDER:
     md = (REF / src).read_text(encoding="utf-8")
     body = render_markdown(md)
-    (PAGES / out).write_text(PAGE_TEMPLATE.format(title=html.escape(title), nav=nav_links, body=body), encoding="utf-8")
+    (PAGES / out).write_text(
+        PAGE_TEMPLATE.format(title=html.escape(title), nav=nav_links, body=body),
+        encoding="utf-8",
+    )
 
-cards = "\n".join(
+
+public_docs = [
+    ("Product Spec", "pages/product-spec.html", "What Callsign does now and why the alpha exists."),
+    ("Architecture", "pages/architecture.html", "The current UI shell and the future background service."),
+    ("Roadmap", "pages/roadmap.html", "What comes after the visible alpha."),
+    ("Test Plan", "pages/test-plan.html", "How we prove the alpha works safely."),
+]
+
+public_cards = "\n".join(
     f'''<article class="card" data-doc-card>
-      <h3><a href="pages/{out}">{html.escape(title)}</a></h3>
+      <h3><a href="{href}">{html.escape(title)}</a></h3>
       <p>{html.escape(desc)}</p>
-      <p><a href="reference/{src}">Markdown source</a></p>
-    </article>''' for title, src, out, desc in DOC_ORDER
+    </article>'''
+    for title, href, desc in public_docs
 )
 
 index = f"""<!doctype html>
-<html lang=\"en\">
+<html lang="en">
 <head>
-  <meta charset=\"utf-8\" />
-  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
-  <title>Callsign · Voice-Activated AI for Your Desktop</title>
-  <meta name=\"description\" content=\"Callsign is a voice-activated AI desktop assistant that listens for your callsign, understands what you want, and helps your computer move with you.\" />
-  <link rel=\"stylesheet\" href=\"assets/styles.css\" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Callsign | Open Source AI for Your Desktop</title>
+  <meta name="description" content="Callsign is an open source, freemium Windows desktop assistant that wakes on your callsign, confirms identity, and launches installed apps in a visible way." />
+  <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body>
-  <header class=\"site-header\">
-    <a class=\"brand\" href=\"index.html\">Callsign</a>
+  <header class="site-header">
+    <a class="brand" href="index.html">Callsign</a>
     <nav>
-      <a href=\"#experience\">Experience</a>
-      <a href=\"#trust\">Trust</a>
-      <a href=\"#future\">Future</a>
+      <a href="#how-it-works">How it works</a>
+      <a href="#open-source">Open source</a>
+      <a href="#docs">Docs</a>
+      <a href="#roadmap">Roadmap</a>
     </nav>
   </header>
 
   <main>
-    <section class=\"hero\">
-      <div class=\"eyebrow\">Wake word · Your callsign · AI magic</div>
-      <h1>Say the word. Your computer starts listening.</h1>
-      <p>Callsign is a voice-activated AI companion for your desktop. It wakes when you say <strong>Callsign</strong>, confirms who you are, listens to what you want, and turns your request into clear, visible action.</p>
-      <div class=\"actions\">
-        <a class=\"button primary\" href=\"#experience\">See the experience</a>
-        <a class=\"button\" href=\"#trust\">Why it feels safe</a>
+    <section class="hero">
+      <div class="eyebrow">Windows-first - open source core - freemium future</div>
+      <h1>Say Callsign. Launch the app. Stay in control.</h1>
+      <p>Callsign is a voice-driven desktop assistant for Windows. The alpha focuses on the visible workflow: create an account, train your voice, say your callsign, and launch installed apps through the Start menu.</p>
+      <div class="actions">
+        <a class="button primary" href="#how-it-works">See how it works</a>
+        <a class="button" href="#docs">Read the docs</a>
       </div>
     </section>
 
-    <section class=\"section\" id=\"experience\">
-      <h2>The Moment</h2>
-      <div class=\"grid\">
-        <article class=\"card\"><h3>Call it by name</h3><p>Say <strong>Callsign</strong> and your desktop quietly shifts into listening mode.</p></article>
-        <article class=\"card\"><h3>Speak your callsign</h3><p>Your personal callsign confirms the request is coming from you before anything begins.</p></article>
-        <article class=\"card\"><h3>Ask naturally</h3><p>Tell it what you want: organize a file, open an app, fill a field, or help move a task forward.</p></article>
-        <article class=\"card\"><h3>Watch it happen</h3><p>Callsign shows what it intends to do, then carries out the work where you can see it.</p></article>
+    <section class="section" id="how-it-works">
+      <h2>How It Works</h2>
+      <div class="grid">
+        <article class="card"><h3>Create an account</h3><p>Set up a profile with your callsign and the details Callsign needs to recognize you.</p></article>
+        <article class="card"><h3>Train your voice</h3><p>Record a few samples so the assistant knows when the right person is speaking.</p></article>
+        <article class="card"><h3>Say the wake word</h3><p>Speak <strong>Callsign</strong>, then say your callsign to unlock the command window.</p></article>
+        <article class="card"><h3>Launch the app</h3><p>Ask for an installed app by name and Callsign opens it through a visible Start menu flow.</p></article>
       </div>
     </section>
 
-    <section class=\"section\" id=\"trust\">
+    <section class="section" id="trust">
       <h2>Magic With Manners</h2>
-      <div class=\"grid\">
-        <article class=\"card\"><h3>You stay in command</h3><p>High-impact actions ask first, and the assistant stays visible while it works.</p></article>
-        <article class=\"card\"><h3>No secret handling</h3><p>Passwords, payment details, security settings, and account-ending actions stay out of bounds.</p></article>
-        <article class=\"card\"><h3>Easy to stop</h3><p>A clear stop phrase and visible controls keep the experience interruptible.</p></article>
-        <article class=\"card\"><h3>Built for everyday work</h3><p>Callsign is for practical desktop help: files, forms, apps, reminders, and repetitive tasks.</p></article>
+      <div class="grid">
+        <article class="card"><h3>Visible by design</h3><p>Nothing starts unless the user sees what is happening and can stop it.</p></article>
+        <article class="card"><h3>Local first</h3><p>The alpha keeps profile data and enrollment state on the device by default.</p></article>
+        <article class="card"><h3>Easy to explain</h3><p>The product promise is simple: say the word, confirm identity, launch the app.</p></article>
+        <article class="card"><h3>Open source core</h3><p>The base desktop experience stays free, with freemium options reserved for later.</p></article>
       </div>
     </section>
 
-    <section class=\"section\" id=\"future\">
-      <h2>Windows First, More Coming</h2>
-      <div class=\"card\">
-        <p>The first alpha is focused on Windows desktop control through voice. Linux support is planned as Callsign grows from a focused assistant into a broader personal computer companion.</p>
+    <section class="section" id="open-source">
+      <h2>Open Source and Freemium</h2>
+      <div class="card">
+        <p>Callsign is being built as an open source desktop assistant with a freemium future. The free core should remain useful on its own, while any premium offering must not break the local-first experience or hide the basic workflow behind a subscription.</p>
       </div>
     </section>
 
+    <section class="section" id="roadmap">
+      <h2>Current Alpha</h2>
+      <div class="grid">
+        <article class="card"><h3>Available now</h3><p>Windows setup app, profile storage, voice enrollment state, and a visible session flow.</p></article>
+        <article class="card"><h3>Next up</h3><p>Real always-on voice service, better recognition, and stronger app launch reliability.</p></article>
+        <article class="card"><h3>Later</h3><p>Broader desktop automation, recipes, and Linux support after the Windows alpha is stable.</p></article>
+        <article class="card"><h3>Still free</h3><p>The core desktop experience stays open source and free to use.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="docs">
+      <h2>Contributor Docs</h2>
+      <div class="grid">
+        {public_cards}
+      </div>
+    </section>
   </main>
 
-  <footer class=\"footer\">Callsign · Your computer, on speaking terms.</footer>
-  <script src=\"assets/site.js\"></script>
+  <footer class="footer">Callsign - open source desktop AI with a freemium future.</footer>
+  <script src="assets/site.js"></script>
 </body>
 </html>
 """
+
 (DOCS / "index.html").write_text(index, encoding="utf-8")
 print(f"Generated {len(DOC_ORDER)} pages and docs/index.html")

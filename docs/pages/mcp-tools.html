@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MCP Tools · Callsign</title>
+  <title>MCP Tools - Callsign</title>
   <link rel="stylesheet" href="../assets/styles.css" />
 </head>
 <body>
@@ -41,7 +41,9 @@
 <a href="github-pages.html">GitHub Pages</a>
     </aside>
     <article class="doc-content">
-      <h1>MCP Tool Design</h1>
+      <h1>Automation Tool Design</h1>
+<p>This document describes the future automation surface for Callsign.</p>
+<p>The current alpha focuses on the setup UI, voice enrollment, and visible app launch. The tool design below is the next-step automation contract for the background service and later desktop features.</p>
 <h2>Naming convention</h2>
 <p>Use <code>domain.verb_object</code>.</p>
 <p>Examples:</p>
@@ -92,7 +94,7 @@ workflow.stop</code></pre>
 <pre><code class="language-json">{}</code></pre>
 <p>Output data:</p>
 <pre><code class="language-json">{
-  &quot;name&quot;: &quot;Callsign Windows MCP Server&quot;,
+  &quot;name&quot;: &quot;Callsign Automation Service&quot;,
   &quot;version&quot;: &quot;0.1.0&quot;,
   &quot;transport&quot;: &quot;stdio&quot;,
   &quot;platform&quot;: &quot;windows&quot;,

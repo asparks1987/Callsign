@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Deployment · Callsign</title>
+  <title>Deployment - Callsign</title>
   <link rel="stylesheet" href="../assets/styles.css" />
 </head>
 <body>
@@ -42,104 +42,31 @@
     </aside>
     <article class="doc-content">
       <h1>Deployment</h1>
-<h2>Deployment modes</h2>
-<h3>Mode 1: Docs-only starter</h3>
-<p>This package is currently a docs-first starter.</p>
-<p>Use it to:</p>
-<ul><li>Start a GitHub repository.</li><li>Publish the GitHub Pages site from <code>/docs</code>.</li><li>Track implementation against the burndown list.</li><li>Guide code agents with <code>AGENTS.md</code>.</li></ul>
-<h3>Mode 2: Local developer build</h3>
-<p>Future implementation target:</p>
-<pre><code class="language-text">Callsign.Host starts Callsign.McpServer over stdio.
-User sends text command.
-Host calls local or cloud model provider.
-Model proposes tool call.
-MCP server validates, evaluates policy, executes, and logs.</code></pre>
-<h3>Mode 3: Packaged local app</h3>
-<p>Future implementation target:</p>
-<ul><li>Windows installer or zip package.</li><li>Tray app.</li><li>Config UI.</li><li>Global hotkey.</li><li>Voice provider settings.</li><li>Local audit viewer.</li><li>Linux packaging roadmap and Linux service profile.</li></ul>
+<h2>Current state</h2>
+<p>Callsign currently ships as a Windows setup and onboarding app.</p>
+<p>The alpha build flow is:</p>
+<p>1. Run <code>buildcallsign.ps1</code>. 2. Publish the WinForms app. 3. Emit a launchable executable in the repo root. 4. Optionally build a real installer if Inno Setup is available.</p>
 <h2>GitHub Pages deployment</h2>
-<p>This repository is arranged for GitHub Pages from <code>/docs</code>.</p>
+<p>The repository is arranged for GitHub Pages from <code>docs/</code>.</p>
 <p>Steps:</p>
-<p>1. Push repository to GitHub. 2. Go to repository <strong>Settings</strong>. 3. Open <strong>Pages</strong>. 4. Choose <strong>Deploy from a branch</strong>. 5. Select branch <code>main</code>. 6. Select folder <code>/docs</code>. 7. Save.</p>
-<p>The site entry point is:</p>
+<p>1. Push the repository to GitHub. 2. Open repository settings. 3. Open Pages. 4. Choose deploy from branch. 5. Select the branch and the <code>docs/</code> folder. 6. Save.</p>
+<p>The landing page is:</p>
 <pre><code class="language-text">docs/index.html</code></pre>
-<p>The included <code>.nojekyll</code> file tells GitHub Pages to serve the static site without Jekyll processing.</p>
 <h2>Local site preview</h2>
 <p>From the repository root:</p>
 <pre><code class="language-bash">python -m http.server 8000 -d docs</code></pre>
 <p>Open:</p>
 <pre><code class="language-text">http://localhost:8000</code></pre>
-<h2>Regenerate site pages</h2>
-<p>After editing Markdown files in <code>docs/reference</code>, run:</p>
-<pre><code class="language-bash">python scripts/build_site.py</code></pre>
-<p>This regenerates HTML pages under:</p>
-<pre><code class="language-text">docs/pages/</code></pre>
-<h2>Suggested local app install layout</h2>
-<p>Future Windows package (v1 alpha):</p>
-<pre><code class="language-text">%LOCALAPPDATA%/Callsign/
-  Callsign.Host.exe
-  Callsign.McpServer.exe
-  config/
-  audit/
-  selectors/
-  recipes/</code></pre>
-<p>Linux is planned as a later phase with a Linux-specific package profile and desktop adapter.</p>
-<h2>Configuration files</h2>
-<p>Suggested config locations:</p>
-<pre><code class="language-text">%LOCALAPPDATA%/Callsign/config/policy.yaml
-%LOCALAPPDATA%/Callsign/config/providers.yaml
-%LOCALAPPDATA%/Callsign/selectors/*.yaml
-%LOCALAPPDATA%/Callsign/recipes/*.yaml</code></pre>
-<h2>MCP client configuration</h2>
-<p>Example stdio config shape:</p>
-<pre><code class="language-json">{
-  &quot;mcpServers&quot;: {
-    &quot;Callsign-windows&quot;: {
-      &quot;command&quot;: &quot;C:/Users/YOU/AppData/Local/Callsign/Callsign.McpServer.exe&quot;,
-      &quot;args&quot;: [&quot;--stdio&quot;],
-      &quot;env&quot;: {
-        &quot;Callsign_POLICY&quot;: &quot;C:/Users/YOU/AppData/Local/Callsign/config/policy.yaml&quot;
-      }
-    }
-  }
-}</code></pre>
-<h2>Model provider deployment</h2>
-<h3>Local provider</h3>
-<p>Use an OpenAI-compatible local endpoint when possible.</p>
-<p>Example provider config:</p>
-<pre><code class="language-yaml">model_providers:
-  default: local-qwen
-  providers:
-    local-qwen:
-      type: openai_compatible
-      base_url: &quot;http://localhost:11434/v1&quot;
-      model: &quot;qwen3.5&quot;
-      send_screenshots: false
-      send_clipboard: false</code></pre>
-<h3>Cloud provider</h3>
-<p>Cloud providers require explicit privacy settings.</p>
-<pre><code class="language-yaml">cloud_model_policy:
-  send_ui_text: ask
-  send_screenshots: false
-  send_clipboard: false
-  send_file_contents: false</code></pre>
-<h2>Windows permissions</h2>
-<p>MVP should run as a normal user process.</p>
-<p>Do not require administrator privileges.</p>
-<p>If an elevated window is encountered:</p>
-<ul><li>Detect where possible.</li><li>Do not attempt bypass.</li><li>Handoff to user.</li></ul>
-<h2>Audit logs</h2>
-<p>Suggested default:</p>
-<pre><code class="language-text">%LOCALAPPDATA%/Callsign/audit/session_YYYYMMDD_NNN.jsonl</code></pre>
-<p>Audit logs should be local only.</p>
-<h2>Upgrade strategy</h2>
-<p>Future packages should support:</p>
-<ul><li>Config migration.</li><li>Policy migration.</li><li>Selector schema migration.</li><li>Recipe schema migration.</li><li>Audit format versioning.</li></ul>
-<h2>Uninstall strategy</h2>
-<p>Uninstall should remove binaries but ask whether to keep:</p>
-<ul><li>Audit logs.</li><li>Recipes.</li><li>Selectors.</li><li>Config.</li></ul>
-<h2>Deployment checklist</h2>
-<ul><li>[ ] MCP server starts over stdio.</li><li>[ ] No network listener by default.</li><li>[ ] Policy config is loaded.</li><li>[ ] Audit directory is writable.</li><li>[ ] Stop hotkey is registered.</li><li>[ ] Dangerous tools are disabled.</li><li>[ ] Site docs match shipped tool list.</li></ul>
+<h2>Windows package layout</h2>
+<p>Current alpha output is intentionally small:</p>
+<pre><code class="language-text">Callsign-Run.exe
+Callsign-Setup.exe
+build/
+docs/</code></pre>
+<p>Future app packaging can add:</p>
+<ul><li>A real background service.</li><li>A tray helper.</li><li>Better update handling.</li><li>Optional premium cloud-connected features.</li></ul>
+<h2>Linux roadmap</h2>
+<p>Linux packaging is a later phase and should not be treated as a current alpha promise.</p>
     </article>
   </main>
   <script src="../assets/site.js"></script>

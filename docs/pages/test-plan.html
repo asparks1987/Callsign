@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Test Plan · Callsign</title>
+  <title>Test Plan - Callsign</title>
   <link rel="stylesheet" href="../assets/styles.css" />
 </head>
 <body>
@@ -43,108 +43,40 @@
     <article class="doc-content">
       <h1>Test Plan</h1>
 <h2>Goals</h2>
-<p>The Callsign test plan must prove three things:</p>
-<p>1. The system can perform useful desktop tasks. 2. The system blocks unsafe actions. 3. The system produces auditable, explainable outcomes.</p>
+<p>The Callsign alpha must prove three things:</p>
+<p>1. A new user can set up the app. 2. Voice identity gates the session correctly. 3. The app can launch a visible installed application reliably.</p>
 <h2>Test layers</h2>
 <h3>Unit tests</h3>
 <p>Targets:</p>
-<ul><li>Tool input validation.</li><li>Path normalization.</li><li>Policy decisions.</li><li>Redaction.</li><li>Selector matching.</li><li>Result envelopes.</li><li>Audit event formatting.</li></ul>
-<h3>Integration tests</h3>
+<ul><li>Callsign validation.</li><li>Profile storage.</li><li>Voice enrollment state.</li><li>Session state machine transitions.</li><li>App name parsing.</li><li>Error and lockout handling.</li></ul>
+<h3>UI tests</h3>
 <p>Targets:</p>
-<ul><li>MCP server startup over stdio.</li><li>Tool registration.</li><li>Active window detection.</li><li>UIA tree extraction against test apps.</li><li>File operations in temp approved roots.</li><li>Policy + tool execution chain.</li></ul>
-<h3>Desktop automation tests</h3>
+<ul><li>Create account flow.</li><li>Save and reload profile flow.</li><li>Record sample flow.</li><li>Train and reset voice flow.</li><li>Wake, verify, capture, launch flow.</li></ul>
+<h3>Launch tests</h3>
 <p>Targets:</p>
-<ul><li>Notepad.</li><li>Calculator.</li><li>File Explorer or temp folder shell.</li><li>Common dialogs.</li></ul>
+<ul><li>Start menu search opens visibly.</li><li>App name is typed into search.</li><li>Matching installed app launches.</li><li>Failure path leaves the session in a safe state.</li></ul>
 <h3>Safety tests</h3>
 <p>Targets:</p>
-<ul><li>Blocked shell.</li><li>Password fields.</li><li>Payment fields.</li><li>Hidden window action.</li><li>External side effects.</li><li>Screenshot sharing without opt-in.</li><li>File operations outside approved roots.</li></ul>
-<h3>Golden tests</h3>
-<p>Use captured or mocked UI trees to test planner/tool behavior deterministically.</p>
-<h2>MVP acceptance tests</h2>
-<h3>Test: server info</h3>
-<p>Input:</p>
-<pre><code class="language-json">{ &quot;tool&quot;: &quot;server.info&quot;, &quot;arguments&quot;: {} }</code></pre>
+<ul><li>Identity mismatch blocks launch.</li><li>Missing enrollment blocks launch.</li><li>Timeout blocks launch.</li><li>Cancel returns to idle.</li><li>Stop/reset clears the session.</li></ul>
+<h2>Alpha acceptance tests</h2>
+<h3>Test: first-run setup</h3>
 <p>Expected:</p>
-<ul><li>Returns server name and version.</li><li>Audit event is written.</li><li>No policy approval required.</li></ul>
-<h3>Test: active window</h3>
+<ul><li>User can create an account.</li><li>The profile persists after restart.</li><li>The profile folder path is shown correctly.</li></ul>
+<h3>Test: voice enrollment</h3>
 <p>Expected:</p>
-<ul><li>Returns foreground window metadata.</li><li>Does not include screenshot.</li><li>Redacts sensitive title if configured.</li></ul>
-<h3>Test: inspect Calculator</h3>
-<p>Steps:</p>
-<p>1. Open Calculator manually or through approved app launch. 2. Call <code>desktop.inspect_window</code>.</p>
+<ul><li>User can record samples.</li><li>Training reflects the enrollment state.</li><li>Reset returns the profile to not enrolled.</li></ul>
+<h3>Test: wake and verify</h3>
 <p>Expected:</p>
-<ul><li>Returns bounded UIA tree.</li><li>Includes buttons with control types.</li><li>Does not exceed max node count.</li></ul>
-<h3>Test: invoke Calculator button</h3>
-<p>Steps:</p>
-<p>1. Open Calculator. 2. Find button <code>7</code>. 3. Invoke it.</p>
+<ul><li>Saying <code>Callsign</code> moves the session into identity wait.</li><li>Saying the correct callsign allows command capture.</li><li>Saying the wrong callsign locks out the session.</li></ul>
+<h3>Test: launch app</h3>
 <p>Expected:</p>
-<ul><li>UIA invoke succeeds or fallback is logged.</li><li>Result display updates.</li><li>Verification passes.</li></ul>
-<h3>Test: Notepad typing</h3>
-<p>Steps:</p>
-<p>1. Open Notepad. 2. Set or type text.</p>
+<ul><li>A spoken command such as <code>launch Notepad</code> resolves the app name.</li><li>The app launches through Start search.</li><li>The launch result is shown in the UI.</li></ul>
+<h3>Test: timeout and cancel</h3>
 <p>Expected:</p>
-<ul><li>Text appears in editor.</li><li>No send/save occurs without approval.</li><li>Audit event records redacted text length or content depending config.</li></ul>
-<h3>Test: file rename approval</h3>
-<p>Steps:</p>
-<p>1. Create temp approved root. 2. Create file <code>Screenshot.png</code>. 3. Request rename.</p>
-<p>Expected:</p>
-<ul><li>Policy requires approval.</li><li>Without approval, no rename occurs.</li><li>With approval, target exists.</li><li>Audit links approval to tool call.</li></ul>
-<h2>Safety acceptance tests</h2>
-<p>| Test | Expected | |---|---| | <code>shell.run</code> requested | Denied | | File path outside approved root | Denied | | Rename with <code>../</code> in new name | Denied | | Type into password field | Handoff | | Submit email without approval | Denied or approval required | | SendInput to hidden window | Denied | | Screenshot cloud share while disabled | Denied | | Stop hotkey during workflow | Workflow stops |</p>
-<h2>Policy test fixtures</h2>
-<p>Example fixture:</p>
-<pre><code class="language-yaml">name: deny_file_outside_root
-input:
-  tool: file.rename
-  arguments:
-    source_path: &quot;C:/Users/Alice/Secrets/token.txt&quot;
-    new_name: &quot;token-old.txt&quot;
-  context:
-    visible_to_user: true
-expected:
-  decision: deny
-  reason_contains: approved root</code></pre>
-<h2>Mock UI tree fixture</h2>
-<pre><code class="language-json">{
-  &quot;window&quot;: {
-    &quot;title&quot;: &quot;Save As&quot;,
-    &quot;process_name&quot;: &quot;notepad.exe&quot;
-  },
-  &quot;tree&quot;: {
-    &quot;name&quot;: &quot;Save As&quot;,
-    &quot;control_type&quot;: &quot;Window&quot;,
-    &quot;children&quot;: [
-      {
-        &quot;name&quot;: &quot;File name:&quot;,
-        &quot;control_type&quot;: &quot;Edit&quot;,
-        &quot;automation_id&quot;: &quot;1001&quot;,
-        &quot;patterns&quot;: [&quot;ValuePattern&quot;]
-      },
-      {
-        &quot;name&quot;: &quot;Save&quot;,
-        &quot;control_type&quot;: &quot;Button&quot;,
-        &quot;patterns&quot;: [&quot;InvokePattern&quot;]
-      }
-    ]
-  }
-}</code></pre>
-<h2>Manual QA scripts</h2>
-<h3>Script: first-run safety</h3>
-<p>1. Start host. 2. Ask it to inspect active window. 3. Ask it to type into Notepad. 4. Ask it to send an email. 5. Ask it to run PowerShell.</p>
-<p>Expected:</p>
-<ul><li>Inspection works.</li><li>Typing works in Notepad.</li><li>Email send requires approval.</li><li>PowerShell is denied.</li></ul>
-<h3>Script: stop behavior</h3>
-<p>1. Start a multi-step file workflow. 2. Say “stop now” during execution.</p>
-<p>Expected:</p>
-<ul><li>Workflow halts.</li><li>No further actions occur.</li><li>Audit records stop.</li></ul>
-<h2>CI considerations</h2>
-<p>Windows desktop automation tests may require:</p>
-<ul><li>Windows runner.</li><li>Interactive desktop session.</li><li>Test app fixtures.</li><li>Skipping UI tests in headless CI.</li><li>Separate manual test lane for real desktop automation.</li></ul>
-<h2>Coverage goals</h2>
-<ul><li>90%+ unit coverage for policy engine.</li><li>90%+ unit coverage for path normalization.</li><li>100% audit coverage for action tools.</li><li>100% negative coverage for blocked MVP tool classes.</li></ul>
+<ul><li>If the user waits too long, the session locks out.</li><li>Cancel returns to idle.</li><li>Reset clears the current session state.</li></ul>
 <h2>Release gate</h2>
 <p>A release candidate cannot ship unless:</p>
-<ul><li>All P0 tests pass.</li><li>Safety tests pass.</li><li>Audit logging is verified.</li><li>Docs reflect current tool behavior.</li><li>Threat model is updated for any new tool category.</li></ul>
+<ul><li>The onboarding UI works from a clean profile store.</li><li>Voice enrollment is saved and restored.</li><li>Identity failure prevents launch.</li><li>App launch works on a common installed app.</li><li>Docs and the public site describe the current behavior.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

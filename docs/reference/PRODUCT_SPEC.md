@@ -67,9 +67,9 @@ The user must say the wake word and their callsign before command capture begins
 
 The user should be able to see what Callsign is doing, stop it, and understand the result.
 
-### 4. Open source core, freemium future
+### 4. Open source core, paid future
 
-The core desktop experience should remain free and open source. Future premium offerings, if any, must not undermine the local, visible workflow.
+The core desktop experience should remain free and open source. Future paid offerings should help cover costs and create profit, but they must not undermine the local, visible workflow.
 
 ## Success metrics
 
@@ -83,5 +83,4 @@ The core desktop experience should remain free and open source. Future premium o
 
 - How much of the voice enrollment should be guided by the app versus spoken prompts later?
 - Should the next phase focus on background service reliability or broader app launch support?
-- What freemium extras, if any, should stay optional after the core alpha?
-
+- What paid offerings, if any, should be introduced after the core alpha?

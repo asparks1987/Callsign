@@ -23,7 +23,7 @@ Say `Callsign`, confirm your callsign, and ask it to open the app you want from 
 - It stays visible while it works.
 - It asks for identity before it acts.
 - It keeps the first release focused on the desktop tasks people actually use.
-- It is being built as an open source freemium product, with the core experience staying free.
+- It is being built as an open source product with future paid offerings to help cover costs and create profit, while the core experience stays free.
 
 ## Current app
 
@@ -56,4 +56,3 @@ The GitHub Pages site lives in `docs/` and is generated from the markdown refere
 ## Safety
 
 Callsign is not intended to be stealth software, a credential handler, a shell runner, or a hidden remote-control tool.
-

@@ -155,7 +155,7 @@ index = f"""<!doctype html>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Callsign | Open Source AI for Your Desktop</title>
-  <meta name="description" content="Callsign is an open source, freemium Windows desktop assistant that wakes on your callsign, confirms identity, and launches installed apps in a visible way." />
+  <meta name="description" content="Callsign is an open source Windows desktop assistant with future paid offerings. It wakes on your callsign, confirms identity, and launches installed apps in a visible way." />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body>
@@ -171,7 +171,7 @@ index = f"""<!doctype html>
 
   <main>
     <section class="hero">
-      <div class="eyebrow">Windows-first - open source core - freemium future</div>
+      <div class="eyebrow">Windows-first - open source core - paid future</div>
       <h1>Say Callsign. Launch the app. Stay in control.</h1>
       <p>Callsign is a voice-driven desktop assistant for Windows. The alpha focuses on the visible workflow: create an account, train your voice, say your callsign, and launch installed apps through the Start menu.</p>
       <div class="actions">
@@ -196,14 +196,14 @@ index = f"""<!doctype html>
         <article class="card"><h3>Visible by design</h3><p>Nothing starts unless the user sees what is happening and can stop it.</p></article>
         <article class="card"><h3>Local first</h3><p>The alpha keeps profile data and enrollment state on the device by default.</p></article>
         <article class="card"><h3>Easy to explain</h3><p>The product promise is simple: say the word, confirm identity, launch the app.</p></article>
-        <article class="card"><h3>Open source core</h3><p>The base desktop experience stays free, with freemium options reserved for later.</p></article>
+        <article class="card"><h3>Open source core</h3><p>The base desktop experience stays free, with paid offerings reserved for later.</p></article>
       </div>
     </section>
 
     <section class="section" id="open-source">
-      <h2>Open Source and Freemium</h2>
+      <h2>Open Source and Paid Future</h2>
       <div class="card">
-        <p>Callsign is being built as an open source desktop assistant with a freemium future. The free core should remain useful on its own, while any premium offering must not break the local-first experience or hide the basic workflow behind a subscription.</p>
+        <p>Callsign is being built as an open source desktop assistant with future paid offerings. The free core should remain useful on its own, while any premium offering should help cover costs, support the team, and not hide the basic workflow behind a subscription wall.</p>
       </div>
     </section>
 
@@ -213,7 +213,7 @@ index = f"""<!doctype html>
         <article class="card"><h3>Available now</h3><p>Windows setup app, profile storage, voice enrollment state, and a visible session flow.</p></article>
         <article class="card"><h3>Next up</h3><p>Real always-on voice service, better recognition, and stronger app launch reliability.</p></article>
         <article class="card"><h3>Later</h3><p>Broader desktop automation, recipes, and Linux support after the Windows alpha is stable.</p></article>
-        <article class="card"><h3>Still free</h3><p>The core desktop experience stays open source and free to use.</p></article>
+        <article class="card"><h3>Core stays free</h3><p>The core desktop experience stays open source and free to use.</p></article>
       </div>
     </section>
 
@@ -225,7 +225,7 @@ index = f"""<!doctype html>
     </section>
   </main>
 
-  <footer class="footer">Callsign - open source desktop AI with a freemium future.</footer>
+  <footer class="footer">Callsign - open source desktop AI with future paid offerings.</footer>
   <script src="assets/site.js"></script>
 </body>
 </html>

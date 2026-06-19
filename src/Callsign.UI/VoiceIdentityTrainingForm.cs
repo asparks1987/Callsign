@@ -12,6 +12,7 @@ public sealed class VoiceIdentityTrainingForm : Form
 {
     private readonly ProfileStore _profileStore;
     private readonly UserProfile _profile;
+    private readonly VoiceCommandService _voiceCommandService;
     private readonly VoiceSampleCaptureService _sampleCapture = new();
     private readonly VoiceBiometricVerificationService _biometricService = new();
 
@@ -24,16 +25,18 @@ public sealed class VoiceIdentityTrainingForm : Form
     private readonly Button _playButton;
     private readonly Button _enrollButton;
     private readonly Button _calibrateButton;
+    private readonly Button _wakeCalibrateButton;
     private readonly Button _repairRuntimeButton;
     private readonly Button _closeButton;
     private readonly System.Windows.Forms.Timer _levelTimer = new() { Interval = 100 };
     private bool _busy;
     private string? _currentSamplePath;
 
-    public VoiceIdentityTrainingForm(ProfileStore profileStore, UserProfile profile)
+    public VoiceIdentityTrainingForm(ProfileStore profileStore, UserProfile profile, VoiceCommandService voiceCommandService)
     {
         _profileStore = profileStore;
         _profile = profile;
+        _voiceCommandService = voiceCommandService;
 
         Text = $"Train Voice Identity - {profile.Callsign}";
         Width = 820;
@@ -140,6 +143,9 @@ public sealed class VoiceIdentityTrainingForm : Form
         _calibrateButton = new Button { Text = "Calibrate Mic", Width = 130, Height = 44 };
         _calibrateButton.Click += (_, _) => CalibrateMicrophone();
 
+        _wakeCalibrateButton = new Button { Text = "Calibrate Wakeword", Width = 180, Height = 44 };
+        _wakeCalibrateButton.Click += async (_, _) => await CalibrateWakewordAsync();
+
         _repairRuntimeButton = new Button { Text = "Repair Identity Runtime", Width = 180, Height = 44 };
         _repairRuntimeButton.Click += (_, _) => RepairIdentityRuntime();
 
@@ -148,6 +154,7 @@ public sealed class VoiceIdentityTrainingForm : Form
         buttons.Controls.Add(_playButton);
         buttons.Controls.Add(_enrollButton);
         buttons.Controls.Add(_calibrateButton);
+        buttons.Controls.Add(_wakeCalibrateButton);
         buttons.Controls.Add(_repairRuntimeButton);
         layout.Controls.Add(buttons, 1, 7);
 
@@ -318,6 +325,58 @@ public sealed class VoiceIdentityTrainingForm : Form
         RefreshState();
     }
 
+    private async Task CalibrateWakewordAsync()
+    {
+        if (_busy)
+            return;
+
+        var samplePath = GetLatestSamplePath();
+        if (!File.Exists(samplePath))
+        {
+            var recordedSamples = GetRecordedSamplePaths();
+            if (recordedSamples.Count == 0)
+            {
+                _statusLabel.Text = "Record a sample first, then calibrate the wakeword.";
+                return;
+            }
+
+            samplePath = recordedSamples[^1];
+        }
+
+        SetBusy(true, "Scoring the wakeword sample and tuning the profile threshold...");
+        try
+        {
+            var score = await _voiceCommandService.TryScoreWakeWordSampleAsync(samplePath, CancellationToken.None);
+            if (!score.HasValue)
+            {
+                _statusLabel.Text = "Wake calibration could not score the sample. Repair Wakeword or record a clearer Callsign sample.";
+                return;
+            }
+
+            var calibratedThreshold = VoiceCommandService.ComputeCalibratedWakeThreshold(score.Value);
+            if (!calibratedThreshold.HasValue)
+            {
+                _statusLabel.Text = $"Wake calibration score {score.Value:0.000} was too small to trust. Record a clearer Callsign sample.";
+                return;
+            }
+
+            _profile.Settings.VoiceWakeThreshold = calibratedThreshold.Value;
+            _profile.Settings.VoiceWakeSensitivity = "More responsive";
+            _profileStore.Save(_profile);
+            _qualityLabel.Text = $"Wake calibration used score {score.Value:0.000}; threshold now {calibratedThreshold.Value:0.000}.";
+            _statusLabel.Text = $"Wakeword calibrated from {Path.GetFileName(samplePath)}.";
+            RefreshState();
+        }
+        catch (Exception ex)
+        {
+            _statusLabel.Text = $"Wake calibration failed: {ex.Message}";
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
     private async Task EnrollIdentityAsync()
     {
         var samplePaths = GetRecordedSamplePaths();
@@ -420,6 +479,7 @@ public sealed class VoiceIdentityTrainingForm : Form
         _playButton.Enabled = _playButton.Enabled && !_busy;
         _repairRuntimeButton.Enabled = !_busy;
         _calibrateButton.Enabled = !_busy && File.Exists(GetLatestSamplePath());
+        _wakeCalibrateButton.Enabled = !_busy && (File.Exists(GetLatestSamplePath()) || GetRecordedSamplePaths().Count > 0);
         _closeButton.Enabled = true;
     }
 
@@ -435,6 +495,7 @@ public sealed class VoiceIdentityTrainingForm : Form
         _playButton.Enabled = !busy && (File.Exists(GetLatestSamplePath()) || GetRecordedSamplePaths().Count > 0);
         _enrollButton.Enabled = !busy && _profile.Settings.VoiceSamplesRecorded >= Math.Max(3, _profile.Settings.VoiceSamplesRequired);
         _calibrateButton.Enabled = !busy && File.Exists(GetLatestSamplePath());
+        _wakeCalibrateButton.Enabled = !busy && (File.Exists(GetLatestSamplePath()) || GetRecordedSamplePaths().Count > 0);
         _repairRuntimeButton.Enabled = !busy;
         _closeButton.Enabled = !busy;
         Cursor = busy ? Cursors.WaitCursor : Cursors.Default;

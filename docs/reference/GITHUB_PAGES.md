@@ -12,6 +12,9 @@ It must:
 - reinforce the `Callsign -> identity verification -> command` flow,
 - show the overlay-first UX and live transcript concept,
 - state that all Alpha v1 capabilities are free until at least beta,
+- make clear that the Free/open-source core is the public Windows Voice Access alternative,
+- and frame Pro and Advanced as the paid layers where new commands can keep being added over time,
+- link to the tier architecture plan for the Free installer, Pro upgrade path, and command-library model,
 - and guide users to the release ladder.
 
 ## Reference docs

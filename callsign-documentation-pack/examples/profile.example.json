@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "profile_id": "profile-alpha-0001",
+  "callsign": "Womprat",
+  "display_name": "Test User",
+  "enabled": true,
+  "created_utc": "2026-06-19T12:00:00Z",
+  "updated_utc": "2026-06-19T12:30:00Z",
+  "voice_enrollment": {
+    "status": "enrolled",
+    "sample_count": 3,
+    "required_sample_count": 3,
+    "model_id": "example/speaker-model@1",
+    "threshold_profile": "alpha-default-v1",
+    "raw_samples_retained": false,
+    "enrolled_utc": "2026-06-19T12:30:00Z"
+  },
+  "preferences": {
+    "overlay_monitor": null,
+    "reduced_motion": false,
+    "transcription_provider": "local"
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://callsign.local/schemas/tool-result.schema.json",
+  "title": "Callsign Tool Result",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ok",
+        "tool",
+        "tool_version",
+        "correlation_id",
+        "data",
+        "warnings",
+        "verification"
+      ],
+      "properties": {
+        "ok": {
+          "const": true
+        },
+        "tool": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+          "maxLength": 100
+        },
+        "tool_version": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "correlation_id": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "data": {
+          "type": "object"
+        },
+        "warnings": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "verification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "performed",
+            "method",
+            "summary"
+          ],
+          "properties": {
+            "performed": {
+              "type": "boolean"
+            },
+            "method": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "summary": {
+              "type": "string",
+              "maxLength": 300
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ok",
+        "tool",
+        "tool_version",
+        "correlation_id",
+        "error"
+      ],
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "tool": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+          "maxLength": 100
+        },
+        "tool_version": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "correlation_id": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "message",
+            "recoverable",
+            "suggested_next_tools"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "pattern": "^[A-Z0-9_]+$",
+              "maxLength": 100
+            },
+            "message": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "recoverable": {
+              "type": "boolean"
+            },
+            "suggested_next_tools": {
+              "type": "array",
+              "maxItems": 10,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+                "maxLength": 100
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tier Architecture - Callsign</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../index.html">Callsign</a>
+    <nav><a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
+<a href="tier-architecture.html">Tier Architecture</a>
+<a href="architecture.html">Architecture</a>
+<a href="windows-automation.html">Windows Automation</a>
+<a href="security-model.html">Security Model</a>
+<a href="threat-model.html">Threat Model</a>
+<a href="voice-ux.html">Voice UX</a>
+<a href="data-model.html">Data Model</a>
+<a href="test-plan.html">Test Plan</a>
+<a href="deployment.html">Deployment</a>
+<a href="roadmap.html">Roadmap</a>
+<a href="burndown.html">Burndown</a>
+<a href="github-pages.html">GitHub Pages</a></nav>
+  </header>
+  <main class="doc-shell">
+    <aside class="doc-sidebar">
+      <strong>Docs</strong>
+      <a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
+<a href="tier-architecture.html">Tier Architecture</a>
+<a href="architecture.html">Architecture</a>
+<a href="windows-automation.html">Windows Automation</a>
+<a href="security-model.html">Security Model</a>
+<a href="threat-model.html">Threat Model</a>
+<a href="voice-ux.html">Voice UX</a>
+<a href="data-model.html">Data Model</a>
+<a href="test-plan.html">Test Plan</a>
+<a href="deployment.html">Deployment</a>
+<a href="roadmap.html">Roadmap</a>
+<a href="burndown.html">Burndown</a>
+<a href="github-pages.html">GitHub Pages</a>
+    </aside>
+    <article class="doc-content">
+      <h1>Tier Architecture and Upgrade Plan</h1>
+<h2>Canon</h2>
+<p>Callsign is built as two products that share one visible, identity-first control model.</p>
+<p>The Free core is the MIT-licensed open-source product. It should install from GitHub or the public website with minimal effort, work without a paid account, and reach practical parity with built-in Windows voice controls while using Callsign&#x27;s stricter session flow:</p>
+<pre><code class="language-text">Callsign -&gt; identity verification -&gt; command -&gt; visible action</code></pre>
+<p>The Pro product is the paid expansion layer. It unlocks deeper automation and a continuously updated advanced command library without making the Free core dependent on closed-source code.</p>
+<h2>Product goals</h2>
+<ul><li>Free must be useful on its own, not a demo shell.</li><li>Free must remain buildable from the public repository.</li><li>Free must be installable from GitHub Releases and the Callsign website with a simple installer.</li><li>Pro must be upgradeable from inside the app after the Free version is already working.</li><li>Pro must support frequent command-library updates without requiring a full application rebuild every time.</li><li>Pro and Advanced functionality must remain policy-gated, signed, auditable, and user-visible.</li><li>Closed-source implementation material must stay outside the MIT repository boundary.</li></ul>
+<h2>Free distribution path</h2>
+<p>The public Free release should provide:</p>
+<ul><li>a signed Windows installer,</li><li>a portable developer build when practical,</li><li>bundled wake/runtime assets that are redistributable,</li><li>first-run profile and callsign setup,</li><li>voice enrollment and listener health checks,</li><li>the <code>callsign.gif</code> wake overlay with live readout,</li><li>local profile storage,</li><li>clear repair buttons for voice runtime assets,</li><li>and no login requirement for Free features.</li></ul>
+<p>The website download and GitHub Release download should point to the same signed installer artifact. A new user should be able to download, install, create a profile, train voice identity, and try basic commands without reading developer setup notes.</p>
+<h2>Free capability boundary</h2>
+<p>Free is the Windows Voice Access parity layer.</p>
+<p>The Free command set should cover the everyday voice-control surface:</p>
+<ul><li>wake word detection,</li><li>callsign and voice identity verification,</li><li>visible overlay and transcript feedback,</li><li>app launching,</li><li>dictation with review,</li><li>basic browser open/search/navigation,</li><li>visible system control that matches built-in voice-control expectations,</li><li>Explorer-backed file and folder search when file search lands in the Alpha v1 line,</li><li>stop, cancel, timeout, and lockout controls,</li><li>and accessibility-oriented status feedback.</li></ul>
+<p>Free should not include arbitrary hidden automation, secret handling, purchases, money movement, account deletion, or silent external submissions.</p>
+<h2>Pro upgrade path</h2>
+<p>The app should expose a clear upgrade path only after the Free experience is functional:</p>
+<p>1. User installs Free. 2. User creates a profile and confirms Callsign can hear them. 3. User opens <code>Upgrade to Pro</code> from settings or the website. 4. App validates entitlement through a license file, signed token, or account-based activation. 5. App downloads or unlocks signed Pro command packs. 6. App registers those packs in the local command library. 7. Commands remain disabled until policy, capability, and signature checks pass.</p>
+<p>The upgrade should not replace the Free executable with an unrelated application. It should add private command packs, private adapters, private recipes, and entitlement metadata around the same visible Callsign runtime.</p>
+<h2>Entitlement and license model</h2>
+<p>Entitlement should answer only one question: whether a paid command pack may be loaded.</p>
+<p>Policy should answer the separate question of whether a command may run right now.</p>
+<p>That separation matters because a paid feature can still be unsafe in a particular context. A Pro license must never bypass:</p>
+<ul><li>identity verification,</li><li>risk-tier policy,</li><li>explicit approval prompts,</li><li>audit logging,</li><li>visibility requirements,</li><li>or blocked-action rules.</li></ul>
+<p>Recommended entitlement behavior:</p>
+<ul><li>signed local entitlement cache,</li><li>online activation and refresh when available,</li><li>offline grace period for already activated users,</li><li>readable expiration or repair status,</li><li>no secret tokens committed to the repo,</li><li>no closed-source entitlement code required to build Free.</li></ul>
+<h2>Advanced command library</h2>
+<p>The Pro and Advanced business engine should be a command-library system.</p>
+<p>A command pack should include:</p>
+<ul><li>pack id,</li><li>display name,</li><li>version,</li><li>publisher,</li><li>signature,</li><li>changelog,</li><li>risk tier,</li><li>required capabilities,</li><li>phrase aliases,</li><li>command schemas,</li><li>approval requirements,</li><li>rollback metadata,</li><li>implementation module reference,</li><li>and compatibility constraints.</li></ul>
+<p>The local command registry should merge:</p>
+<ul><li>Free built-in commands from the MIT core,</li><li>enabled Pro packs,</li><li>enabled Advanced packs,</li><li>disabled packs kept for rollback,</li><li>and user-created local recipes when that feature exists.</li></ul>
+<p>The command registry should be inspectable in the UI. Users should be able to see which pack owns a command, when it was updated, what risk tier it has, and how to disable it.</p>
+<h2>Command pack update channel</h2>
+<p>Pro should support continuous expansion through a signed update channel:</p>
+<p>1. App checks the command-pack feed. 2. Feed returns signed metadata only. 3. App compares versions, compatibility, and rollout flags. 4. App downloads changed packs. 5. App verifies signatures and hashes. 6. App stages the update. 7. App restarts only the command registry when possible. 8. App keeps rollback data for the last known-good pack.</p>
+<p>Updates should be small and frequent. The main app should not need a full reinstall just because a new browser recipe, Windows workflow, WSL command, or diagnostic pack was added.</p>
+<h2>Repository boundary</h2>
+<p>The public repository should contain:</p>
+<ul><li>the Free app,</li><li>the service runtime,</li><li>setup and monitoring UI,</li><li>open command interfaces,</li><li>policy engine contracts,</li><li>command registry contracts,</li><li>docs and website,</li><li>tests for the Free capability set,</li><li>and sample command packs that are safe to publish.</li></ul>
+<p>The public repository should not contain:</p>
+<ul><li>private Pro command implementations,</li><li>proprietary command packs,</li><li>private model assets that cannot be redistributed,</li><li>paid license keys,</li><li>entitlement secrets,</li><li>commercial rollout configuration,</li><li>or private business experiments.</li></ul>
+<p>Local private material belongs in <code>/closed-source/</code>, which remains git-ignored. Production private distribution can live in a separate private repository or release system.</p>
+<h2>Installer and repair requirements</h2>
+<p>The installer should support:</p>
+<ul><li>install Free without login,</li><li>launch Callsign after install,</li><li>repair wake runtime,</li><li>repair identity runtime,</li><li>preserve profiles on upgrade,</li><li>install Pro command packs after entitlement,</li><li>skip unchanged runtime extraction,</li><li>show progress for long operations,</li><li>and write readable logs under the Callsign local app data folder.</li></ul>
+<p>The installer must not ask users to hunt for model files, wheelhouses, command packs, or runtime dependencies.</p>
+<h2>Security requirements</h2>
+<p>Every Free and paid command path must keep the same safety posture:</p>
+<ul><li>wake word alone authorizes nothing,</li><li>identity must pass before command capture,</li><li>high-risk actions require explicit approval,</li><li>signed command packs are required for paid features,</li><li>command execution remains auditable,</li><li>users can disable command packs,</li><li>hidden execution is blocked unless explicitly configured,</li><li>and sensitive data is not uploaded without opt-in.</li></ul>
+<h2>Implementation phases</h2>
+<table><thead><tr><th>Phase</th><th>Goal</th><th>Acceptance</th></tr></thead><tbody><tr><td>1</td><td>Free installer polish</td><td>New user installs from GitHub or website, creates profile, enrolls voice, and tests Free commands without developer setup.</td></tr><tr><td>2</td><td>Free parity command set</td><td>Free reaches practical parity with built-in Windows voice controls through visible, identity-gated commands.</td></tr><tr><td>3</td><td>Command registry contract</td><td>Free commands and future paid packs use one local registry, one policy path, and one audit path.</td></tr><tr><td>4</td><td>Pro entitlement shell</td><td>App can activate, cache, refresh, and revoke Pro entitlement without changing Free behavior.</td></tr><tr><td>5</td><td>Signed command packs</td><td>App loads, verifies, updates, disables, and rolls back signed paid command packs.</td></tr><tr><td>6</td><td>Pro command library</td><td>Paid library receives frequent new commands, recipes, diagnostics, and workflow packs.</td></tr><tr><td>7</td><td>Advanced expansion</td><td>Advanced adds specialized high-skill workflows, admin/dev packs, and deep diagnostics behind stronger approval policy.</td></tr></tbody></table>
+<h2>Non-negotiables</h2>
+<ul><li>Do not make Free dependent on private code.</li><li>Do not remove Free features after monetization starts.</li><li>Do not let paid entitlement bypass safety policy.</li><li>Do not hide what Callsign heard or did.</li><li>Do not ship unsigned paid command packs.</li><li>Do not put closed-source material in the public repo.</li></ul>
+    </article>
+  </main>
+  <script src="../assets/site.js"></script>
+</body>
+</html>

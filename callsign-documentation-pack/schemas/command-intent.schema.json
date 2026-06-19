@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://callsign.local/schemas/command-intent.schema.json",
+  "title": "Callsign Command Intent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "intent_id",
+    "session_id",
+    "intent_type",
+    "confidence",
+    "requires_confirmation",
+    "arguments"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "intent_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 100
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "intent_type": {
+      "enum": [
+        "launch_application",
+        "start_dictation",
+        "open_url",
+        "search_web",
+        "search_file_names",
+        "cancel",
+        "unsupported"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "requires_confirmation": {
+      "type": "boolean"
+    },
+    "arguments": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "application_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "url": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      }
+    },
+    "rejection_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 300
+    }
+  }
+}

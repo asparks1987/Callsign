@@ -81,6 +81,15 @@ public sealed class MicrophoneAudioProcessor
         return ProcessSamples(monoSamples, utcNow);
     }
 
+    public static byte[] ConvertToWakePcm16(ReadOnlySpan<byte> buffer, int bytesRecorded, WaveFormat inputFormat)
+    {
+        var monoSamples = DecodeToMonoSamples(buffer, bytesRecorded, inputFormat);
+        if (inputFormat.SampleRate != OutputWaveFormat.SampleRate)
+            monoSamples = ResampleLinear(monoSamples, inputFormat.SampleRate, OutputWaveFormat.SampleRate);
+
+        return ToPcm16(monoSamples);
+    }
+
     private MicrophoneAudioProcessingResult ProcessSamples(double[] rawSamples, DateTime utcNow)
     {
         lock (_gate)

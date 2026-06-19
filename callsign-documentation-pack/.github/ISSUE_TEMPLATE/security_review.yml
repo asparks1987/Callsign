@@ -1,0 +1,35 @@
+name: Security/privacy design review
+description: Request review for a non-vulnerability design change
+title: "[Security review] "
+labels: ["security", "privacy", "needs-design"]
+body:
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and release
+    validations:
+      required: true
+  - type: textarea
+    id: data
+    attributes:
+      label: Data classes and flow
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Trust boundaries and actors
+    validations:
+      required: true
+  - type: textarea
+    id: policy
+    attributes:
+      label: Authorization, approval, and blocked behavior
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification and tests
+    validations:
+      required: true

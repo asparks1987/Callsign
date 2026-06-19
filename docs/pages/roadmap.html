@@ -11,6 +11,7 @@
     <a class="brand" href="../index.html">Callsign</a>
     <nav><a href="canon.html">Canon</a>
 <a href="product-spec.html">Product Spec</a>
+<a href="tier-architecture.html">Tier Architecture</a>
 <a href="architecture.html">Architecture</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
@@ -28,6 +29,7 @@
       <strong>Docs</strong>
       <a href="canon.html">Canon</a>
 <a href="product-spec.html">Product Spec</a>
+<a href="tier-architecture.html">Tier Architecture</a>
 <a href="architecture.html">Architecture</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
@@ -45,7 +47,8 @@
 <h2>Release ladder</h2>
 <p>All Alpha v1 features are free and remain free until at least beta.</p>
 <p>The Alpha v1 line is the path to practical Windows Voice Access parity while keeping Callsign&#x27;s identity model and visible action model.</p>
-<table><thead><tr><th>Release</th><th>Focus</th><th>Goal</th></tr></thead><tbody><tr><td>v1.0 alpha</td><td>Wake + identity + overlay + Start menu launch</td><td>Service wakeword, verified callsign gate, topmost overlay readout, and visible Start menu launch.</td></tr><tr><td>v1.1 alpha</td><td>Dictation</td><td>Speak text locally and review before insertion or copy.</td></tr><tr><td>v1.2 alpha</td><td>Browser control</td><td>Open, search, and navigate visible browser flows with explicit boundaries.</td></tr><tr><td>v1.3 alpha</td><td>System control and file search</td><td>Broad Windows control, WSL/Linux workflow expansion, and Explorer-backed search actions.</td></tr><tr><td>Beta or later</td><td>Packaging and monetization</td><td>Revisit Pro/Advanced packaging and support model after alpha parity targets are stable.</td></tr></tbody></table>
+<p>The Free tier is the open-source core and the public face of Callsign. It should be the part users compare against built-in Windows voice tools first. Pro and Advanced are the paid expansion tiers, built to keep receiving new commands, workflows, recipes, and controls over time.</p>
+<table><thead><tr><th>Release</th><th>Focus</th><th>Goal</th></tr></thead><tbody><tr><td>v1.0 alpha</td><td>Wake + identity + overlay + Start menu launch</td><td>Service wakeword, verified callsign gate, topmost overlay readout, and visible Start menu launch.</td></tr><tr><td>v1.1 alpha</td><td>Dictation</td><td>Speak text locally and review before insertion or copy.</td></tr><tr><td>v1.2 alpha</td><td>Browser control</td><td>Open, search, and navigate visible browser flows with explicit boundaries.</td></tr><tr><td>v1.3 alpha</td><td>System control and file search</td><td>Broad Windows control, WSL/Linux workflow expansion, and Explorer-backed search actions.</td></tr><tr><td>Beta or later</td><td>Packaging and monetization</td><td>Add the Pro upgrade path, signed command packs, and continuously updated paid command library after alpha parity targets are stable.</td></tr></tbody></table>
 <h2>v1.0 alpha (current)</h2>
 <ul><li>Account and callsign setup</li><li>Voice sample recording and playback</li><li>Background service listening</li><li><code>Callsign</code> wake word detection for <code>Callsign</code> and <code>call sign</code></li><li>Overlay activation at wake with live readout</li><li>Callsign identity verification before launch</li><li>Visible Start menu app launch</li><li>Stop/cancel/timeout/lockout safety</li></ul>
 <h2>Exit criteria</h2>
@@ -59,7 +62,7 @@
 <h2>Alpha parity hold point</h2>
 <p>Before leaving Alpha v1, product should be compared against Windows Voice Access for reliability and usability of daily command set and visibility behavior.</p>
 <h2>Beta or later</h2>
-<ul><li>Paid tier model and packaging boundaries.</li><li>Signed installer and update/rollback story.</li><li>Support and telemetry options with opt-in only.</li></ul>
+<ul><li>Paid tier model and packaging boundaries.</li><li>In-app Pro upgrade after Free is installed and working.</li><li>Signed command-pack registry for frequently added paid features.</li><li>Separate entitlement checks from safety policy checks.</li><li>Signed installer and update/rollback story.</li><li>Support and telemetry options with opt-in only.</li><li>Fast iteration on Pro/Advanced command catalogs, recipes, and power-user workflows without changing the open-source Free core.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

@@ -11,6 +11,7 @@
     <a class="brand" href="../index.html">Callsign</a>
     <nav><a href="canon.html">Canon</a>
 <a href="product-spec.html">Product Spec</a>
+<a href="tier-architecture.html">Tier Architecture</a>
 <a href="architecture.html">Architecture</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
@@ -28,6 +29,7 @@
       <strong>Docs</strong>
       <a href="canon.html">Canon</a>
 <a href="product-spec.html">Product Spec</a>
+<a href="tier-architecture.html">Tier Architecture</a>
 <a href="architecture.html">Architecture</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
@@ -65,6 +67,13 @@
 <h2>Safety and platform direction</h2>
 <p>The architecture is intentionally local-first, open-source core:</p>
 <ul><li>user-visible actions and stop controls</li><li>no hidden background side effects</li><li>no paywall in Alpha v1</li><li>Pro/Advanced expansion happens after the alpha parity core is stable</li></ul>
+<p>The Free tier should remain the stable, inspectable core that matches the public promise. Pro and Advanced should be able to grow continuously above that core with new commands, workflows, and deeper control paths, without forcing the open-source experience to become dependent on private logic.</p>
+<h2>Tier architecture</h2>
+<p>The Free runtime, policy engine, session state, overlay, command registry contracts, and everyday command set belong in the MIT-licensed repo.</p>
+<p>The paid layers should plug into the same runtime through signed command packs:</p>
+<ul><li>Free commands ship with the open-source app.</li><li>Pro command packs unlock deeper Windows, WSL, Linux, browser, workflow, and system control.</li><li>Advanced command packs unlock specialized recipes, diagnostics, admin/dev workflows, and power-user automation.</li></ul>
+<p>All commands, free or paid, must still pass the same identity, policy, visibility, and audit pipeline.</p>
+<p>The detailed installer, entitlement, update, and command-pack boundary is defined in <code>docs/reference/TIER_ARCHITECTURE.md</code>.</p>
     </article>
   </main>
   <script src="../assets/site.js"></script>

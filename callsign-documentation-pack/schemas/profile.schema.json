@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://callsign.local/schemas/profile.schema.json",
+  "title": "Callsign Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "callsign",
+    "display_name",
+    "enabled",
+    "created_utc",
+    "updated_utc",
+    "voice_enrollment"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "profile_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{7,63}$"
+    },
+    "callsign": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 48,
+      "pattern": "^[^\\\\/:*?\"<>|\\r\\n]+$"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "voice_enrollment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "sample_count",
+        "required_sample_count",
+        "raw_samples_retained"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not_started",
+            "collecting",
+            "enrolled",
+            "needs_reenrollment",
+            "error"
+          ]
+        },
+        "sample_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 20
+        },
+        "required_sample_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20
+        },
+        "model_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 200
+        },
+        "threshold_profile": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 100
+        },
+        "raw_samples_retained": {
+          "type": "boolean"
+        },
+        "enrolled_utc": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "preferences": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "overlay_monitor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 100
+        },
+        "reduced_motion": {
+          "type": "boolean"
+        },
+        "transcription_provider": {
+          "type": "string",
+          "maxLength": 100
+        }
+      }
+    }
+  }
+}

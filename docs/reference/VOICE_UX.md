@@ -13,6 +13,12 @@ Callsign should feel calm, premium, direct, and visible. The v1.0 alpha voice ex
 
 All Alpha v1 features are free and remain free until at least beta.
 
+The Free tier is the part that should most closely reach parity with built-in Windows voice tools while feeling better organized, more visible, and more trustworthy.
+It is the public open-source core.
+Pro and Advanced should be framed as the paid expansion path where new commands and workflows can keep arriving through signed command packs.
+
+The tier architecture and upgrade model are defined in `TIER_ARCHITECTURE.md`.
+
 ## v1.0 voice interaction modes
 
 ### Wake mode
@@ -119,6 +125,7 @@ For `v1.0 alpha`, Start menu app launch is the only required voice action.
 - `v1.3 alpha`: system control mode, including safe desktop controls such as volume up, volume down, mute, show desktop, and file search results opened through Windows Explorer.
 
 The full Alpha v1 line is the path to Windows Voice Access parity.
+The Free tier should be the public proof that Callsign can match and often beat the built-in Windows voice experience on everyday control.
 
 ## Recovery mode
 

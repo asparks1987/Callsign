@@ -6,13 +6,17 @@ All Alpha v1 features are free and remain free until at least beta.
 
 The Alpha v1 line is the path to practical Windows Voice Access parity while keeping Callsign's identity model and visible action model.
 
+The Free tier is the open-source core and the public face of Callsign.
+It should be the part users compare against built-in Windows voice tools first.
+Pro and Advanced are the paid expansion tiers, built to keep receiving new commands, workflows, recipes, and controls over time.
+
 | Release | Focus | Goal |
 |---|---|---|
 | v1.0 alpha | Wake + identity + overlay + Start menu launch | Service wakeword, verified callsign gate, topmost overlay readout, and visible Start menu launch. |
 | v1.1 alpha | Dictation | Speak text locally and review before insertion or copy. |
 | v1.2 alpha | Browser control | Open, search, and navigate visible browser flows with explicit boundaries. |
 | v1.3 alpha | System control and file search | Broad Windows control, WSL/Linux workflow expansion, and Explorer-backed search actions. |
-| Beta or later | Packaging and monetization | Revisit Pro/Advanced packaging and support model after alpha parity targets are stable. |
+| Beta or later | Packaging and monetization | Add the Pro upgrade path, signed command packs, and continuously updated paid command library after alpha parity targets are stable. |
 
 ## v1.0 alpha (current)
 
@@ -58,5 +62,9 @@ Before leaving Alpha v1, product should be compared against Windows Voice Access
 ## Beta or later
 
 - Paid tier model and packaging boundaries.
+- In-app Pro upgrade after Free is installed and working.
+- Signed command-pack registry for frequently added paid features.
+- Separate entitlement checks from safety policy checks.
 - Signed installer and update/rollback story.
 - Support and telemetry options with opt-in only.
+- Fast iteration on Pro/Advanced command catalogs, recipes, and power-user workflows without changing the open-source Free core.

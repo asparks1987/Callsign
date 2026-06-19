@@ -37,6 +37,12 @@ public sealed class RuntimeStateStore
     {
         Directory.CreateDirectory(_runtimeDir);
         var json = JsonSerializer.Serialize(snapshot, _jsonOptions);
-        File.WriteAllText(StatePath, json);
+        var tempPath = StatePath + ".tmp";
+        File.WriteAllText(tempPath, json);
+
+        if (File.Exists(StatePath))
+            File.Replace(tempPath, StatePath, null);
+        else
+            File.Move(tempPath, StatePath);
     }
 }

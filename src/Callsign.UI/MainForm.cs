@@ -279,6 +279,7 @@ public sealed class MainForm : Form
         _voiceCommandService.TranscriptReceived += VoiceTranscriptReceived;
         _voiceCommandService.WakeWordDetected += VoiceWakeWordDetected;
         _voiceCommandService.RecognitionError += VoiceRecognitionError;
+        _runtimeStateMonitor.Changed += RuntimeStateMonitorChanged;
         _voiceCommandService.SpeechActivityChanged += (_, _) => RunOnUiThread(() =>
         {
             UpdateVoiceCueRefreshRate();
@@ -1810,9 +1811,14 @@ public sealed class MainForm : Form
     private void UpdateVoiceCueRefreshRate()
     {
         var activeVoiceSession = _voiceCommandService.IsSpeechActive || _dictationActive || IsWakeOverlaySessionActive(_session.State);
-        var targetInterval = activeVoiceSession ? 250 : 1000;
+        var targetInterval = activeVoiceSession ? 100 : 1000;
         if (_sessionTimer.Interval != targetInterval)
             _sessionTimer.Interval = targetInterval;
+    }
+
+    private void RuntimeStateMonitorChanged(object? sender, EventArgs e)
+    {
+        RunOnUiThread(RefreshSessionPanel);
     }
 
     private static string FormatRuntimeIdentityStatus(RuntimeStateSnapshot runtimeSnapshot)
@@ -2919,6 +2925,24 @@ public sealed class MainForm : Form
             settings.VoiceEnrollmentStatus = "Activated";
             settings.VoiceEnrolledUtc = DateTime.UtcNow;
             settings.VoiceSamplesRecorded = samplePaths.Count;
+            var wakeScores = new List<double>();
+            foreach (var samplePath in samplePaths)
+            {
+                var score = await _voiceCommandService.TryScoreWakeWordSampleAsync(samplePath, CancellationToken.None);
+                if (score.HasValue)
+                    wakeScores.Add(score.Value);
+            }
+
+            if (wakeScores.Count > 0)
+            {
+                var calibratedThreshold = VoiceCommandService.ComputeCalibratedWakeThreshold(wakeScores.Max());
+                if (calibratedThreshold.HasValue)
+                {
+                    settings.VoiceWakeThreshold = calibratedThreshold.Value;
+                    settings.VoiceWakeSensitivity = "More responsive";
+                }
+            }
+
             SaveVoiceState(profile);
             _profileStore.Save(profile);
             RefreshAllPanels();
@@ -3371,10 +3395,14 @@ public sealed class MainForm : Form
                 ? "Audio quality looks clean."
                 : string.Join(" ", e.Result.AudioQualityWarnings);
 
+            if (!_dictationActive)
+            {
+                ShowWakeOverlay(activityLevel: BuildLocalOverlayActivityLevel(), activityText: BuildLocalActivityTextForWakeOverlay(), speechActive: _voiceCommandService.IsSpeechActive, wakeStatusText: FormatLocalWakeCandidateReadout(), authorityText: BuildWakeOverlayAuthorityText());
+            }
+
             if (!_dictationActive && _session.State is AlphaSessionState.Idle or AlphaSessionState.Completed)
             {
                 _session.DetectWakeWord();
-                ShowWakeOverlay(activityLevel: BuildLocalOverlayActivityLevel(), activityText: BuildLocalActivityTextForWakeOverlay(), speechActive: _voiceCommandService.IsSpeechActive, wakeStatusText: FormatLocalWakeCandidateReadout(), authorityText: BuildWakeOverlayAuthorityText());
                 RefreshSessionPanel();
             }
 
@@ -4845,7 +4873,7 @@ public sealed class MainForm : Form
         if (_voiceCommandService.IsListening)
             StopVoiceListening();
 
-        using var trainingForm = new VoiceIdentityTrainingForm(_profileStore, profile);
+        using var trainingForm = new VoiceIdentityTrainingForm(_profileStore, profile, _voiceCommandService);
         trainingForm.ShowDialog(this);
 
         var reloaded = _profileStore.Load(profile.Callsign);
@@ -5873,6 +5901,8 @@ public sealed class MainForm : Form
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
+        _runtimeStateMonitor.Changed -= RuntimeStateMonitorChanged;
+        _runtimeStateMonitor.Dispose();
         _voiceSampleCapture.Dispose();
         _voiceCommandService.Dispose();
         _wakeOverlay?.HideOverlay();

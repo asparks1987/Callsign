@@ -22,8 +22,10 @@ var checks = new List<(string Name, Action Check)>
     ("profile creation persists personalized callsign state", ProfileCreationPersists),
     ("wake word alone cannot execute a launch", WakeWordAloneCannotExecute),
     ("wake threshold follows sensitivity mapping", WakeThresholdSensitivityMapping),
+    ("wake threshold defaults to the recall-biased fallback", WakeThresholdDefaultsToRecallBiasedFallback),
     ("fresh profiles default to more responsive wake sensitivity", WakeDefaultsFavorMoreResponsive),
     ("legacy balanced wake profiles upgrade to more responsive defaults", LegacyWakeSettingsUpgrade),
+    ("legacy high wake thresholds upgrade to the new fallback", LegacyHighWakeThresholdUpgrade),
     ("fresh profiles default to faster speech segment finalization", FreshProfilesDefaultToFasterSpeechTiming),
     ("legacy speech timing upgrades to a faster segment window", LegacySpeechTimingUpgrades),
     ("matching callsign unlocks command capture and launch intent", MatchingCallsignUnlocksLaunchIntent),
@@ -55,7 +57,16 @@ var checks = new List<(string Name, Action Check)>
     ("dictation spelling commands are recognized", DictationSpellingCommandsRecognized),
     ("scripted voice intents cover alpha service actions", ScriptedVoiceIntentsCoverAlphaActions),
     ("wake parser accepts split and common homophone wake phrases", WakeParserHandlesCommonWakePhrases),
-    ("wake-like transcript cannot bypass explicit wake transition", WakeTranscriptCannotBypassWakeTransition)
+    ("wake-like transcript cannot bypass explicit wake transition", WakeTranscriptCannotBypassWakeTransition),
+    ("service worker does not promote transcript text to wake events", ServiceWorkerDoesNotPromoteTranscriptWake),
+    ("wake detector uses streaming frame predictions", WakeDetectorUsesStreamingFramePredictions),
+    ("wake frame is evaluated before segment gating", WakeFrameIsEvaluatedBeforeSegmentGating),
+    ("wake event forces the overlay immediately", WakeEventForcesOverlayImmediately),
+    ("packaged wake test helper uses streaming frames", PackagedWakeTestHelperUsesStreamingFrames),
+    ("wake calibration helper scores enrolled samples", WakeCalibrationHelperScoresEnrolledSamples),
+    ("wake training form exposes calibration", WakeTrainingFormExposesWakeCalibration),
+    ("wake service evaluates a live rolling window", WakeServiceEvaluatesRollingWindow),
+    ("runtime state writes are atomic", RuntimeStateWritesAreAtomic)
 };
 
 var failures = new List<string>();
@@ -216,9 +227,14 @@ static void VoiceActivationRequired()
 
 static void WakeThresholdSensitivityMapping()
 {
-    Require(Math.Abs(VoiceCommandService.ResolveWakeThreshold(null, "Balanced") - 0.30) < 0.0001, "Balanced wake threshold should resolve to 0.30.");
-    Require(Math.Abs(VoiceCommandService.ResolveWakeThreshold(null, "More responsive") - 0.20) < 0.0001, "More responsive wake threshold should resolve to 0.20.");
-    Require(Math.Abs(VoiceCommandService.ResolveWakeThreshold(null, "Fewer false wakes") - 0.50) < 0.0001, "Fewer false wakes threshold should resolve to 0.50.");
+    Require(Math.Abs(VoiceCommandService.ResolveWakeThreshold(null, "Balanced") - 0.20) < 0.0001, "Balanced wake threshold should resolve to 0.20.");
+    Require(Math.Abs(VoiceCommandService.ResolveWakeThreshold(null, "More responsive") - 0.10) < 0.0001, "More responsive wake threshold should resolve to 0.10.");
+    Require(Math.Abs(VoiceCommandService.ResolveWakeThreshold(null, "Fewer false wakes") - 0.32) < 0.0001, "Fewer false wakes threshold should resolve to 0.32.");
+}
+
+static void WakeThresholdDefaultsToRecallBiasedFallback()
+{
+    Require(Math.Abs(VoiceCommandService.ResolveWakeThreshold(null, null) - 0.12) < 0.0001, "Default wake threshold should bias toward recall at 0.12.");
 }
 
 static void WakeDefaultsFavorMoreResponsive()
@@ -257,10 +273,39 @@ static void LegacyWakeSettingsUpgrade()
     }
 }
 
+static void LegacyHighWakeThresholdUpgrade()
+{
+    var root = Path.Combine(Path.GetTempPath(), "Callsign.AlphaSmoke", Guid.NewGuid().ToString("N"));
+    try
+    {
+        var store = new ProfileStore(root);
+        var profile = new UserProfile
+        {
+            Callsign = "LegacyHigh",
+            Settings =
+            {
+                VoiceWakeThreshold = 0.55,
+                VoiceWakeSensitivity = "More responsive"
+            }
+        };
+
+        store.Save(profile);
+        var loaded = store.Load("legacyhigh") ?? throw new InvalidOperationException("Legacy high-threshold profile did not load.");
+
+        Require(loaded.Settings.VoiceWakeThreshold <= 0, $"Legacy 0.55 wake threshold should upgrade to sensitivity-based defaults, got {loaded.Settings.VoiceWakeThreshold}.");
+        Require(string.Equals(loaded.Settings.VoiceWakeSensitivity, "More responsive", StringComparison.OrdinalIgnoreCase), $"Legacy high wake sensitivity should remain More responsive, got '{loaded.Settings.VoiceWakeSensitivity}'.");
+    }
+    finally
+    {
+        if (Directory.Exists(root))
+            Directory.Delete(root, recursive: true);
+    }
+}
+
 static void FreshProfilesDefaultToFasterSpeechTiming()
 {
     var settings = new UserSettings();
-    Require(settings.VoiceSilenceMilliseconds == 300, $"Fresh profile speech silence window should default to 300 ms, got {settings.VoiceSilenceMilliseconds}.");
+    Require(settings.VoiceSilenceMilliseconds == 200, $"Fresh profile speech silence window should default to 200 ms, got {settings.VoiceSilenceMilliseconds}.");
 }
 
 static void LegacySpeechTimingUpgrades()
@@ -281,7 +326,7 @@ static void LegacySpeechTimingUpgrades()
         store.Save(profile);
         var loaded = store.Load("legacyspeech") ?? throw new InvalidOperationException("Legacy speech timing profile did not load.");
 
-        Require(loaded.Settings.VoiceSilenceMilliseconds == 300, $"Legacy speech silence window should upgrade to 300 ms, got {loaded.Settings.VoiceSilenceMilliseconds}.");
+        Require(loaded.Settings.VoiceSilenceMilliseconds == 200, $"Legacy speech silence window should upgrade to 200 ms, got {loaded.Settings.VoiceSilenceMilliseconds}.");
     }
     finally
     {
@@ -1394,6 +1439,156 @@ static void WakeTranscriptCannotBypassWakeTransition()
     Require(session.State == AlphaSessionState.Idle, "Wake-like transcript text must not move the session unless the wake event/session transition is explicit.");
     Require(!session.TryCaptureCommand("open Notepad", out _), "Command capture must fail before an explicit wake transition.");
     Require(!session.TryBeginLaunch("Notepad", out _), "Launch must fail before wake and identity transitions.");
+}
+
+static void ServiceWorkerDoesNotPromoteTranscriptWake()
+{
+    var repoRoot = FindRepositoryRoot();
+    var workerPath = Path.Combine(repoRoot, "src", "Callsign.Service", "CallsignRuntimeWorker.cs");
+    Require(File.Exists(workerPath), $"Could not find service worker source at {workerPath}.");
+
+    var source = File.ReadAllText(workerPath);
+    Require(!source.Contains("transcript-wake-rescue", StringComparison.OrdinalIgnoreCase), "Service worker must not expose a transcript-only wake rescue engine.");
+    Require(!source.Contains("IsStrictWakeTranscript", StringComparison.OrdinalIgnoreCase), "Service worker must not promote wake-like transcript text into a wake event.");
+}
+
+static void WakeDetectorUsesStreamingFramePredictions()
+{
+    var repoRoot = FindRepositoryRoot();
+    var servicePath = Path.Combine(repoRoot, "src", "Callsign.UI", "Services", "VoiceCommandService.cs");
+    Require(File.Exists(servicePath), $"Could not find voice service source at {servicePath}.");
+
+    var source = File.ReadAllText(servicePath);
+    Require(source.Contains("np.frombuffer(raw_frame, dtype=np.int16)", StringComparison.OrdinalIgnoreCase), "Wake detector should convert streamed bytes into 16 kHz int16 frames.");
+    Require(source.Contains("model.predict(frame)", StringComparison.OrdinalIgnoreCase), "Wake detector should score streaming frames instead of a single clip call.");
+    Require(!source.Contains("predict_clip", StringComparison.OrdinalIgnoreCase), "Wake detector should not rely on clip-level prediction anymore.");
+    Require(source.Contains("hop_milliseconds = 40", StringComparison.OrdinalIgnoreCase), "Wake detector should use overlapping frame hops for better recall.");
+    Require(source.Contains("ConvertToWakePcm16", StringComparison.OrdinalIgnoreCase), "Wake service should build the live wake window from raw converted PCM.");
+}
+
+static void WakeFrameIsEvaluatedBeforeSegmentGating()
+{
+    var repoRoot = FindRepositoryRoot();
+    var servicePath = Path.Combine(repoRoot, "src", "Callsign.UI", "Services", "VoiceCommandService.cs");
+    Require(File.Exists(servicePath), $"Could not find voice service source at {servicePath}.");
+
+    var source = File.ReadAllText(servicePath);
+    var wakeLine = source.IndexOf("wakeFrame = MicrophoneAudioProcessor.ConvertToWakePcm16", StringComparison.OrdinalIgnoreCase);
+    var gateLine = source.IndexOf("if (_currentSegmentWriter == null)", StringComparison.OrdinalIgnoreCase);
+    Require(wakeLine >= 0, "Wake service should capture raw PCM for wake evaluation.");
+    Require(gateLine >= 0, "Wake service should still guard segment-only processing.");
+    Require(wakeLine < gateLine, "Wake evaluation should begin before the segment gate can return early.");
+    Require(source.Contains("wakeWindowSnapshot.Length < wakeWindowBytes / 5", StringComparison.OrdinalIgnoreCase), "Wake evaluation should not wait for half a window before scoring.");
+}
+
+static void WakeEventForcesOverlayImmediately()
+{
+    var repoRoot = FindRepositoryRoot();
+    var uiPath = Path.Combine(repoRoot, "src", "Callsign.UI", "MainForm.cs");
+    var workerPath = Path.Combine(repoRoot, "src", "Callsign.Service", "CallsignRuntimeWorker.cs");
+    Require(File.Exists(uiPath), $"Could not find UI source at {uiPath}.");
+    Require(File.Exists(workerPath), $"Could not find service worker source at {workerPath}.");
+
+    var uiSource = File.ReadAllText(uiPath);
+    var handlerStart = uiSource.IndexOf("private void VoiceWakeWordDetected(object? sender, WakeWordDetectedEventArgs e)", StringComparison.OrdinalIgnoreCase);
+    Require(handlerStart >= 0, "UI wake handler should exist.");
+    var handlerSource = uiSource[handlerStart..];
+    var overlayCall = handlerSource.IndexOf("ShowWakeOverlay(activityLevel: BuildLocalOverlayActivityLevel()", StringComparison.OrdinalIgnoreCase);
+    var detectCall = handlerSource.IndexOf("_session.DetectWakeWord();", StringComparison.OrdinalIgnoreCase);
+    Require(overlayCall >= 0, "UI wake handler should show the overlay.");
+    Require(detectCall >= 0, "UI wake handler should still advance the session.");
+    Require(overlayCall < detectCall, "UI wake handler should show the overlay before session advancement work.");
+
+    var workerSource = File.ReadAllText(workerPath);
+    var workerHandlerStart = workerSource.IndexOf("private void VoiceWakeWordDetected(object? sender, WakeWordDetectedEventArgs e)", StringComparison.OrdinalIgnoreCase);
+    Require(workerHandlerStart >= 0, "Runtime worker wake handler should exist.");
+    var workerHandlerSource = workerSource[workerHandlerStart..];
+    var workerOverlay = workerHandlerSource.IndexOf("_overlayReadout = FormatOverlayReadout(_session.State);", StringComparison.OrdinalIgnoreCase);
+    Require(workerOverlay >= 0, "Runtime worker wake handler should update the overlay readout.");
+}
+
+static void PackagedWakeTestHelperUsesStreamingFrames()
+{
+    var repoRoot = FindRepositoryRoot();
+    var helperPath = Path.Combine(repoRoot, "src", "Callsign.Setup", "Payload", "testopenwakeword.ps1");
+    Require(File.Exists(helperPath), $"Could not find packaged wake test helper at {helperPath}.");
+
+    var source = File.ReadAllText(helperPath);
+    Require(source.Contains("hop_milliseconds = 40", StringComparison.OrdinalIgnoreCase), "Packaged wake test helper should use overlapping frame hops.");
+    Require(source.Contains("model.predict(frame)", StringComparison.OrdinalIgnoreCase), "Packaged wake test helper should score streaming frames.");
+    Require(!source.Contains("predict_clip", StringComparison.OrdinalIgnoreCase), "Packaged wake test helper should not rely on clip-level prediction.");
+}
+
+static void WakeCalibrationHelperScoresEnrolledSamples()
+{
+    var repoRoot = FindRepositoryRoot();
+    var servicePath = Path.Combine(repoRoot, "src", "Callsign.UI", "Services", "VoiceCommandService.cs");
+    var formPath = Path.Combine(repoRoot, "src", "Callsign.UI", "MainForm.cs");
+    Require(File.Exists(servicePath), $"Could not find voice service source at {servicePath}.");
+    Require(File.Exists(formPath), $"Could not find UI form source at {formPath}.");
+
+    var serviceSource = File.ReadAllText(servicePath);
+    Require(serviceSource.Contains("TryScoreWakeWordSampleAsync", StringComparison.OrdinalIgnoreCase), "Wake service should expose a sample scoring helper.");
+    Require(serviceSource.Contains("ComputeCalibratedWakeThreshold", StringComparison.OrdinalIgnoreCase), "Wake service should expose a calibrated-threshold helper.");
+    Require(serviceSource.Contains("score < 0.05", StringComparison.OrdinalIgnoreCase), "Wake calibration should ignore uselessly tiny scores.");
+
+    var formSource = File.ReadAllText(formPath);
+    Require(formSource.Contains("TryScoreWakeWordSampleAsync", StringComparison.OrdinalIgnoreCase), "Activation should score enrolled wake samples.");
+    Require(formSource.Contains("ComputeCalibratedWakeThreshold", StringComparison.OrdinalIgnoreCase), "Activation should derive a wake threshold from enrolled samples.");
+}
+
+static void WakeTrainingFormExposesWakeCalibration()
+{
+    var repoRoot = FindRepositoryRoot();
+    var formPath = Path.Combine(repoRoot, "src", "Callsign.UI", "VoiceIdentityTrainingForm.cs");
+    Require(File.Exists(formPath), $"Could not find voice training form source at {formPath}.");
+
+    var source = File.ReadAllText(formPath);
+    Require(source.Contains("Calibrate Wakeword", StringComparison.OrdinalIgnoreCase), "Voice training form should expose a wake calibration button.");
+    Require(source.Contains("TryScoreWakeWordSampleAsync", StringComparison.OrdinalIgnoreCase), "Voice training form should call the wake scoring helper.");
+    Require(source.Contains("ComputeCalibratedWakeThreshold", StringComparison.OrdinalIgnoreCase), "Voice training form should compute a profile-specific wake threshold.");
+}
+
+static void WakeServiceEvaluatesRollingWindow()
+{
+    var repoRoot = FindRepositoryRoot();
+    var servicePath = Path.Combine(repoRoot, "src", "Callsign.UI", "Services", "VoiceCommandService.cs");
+    Require(File.Exists(servicePath), $"Could not find voice service source at {servicePath}.");
+
+    var source = File.ReadAllText(servicePath);
+    Require(source.Contains("UpdateWakeWindowLocked", StringComparison.OrdinalIgnoreCase), "Wake service should maintain a rolling live window for detection.");
+    Require(source.Contains("WakeWindowMilliseconds", StringComparison.OrdinalIgnoreCase), "Wake service should declare a rolling wake window duration.");
+}
+
+static void RuntimeStateWritesAreAtomic()
+{
+    var repoRoot = FindRepositoryRoot();
+    var stateStorePath = Path.Combine(repoRoot, "src", "Callsign.Service", "RuntimeStateStore.cs");
+    Require(File.Exists(stateStorePath), $"Could not find runtime state store source at {stateStorePath}.");
+
+    var source = File.ReadAllText(stateStorePath);
+    Require(source.Contains("File.Replace(tempPath, StatePath, null)", StringComparison.OrdinalIgnoreCase), "Runtime state should be written atomically before the UI watches it.");
+    Require(source.Contains("File.Move(tempPath, StatePath)", StringComparison.OrdinalIgnoreCase), "Runtime state should create the file if it does not already exist.");
+}
+
+static string FindRepositoryRoot()
+{
+    foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
+    {
+        var directory = new DirectoryInfo(start);
+        while (directory != null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "src", "Callsign.Service", "CallsignRuntimeWorker.cs"))
+                && File.Exists(Path.Combine(directory.FullName, "CANON.md")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+    }
+
+    throw new InvalidOperationException("Could not locate the Callsign repository root.");
 }
 static int LiveLaunch(string appName)
 {

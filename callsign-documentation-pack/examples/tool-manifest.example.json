@@ -1,0 +1,32 @@
+{
+  "manifest_version": 1,
+  "server": {
+    "name": "Callsign Automation Service",
+    "version": "0.1.0",
+    "transport": "stdio"
+  },
+  "tools": [
+    {
+      "name": "desktop.get_active_window",
+      "version": "0.1.0",
+      "risk_tier": "observe",
+      "privacy_classes": [
+        "window_metadata"
+      ],
+      "reversible": true,
+      "approval": "session_permission",
+      "verification": "foreground_handle_readback"
+    },
+    {
+      "name": "file.open_in_explorer",
+      "version": "0.1.0",
+      "risk_tier": "local_reversible",
+      "privacy_classes": [
+        "path"
+      ],
+      "reversible": true,
+      "approval": "policy_dependent",
+      "verification": "explorer_window_or_selection"
+    }
+  ]
+}

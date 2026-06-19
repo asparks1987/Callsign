@@ -16,9 +16,9 @@ public sealed class VoiceCommandService : IDisposable
     private const int SampleRate = 16000;
     private const int Channels = 1;
     private const int BitsPerSample = 16;
-    private const int MinimumSegmentMilliseconds = 300;
-    private const int DefaultSegmentSilenceMilliseconds = 300;
-    private const double DefaultWakeDetectionThreshold = 0.22;
+    private const int MinimumSegmentMilliseconds = 200;
+    private const int DefaultSegmentSilenceMilliseconds = 200;
+    private const double DefaultWakeDetectionThreshold = 0.12;
 
     private readonly object _gate = new();
     private readonly SemaphoreSlim _segmentSignal = new(0);
@@ -67,6 +67,14 @@ public sealed class VoiceCommandService : IDisposable
     private readonly VoiceRecognitionDiagnostics _wakeDiagnostics = new();
     private bool _isSpeechActive;
     private DateTime? _lastSpeechActivityUtc;
+    private readonly Queue<byte[]> _wakeWindowChunks = new();
+    private int _wakeWindowBytes;
+    private int _wakeEvaluationInFlight;
+    private DateTime _lastWakeEvaluationUtc = DateTime.MinValue;
+    private DateTime _lastWakeWordDetectedUtc = DateTime.MinValue;
+    private const int WakeWindowMilliseconds = 960;
+    private static readonly TimeSpan WakeEvaluationCooldown = TimeSpan.FromMilliseconds(150);
+    private static readonly TimeSpan WakeWordRepeatCooldown = TimeSpan.FromSeconds(2);
 
     public VoiceCommandService()
     {
@@ -91,6 +99,22 @@ public sealed class VoiceCommandService : IDisposable
     public bool IsSpeechActive => _isSpeechActive;
     public DateTime? LastSpeechActivityUtc => _lastSpeechActivityUtc;
     public IReadOnlyList<string> WakeDiagnostics => _wakeDiagnostics.Recent;
+
+    public async Task<double?> TryScoreWakeWordSampleAsync(string wavPath, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(wavPath) || !File.Exists(wavPath))
+            return null;
+
+        if (!TryEnsureWakeWordDetector())
+            return null;
+
+        var result = await ScoreWakeWordFromPathAsync(
+            wavPath,
+            Array.Empty<string>(),
+            requestKeepCandidateWindow: false,
+            cancellationToken).ConfigureAwait(false);
+        return result.Score;
+    }
 
     public void Start(
         string languageCode,
@@ -184,6 +208,7 @@ public sealed class VoiceCommandService : IDisposable
     private void WaveInDataAvailable(object? sender, WaveInEventArgs e)
     {
         CapturedSegment? readySegment = null;
+        byte[]? wakeWindowSnapshot = null;
 
         lock (_gate)
         {
@@ -197,6 +222,8 @@ public sealed class VoiceCommandService : IDisposable
             var speechDetected = processed.SpeechDetected;
             var audioWarnings = processed.Snapshot.Warnings;
             var speechActivityChanged = false;
+            var wakeFrame = MicrophoneAudioProcessor.ConvertToWakePcm16(e.Buffer, e.BytesRecorded, _captureFormat);
+            wakeWindowSnapshot = UpdateWakeWindowLocked(wakeFrame, now);
 
             if (speechDetected && _currentSegmentWriter == null)
             {
@@ -244,6 +271,9 @@ public sealed class VoiceCommandService : IDisposable
 
         if (readySegment != null)
             EnqueueSegment(readySegment);
+
+        if (wakeWindowSnapshot != null)
+            EvaluateWakeWindowAsync(wakeWindowSnapshot, cancellationToken: CancellationToken.None);
     }
 
     private void WaveInRecordingStopped(object? sender, StoppedEventArgs e)
@@ -344,16 +374,25 @@ public sealed class VoiceCommandService : IDisposable
 
     private async Task<WakeWordDetectionResult> DetectWakeWordFromAudioAsync(CapturedSegment segment, CancellationToken cancellationToken)
     {
+        return await DetectWakeWordFromPathAsync(segment.Path, segment.AudioQualityWarnings, requestKeepCandidateWindow: _wakeDiagnosticsEnabled, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<WakeWordDetectionResult> DetectWakeWordFromPathAsync(
+        string wavPath,
+        IReadOnlyList<string> audioQualityWarnings,
+        bool requestKeepCandidateWindow,
+        CancellationToken cancellationToken)
+    {
         var detector = _wakeWordDetector ?? new OpenWakeWordUnavailableWakeWordDetector("openWakeWord wake detection is not initialized.");
         var result = await detector.DetectAsync(
             new WakeWordDetectionRequest(
-                segment.Path,
+                wavPath,
                 _wakeWord,
                 _languageCode,
                 _wakeDetectionThreshold,
                 BuildWakePhrases(_wakeWord),
-                segment.AudioQualityWarnings,
-                _wakeDiagnosticsEnabled),
+                audioQualityWarnings,
+                requestKeepCandidateWindow),
             cancellationToken).ConfigureAwait(false);
 
         RememberWakeWordDetection(result);
@@ -361,8 +400,169 @@ public sealed class VoiceCommandService : IDisposable
         return result;
     }
 
+    private async Task<WakeWordDetectionResult> ScoreWakeWordFromPathAsync(
+        string wavPath,
+        IReadOnlyList<string> audioQualityWarnings,
+        bool requestKeepCandidateWindow,
+        CancellationToken cancellationToken)
+    {
+        if (!TryEnsureWakeWordDetector())
+        {
+            return new WakeWordDetectionResult
+            {
+                Detected = false,
+                Score = 0,
+                Threshold = _wakeDetectionThreshold,
+                Engine = "openWakeWord unavailable",
+                AudioQualityWarnings = audioQualityWarnings,
+                TimestampUtc = DateTime.UtcNow,
+                CandidateWindowPath = requestKeepCandidateWindow ? wavPath : null
+            };
+        }
+
+        var detector = _wakeWordDetector!;
+        return await detector.DetectAsync(
+            new WakeWordDetectionRequest(
+                wavPath,
+                _wakeWord,
+                _languageCode,
+                _wakeDetectionThreshold,
+                BuildWakePhrases(_wakeWord),
+                audioQualityWarnings,
+                requestKeepCandidateWindow),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private bool TryEnsureWakeWordDetector()
+    {
+        if (_wakeWordDetector != null)
+            return true;
+
+        if (OpenWakeWordPythonWakeWordDetector.TryCreate(_openWakeWordModelPath, _openWakeWordRuntimePythonPath, out var detector, out _))
+        {
+            _wakeWordDetector = detector;
+            return true;
+        }
+
+        return false;
+    }
+
+    private void EvaluateWakeWindowAsync(byte[] wakeWindowSnapshot, CancellationToken cancellationToken)
+    {
+        if (wakeWindowSnapshot.Length == 0)
+            return;
+
+        if (Interlocked.CompareExchange(ref _wakeEvaluationInFlight, 1, 0) != 0)
+            return;
+
+        var now = DateTime.UtcNow;
+        if (now - _lastWakeWordDetectedUtc < WakeWordRepeatCooldown)
+        {
+            Interlocked.Exchange(ref _wakeEvaluationInFlight, 0);
+            return;
+        }
+
+        if (now - _lastWakeEvaluationUtc < WakeEvaluationCooldown)
+        {
+            Interlocked.Exchange(ref _wakeEvaluationInFlight, 0);
+            return;
+        }
+
+        _lastWakeEvaluationUtc = now;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var tempPath = await WriteWakeWindowSnapshotAsync(wakeWindowSnapshot, cancellationToken).ConfigureAwait(false);
+                if (tempPath == null)
+                    return;
+
+                try
+                {
+                    var wakeResult = await DetectWakeWordFromPathAsync(
+                        tempPath,
+                        Array.Empty<string>(),
+                        requestKeepCandidateWindow: false,
+                        cancellationToken).ConfigureAwait(false);
+                    if (wakeResult.Detected)
+                        PublishWakeWordDetection(wakeResult);
+                }
+                finally
+                {
+                    TryDeleteSegmentFile(tempPath);
+                }
+            }
+            catch
+            {
+                // Best-effort wake evaluation only.
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _wakeEvaluationInFlight, 0);
+            }
+        }, cancellationToken);
+    }
+
+    private static async Task<string?> WriteWakeWindowSnapshotAsync(byte[] wakeWindowSnapshot, CancellationToken cancellationToken)
+    {
+        var wakeWindowBytes = Math.Max(1, WakeWindowMilliseconds * MicrophoneAudioProcessor.OutputWaveFormat.AverageBytesPerSecond / 1000);
+        if (wakeWindowSnapshot.Length < wakeWindowBytes / 5)
+            return null;
+
+        var directory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Callsign",
+            "Runtime",
+            "wake-window");
+        Directory.CreateDirectory(directory);
+
+        var path = Path.Combine(directory, $"wake-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}.wav");
+        await using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read, 81920, useAsync: true);
+        using var writer = new WaveFileWriter(stream, MicrophoneAudioProcessor.OutputWaveFormat);
+        writer.Write(wakeWindowSnapshot, 0, wakeWindowSnapshot.Length);
+        writer.Flush();
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        return path;
+    }
+
+    private byte[]? UpdateWakeWindowLocked(byte[] wakeFrame, DateTime now)
+    {
+        if (wakeFrame.Length <= 0)
+            return null;
+
+        if (_lastWakeWordDetectedUtc != DateTime.MinValue && now - _lastWakeWordDetectedUtc < WakeWordRepeatCooldown)
+            return null;
+
+        var chunk = new byte[wakeFrame.Length];
+        Buffer.BlockCopy(wakeFrame, 0, chunk, 0, wakeFrame.Length);
+        _wakeWindowChunks.Enqueue(chunk);
+        _wakeWindowBytes += chunk.Length;
+
+        var maxBytes = MicrophoneAudioProcessor.OutputWaveFormat.AverageBytesPerSecond * WakeWindowMilliseconds / 1000;
+        while (_wakeWindowBytes > maxBytes && _wakeWindowChunks.Count > 0)
+        {
+            var removed = _wakeWindowChunks.Dequeue();
+            _wakeWindowBytes -= removed.Length;
+        }
+
+        if (_wakeWindowBytes < maxBytes / 2)
+            return null;
+
+        var snapshot = new byte[_wakeWindowBytes];
+        var offset = 0;
+        foreach (var wakeChunk in _wakeWindowChunks)
+        {
+            Buffer.BlockCopy(wakeChunk, 0, snapshot, offset, wakeChunk.Length);
+            offset += wakeChunk.Length;
+        }
+
+        return snapshot;
+    }
+
     private void PublishWakeWordDetection(WakeWordDetectionResult result)
     {
+        _lastWakeWordDetectedUtc = DateTime.UtcNow;
+        ClearWakeWindow();
         WakeWordDetected?.Invoke(this, new WakeWordDetectedEventArgs(result));
     }
 
@@ -506,6 +706,8 @@ public sealed class VoiceCommandService : IDisposable
         while (_segments.TryDequeue(out var segment))
             TryDeleteSegmentFile(segment.Path);
 
+        ClearWakeWindow();
+
         IsListening = false;
         CurrentModeDescription = "Offline recognition is stopped.";
         LastStartupWarning = _startupWarning;
@@ -516,9 +718,9 @@ public sealed class VoiceCommandService : IDisposable
     {
         var sensitivityThreshold = wakeSensitivity?.Trim().ToLowerInvariant() switch
         {
-            "more responsive" => 0.20,
-            "balanced" => 0.30,
-            "fewer false wakes" => 0.50,
+            "more responsive" => 0.10,
+            "balanced" => 0.20,
+            "fewer false wakes" => 0.32,
             _ => DefaultWakeDetectionThreshold
         };
 
@@ -530,7 +732,15 @@ public sealed class VoiceCommandService : IDisposable
             || Math.Abs(value - 0.42) < 0.0001)
             value = sensitivityThreshold;
 
-        return Math.Clamp(value, 0.20, 0.95);
+        return Math.Clamp(value, 0.10, 0.95);
+    }
+
+    public static double? ComputeCalibratedWakeThreshold(double score)
+    {
+        if (double.IsNaN(score) || double.IsInfinity(score) || score < 0.05)
+            return null;
+
+        return Math.Clamp(score * 0.60, 0.08, 0.18);
     }
 
     private static IReadOnlyList<string> BuildWakePhrases(string wakeWord)
@@ -631,6 +841,15 @@ public sealed class VoiceCommandService : IDisposable
         catch
         {
             // Best-effort cleanup only.
+        }
+    }
+
+    private void ClearWakeWindow()
+    {
+        lock (_gate)
+        {
+            _wakeWindowChunks.Clear();
+            _wakeWindowBytes = 0;
         }
     }
 
@@ -797,6 +1016,7 @@ internal sealed class OpenWakeWordPythonWakeWordDetector : IWakeWordDetector
             startInfo.ArgumentList.Add(_scriptPath);
             startInfo.ArgumentList.Add(request.WavPath);
             startInfo.ArgumentList.Add(_modelPath);
+            startInfo.ArgumentList.Add(request.Threshold.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
             using var process = Process.Start(startInfo);
             if (process == null)
@@ -902,50 +1122,104 @@ internal sealed class OpenWakeWordPythonWakeWordDetector : IWakeWordDetector
 
     private const string OpenWakeWordDetectorScript = """
 import json
+import wave
 import sys
 
+import numpy as np
 from openwakeword.model import Model
 
 wav_path = sys.argv[1]
 model_path = sys.argv[2]
+threshold = float(sys.argv[3])
 
-model = Model(wakeword_models=[model_path], inference_framework="onnx")
-predictions = model.predict_clip(wav_path)
+model = Model(
+    wakeword_models=[model_path],
+    inference_framework="onnx",
+    vad_threshold=0.0,
+    enable_speex_noise_suppression=False,
+)
+frame_milliseconds = 80
+hop_milliseconds = 40
+frame_size = int(16000 * frame_milliseconds / 1000)
+hop_size = int(16000 * hop_milliseconds / 1000)
+buffer = bytearray()
+best_label = None
+best_score = 0.0
 
 
-def iter_scores(value):
-    if value is None:
+def maybe_update_prediction(predictions):
+    global best_label, best_score
+
+    if isinstance(predictions, dict):
+        for label, score in predictions.items():
+            if isinstance(score, dict):
+                maybe_update_prediction(score)
+                continue
+
+            try:
+                score_value = float(score)
+            except Exception:
+                continue
+
+            if score_value > best_score:
+                best_score = score_value
+                best_label = label
         return
 
-    if isinstance(value, dict):
-        for label, nested in value.items():
-            for score in iter_scores(nested):
-                yield label, score
+    if isinstance(predictions, (list, tuple)):
+        for nested in predictions:
+            maybe_update_prediction(nested)
         return
 
-    if isinstance(value, (list, tuple)):
-        for nested in value:
-            for label, score in iter_scores(nested):
-                yield label, score
-        return
-
-    if hasattr(value, "tolist"):
-        for label, score in iter_scores(value.tolist()):
-            yield label, score
+    if hasattr(predictions, "tolist"):
+        maybe_update_prediction(predictions.tolist())
         return
 
     try:
-        yield None, float(value)
+        score_value = float(predictions)
     except Exception:
         return
 
+    if score_value > best_score:
+        best_score = score_value
 
-best_label = None
-best_score = 0.0
-for label, score in iter_scores(predictions):
-    if score > best_score:
-        best_score = score
-        best_label = label
+
+with wave.open(wav_path, "rb") as wav_file:
+    total_frames = wav_file.getnframes()
+    remaining_frames = total_frames
+    sample_width = wav_file.getsampwidth()
+    channel_count = wav_file.getnchannels()
+    target_bytes = frame_size * sample_width * channel_count
+    hop_bytes = hop_size * sample_width * channel_count
+
+    while remaining_frames > 0:
+        raw_frame = wav_file.readframes(min(hop_size, remaining_frames))
+        remaining_frames -= min(hop_size, remaining_frames)
+
+        if not raw_frame:
+            break
+
+        buffer.extend(raw_frame)
+
+        while len(buffer) >= target_bytes:
+            raw_frame = bytes(buffer[:target_bytes])
+            del buffer[:hop_bytes]
+
+            frame = np.frombuffer(raw_frame, dtype=np.int16)
+            predictions = model.predict(frame)
+            maybe_update_prediction(predictions)
+
+        if best_score >= threshold:
+            break
+
+    if buffer and best_score < threshold:
+        if len(buffer) < target_bytes:
+            buffer.extend(b"\0" * (target_bytes - len(buffer)))
+
+        frame = np.frombuffer(bytes(buffer[:target_bytes]), dtype=np.int16)
+        predictions = model.predict(frame)
+        maybe_update_prediction(predictions)
+
 
 print(json.dumps({"Score": best_score, "Label": best_label}))
 """;

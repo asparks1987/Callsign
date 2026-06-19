@@ -11,6 +11,7 @@
     <a class="brand" href="../index.html">Callsign</a>
     <nav><a href="canon.html">Canon</a>
 <a href="product-spec.html">Product Spec</a>
+<a href="tier-architecture.html">Tier Architecture</a>
 <a href="architecture.html">Architecture</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
@@ -28,6 +29,7 @@
       <strong>Docs</strong>
       <a href="canon.html">Canon</a>
 <a href="product-spec.html">Product Spec</a>
+<a href="tier-architecture.html">Tier Architecture</a>
 <a href="architecture.html">Architecture</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
@@ -46,6 +48,8 @@
 <p>Callsign should feel calm, premium, direct, and visible. The v1.0 alpha voice experience is deliberately narrow:</p>
 <p>1. Say <code>Callsign</code> or <code>call sign</code>. 2. See <code>callsign.gif</code> appear above the desktop. 3. Read what Callsign heard below the animation. 4. Say your callsign. 5. Speak the app you want to launch. 6. Watch the app open through a visible Start menu flow.</p>
 <p>All Alpha v1 features are free and remain free until at least beta.</p>
+<p>The Free tier is the part that should most closely reach parity with built-in Windows voice tools while feeling better organized, more visible, and more trustworthy. It is the public open-source core. Pro and Advanced should be framed as the paid expansion path where new commands and workflows can keep arriving through signed command packs.</p>
+<p>The tier architecture and upgrade model are defined in <code>TIER_ARCHITECTURE.md</code>.</p>
 <h2>v1.0 voice interaction modes</h2>
 <h3>Wake mode</h3>
 <p>The background service waits for the wake word through openWakeWord audio detection.</p>
@@ -77,7 +81,7 @@
 <p>For <code>v1.0 alpha</code>, Start menu app launch is the only required voice action.</p>
 <h2>Follow-up voice modes</h2>
 <ul><li><code>v1.1 alpha</code>: dictation mode for visible text capture, with safe text actions like copy, paste, cut, undo, redo, go to start, go to end, go to line start, go to line end, go to paragraph start, go to paragraph end, select to start, select to end, select to line start, select to line end, select to paragraph start, select to paragraph end, delete to start, delete to end, delete to line start, delete to line end, delete to paragraph start, delete to paragraph end, select previous word, select next word, select previous sentence, select next sentence, delete previous word, delete previous sentence, replace previous word, replace previous sentence, replace previous paragraph, replace all, new line, new paragraph, delete word, punctuation, clear, and select-all.</li><li><code>v1.2 alpha</code>: browser control mode for visible navigation and search, including back, forward, refresh, new tab, close tab, focus address bar, find in page, find next, find previous, zoom in, zoom out, zoom reset, scroll up, scroll down, scroll to top, scroll to bottom, and visible URL/search entry.</li><li><code>v1.3 alpha</code>: system control mode, including safe desktop controls such as volume up, volume down, mute, show desktop, and file search results opened through Windows Explorer.</li></ul>
-<p>The full Alpha v1 line is the path to Windows Voice Access parity.</p>
+<p>The full Alpha v1 line is the path to Windows Voice Access parity. The Free tier should be the public proof that Callsign can match and often beat the built-in Windows voice experience on everyday control.</p>
 <h2>Recovery mode</h2>
 <p>If identity fails or times out, the assistant should clearly tell the user to try again.</p>
 <p>If wake readiness fails, the configuration UI should point the tester to <code>Repair Wakeword</code> first. Manual PowerShell commands remain a fallback for advanced troubleshooting.</p>

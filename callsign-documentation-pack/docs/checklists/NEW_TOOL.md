@@ -1,0 +1,24 @@
+# New Tool Checklist
+
+- [ ] User outcome and non-goals.
+- [ ] Release/capability gate.
+- [ ] Name and semantic version.
+- [ ] Input/output JSON Schema.
+- [ ] Bounds and normalization.
+- [ ] Risk tier.
+- [ ] Privacy classes.
+- [ ] Reversibility.
+- [ ] Session requirement.
+- [ ] Approval rule.
+- [ ] Policy allow/deny/handoff tests.
+- [ ] No shell interpolation.
+- [ ] Native/UIA-first adapter.
+- [ ] Context revalidation.
+- [ ] Cancellation and timeout.
+- [ ] Postcondition verification.
+- [ ] Redacted audit.
+- [ ] Structured errors.
+- [ ] Positive, negative, failure, and race tests.
+- [ ] Manual visible evidence.
+- [ ] Security/privacy review.
+- [ ] Docs/ADR/burndown/site updated.

@@ -1,0 +1,26 @@
+{
+  "examples": [
+    {
+      "schema_version": 1,
+      "intent_id": "intent-example-0001",
+      "session_id": "session-example-0001",
+      "intent_type": "launch_application",
+      "confidence": 0.98,
+      "requires_confirmation": false,
+      "arguments": {
+        "application_name": "Notepad"
+      },
+      "rejection_reason": null
+    },
+    {
+      "schema_version": 1,
+      "intent_id": "intent-example-0002",
+      "session_id": "session-example-0001",
+      "intent_type": "unsupported",
+      "confidence": 1.0,
+      "requires_confirmation": false,
+      "arguments": {},
+      "rejection_reason": "Shell and script execution are not supported."
+    }
+  ]
+}

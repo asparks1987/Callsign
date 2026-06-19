@@ -60,7 +60,8 @@ Future app packaging can add:
 - A real background service.
 - A tray helper.
 - Better update handling.
-- Optional Pro and Advanced tier features.
+- An in-app Pro upgrade path.
+- Signed Pro and Advanced command packs that update independently of the Free core.
 
 ## Linux and WSL
 

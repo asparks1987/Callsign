@@ -150,10 +150,16 @@ public sealed class ProfileStore
     private static void UpgradeWakeDefaults(UserSettings settings)
     {
         if (settings.VoiceWakeThreshold > 0
-            && Math.Abs(settings.VoiceWakeThreshold - 0.30) > 0.0001
-            && Math.Abs(settings.VoiceWakeThreshold - 0.35) > 0.0001
-            && Math.Abs(settings.VoiceWakeThreshold - 0.42) > 0.0001)
+            && (Math.Abs(settings.VoiceWakeThreshold - 0.55) < 0.0001
+                || Math.Abs(settings.VoiceWakeThreshold - 0.50) < 0.0001
+                || Math.Abs(settings.VoiceWakeThreshold - 0.30) < 0.0001
+                || Math.Abs(settings.VoiceWakeThreshold - 0.35) < 0.0001
+                || Math.Abs(settings.VoiceWakeThreshold - 0.42) < 0.0001))
+        {
+            settings.VoiceWakeThreshold = 0;
+            settings.VoiceWakeSensitivity = "More responsive";
             return;
+        }
 
         if (!string.Equals(settings.VoiceWakeSensitivity, "Balanced", StringComparison.OrdinalIgnoreCase)
             && !string.IsNullOrWhiteSpace(settings.VoiceWakeSensitivity))
@@ -165,9 +171,9 @@ public sealed class ProfileStore
 
     private static void UpgradeSpeechTimingDefaults(UserSettings settings)
     {
-        if (settings.VoiceSilenceMilliseconds > 0 && settings.VoiceSilenceMilliseconds < 400)
+        if (settings.VoiceSilenceMilliseconds > 0 && settings.VoiceSilenceMilliseconds < 300)
             return;
 
-        settings.VoiceSilenceMilliseconds = 300;
+        settings.VoiceSilenceMilliseconds = 200;
     }
 }

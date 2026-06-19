@@ -12,6 +12,15 @@ Callsign -> identity verification -> command -> visible action
 
 All Alpha v1 features are free and remain free until at least beta.
 
+The Free/open-source core is the public product the world should associate with Callsign.
+It should be the part that most closely matches and often beats built-in Windows voice tools on everyday visible control.
+
+The paid tiers are the expansion layer:
+
+- Pro should add deeper Windows, WSL, and Linux control.
+- Advanced should stay optimized for new commands, recipes, diagnostics, and power-user workflows that can be added continuously.
+- The paid wall belongs in front of those advanced capabilities, not in front of the Free core.
+
 ## Status legend
 
 - `Done`: implemented and covered by smoke/manual evidence.
@@ -84,6 +93,10 @@ All Alpha v1 features are free and remain free until at least beta.
 
 | ID | Release | Priority | Status | Work item | Acceptance criteria | Verification |
 |---:|---|---|---|---|---|---|
-| 6.1 | Beta+ | P1 | Not started | Revisit Free, Pro, and Advanced packaging. | No Alpha v1 feature is retroactively paywalled during alpha. | Product review. |
-| 6.2 | Beta+ | P1 | Not started | Signed installer and update/rollback flow. | Users can update safely. | Installer tests. |
-| 6.3 | Beta+ | P1 | Not started | Opt-in diagnostics and support paths. | Users can report issues without leaking sensitive data. | Privacy review. |
+| 6.1 | Beta+ | P1 | Not started | Revisit Free, Pro, and Advanced packaging. | No Alpha v1 feature is retroactively paywalled during alpha, and the paid tiers remain clearly ahead of the Free core. | Product review. |
+| 6.2 | Beta+ | P1 | Not started | Build the in-app Pro upgrade path. | A Free install can activate Pro entitlement without replacing the app or breaking Free behavior. | Upgrade flow test. |
+| 6.3 | Beta+ | P1 | Not started | Define the signed command-pack registry. | Free, Pro, and Advanced commands load through one registry and one policy path. | Command registry contract tests. |
+| 6.4 | Beta+ | P1 | Not started | Add paid command-pack update and rollback. | New Pro packs can be added frequently, verified by signature, disabled, and rolled back. | Pack update/rollback tests. |
+| 6.5 | Beta+ | P1 | Not started | Signed installer and update/rollback flow. | Users can update safely. | Installer tests. |
+| 6.6 | Beta+ | P1 | Not started | Opt-in diagnostics and support paths. | Users can report issues without leaking sensitive data. | Privacy review. |
+| 6.7 | Beta+ | P1 | Not started | Continuous Pro and Advanced command growth. | New paid commands and workflows can be added frequently without changing the open-source Free core contract. | Product backlog review. |

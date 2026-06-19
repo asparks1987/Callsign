@@ -21,6 +21,35 @@ The wake word only opens a session.
 The enrolled callsign unlocks command capture.
 The command only becomes action when the product can show the path visibly.
 
+The open-source Free tier is the public foundation of Callsign.
+It is the part that should most directly compete with and often surpass built-in Windows voice control for everyday use:
+
+- wake with `Callsign`
+- see what was heard
+- verify identity before action
+- launch visible desktop apps
+- stop the session at any time
+
+The paid tiers exist to keep the platform growing:
+
+- Pro should extend into deeper Windows, WSL, and Linux control.
+- Advanced should remain the fast-moving tier for new commands, recipes, diagnostics, and specialized power-user workflows.
+- The paid tiers should be structured so new capabilities can be added continuously without disturbing the stable open-source core.
+
+## Tier architecture canon
+
+The Free product is the MIT-licensed open-source core. It must be downloadable from GitHub or the public website, install with minimal effort, and remain useful without a paid account.
+
+Free is the Windows Voice Access parity layer: the part of Callsign that should cover everyday voice control better, more visibly, and more safely than the built-in tool.
+
+Pro is the upgrade layer. It should unlock signed private command packs, deeper automation adapters, and a continuously updated command library without changing the Free core into a thin demo.
+
+Advanced is the specialist layer. It should carry the fastest-moving catalog of power-user commands, diagnostics, recipes, admin/dev workflows, and specialized automation packs.
+
+Entitlement decides whether a paid command pack may load. Policy still decides whether a command may run. A paid license must never bypass identity, approval, visibility, or audit rules.
+
+The canonical implementation plan for this boundary lives in `docs/reference/TIER_ARCHITECTURE.md`.
+
 ## Why this exists
 
 Current desktop voice tools usually break down in one of three places:
@@ -46,6 +75,9 @@ All Alpha v1 features are free and remain free until at least beta.
 - `v1.2 alpha`: browser control with safe external-action boundaries.
 - `v1.3 alpha`: Windows, WSL, and Linux system control, including Explorer-backed file search.
 
+Free is the open-source release line the public can use and trust on day one.
+Pro and Advanced are the future paid expansion line.
+
 ## Windows Voice Access parity line
 
 Alpha v1 is the path to functional parity with built-in Windows voice tools.
@@ -57,6 +89,9 @@ The target is:
 - readable state changes,
 - visible control surfaces,
 - and a much stronger trust model than the default platform tools.
+
+The Free tier should be the Windows Voice Access alternative the project is known for.
+The paid tiers should provide the deeper, ever-expanding ceiling.
 
 ## UX bar
 

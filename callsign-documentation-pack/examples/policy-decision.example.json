@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "decision_id": "policy-example-0001",
+  "timestamp_utc": "2026-06-19T12:32:00Z",
+  "tool": "file.open_in_explorer",
+  "decision": "allow",
+  "risk_tier": "local_reversible",
+  "reason": "The selected result is inside an approved root and opens visibly.",
+  "rule_ids": [
+    "session.identity_required",
+    "file.approved_root",
+    "action.visible"
+  ],
+  "approval_prompt": null,
+  "approval_scope": null,
+  "expires_utc": null
+}

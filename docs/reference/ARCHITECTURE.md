@@ -65,3 +65,20 @@ The architecture is intentionally local-first, open-source core:
 - no hidden background side effects
 - no paywall in Alpha v1
 - Pro/Advanced expansion happens after the alpha parity core is stable
+
+The Free tier should remain the stable, inspectable core that matches the public promise.
+Pro and Advanced should be able to grow continuously above that core with new commands, workflows, and deeper control paths, without forcing the open-source experience to become dependent on private logic.
+
+## Tier architecture
+
+The Free runtime, policy engine, session state, overlay, command registry contracts, and everyday command set belong in the MIT-licensed repo.
+
+The paid layers should plug into the same runtime through signed command packs:
+
+- Free commands ship with the open-source app.
+- Pro command packs unlock deeper Windows, WSL, Linux, browser, workflow, and system control.
+- Advanced command packs unlock specialized recipes, diagnostics, admin/dev workflows, and power-user automation.
+
+All commands, free or paid, must still pass the same identity, policy, visibility, and audit pipeline.
+
+The detailed installer, entitlement, update, and command-pack boundary is defined in `docs/reference/TIER_ARCHITECTURE.md`.

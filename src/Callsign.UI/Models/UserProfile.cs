@@ -29,7 +29,7 @@ public sealed class UserSettings
     public double VoiceWakeThreshold { get; set; } = 0;
     public string VoiceWakeSensitivity { get; set; } = "More responsive";
     public bool VoiceWakeDiagnosticsEnabled { get; set; }
-    public int VoiceSilenceMilliseconds { get; set; } = 300;
+    public int VoiceSilenceMilliseconds { get; set; } = 200;
     public double VoiceCommandConfidenceThreshold { get; set; } = 0.65;
     public bool VoiceCloudOptIn { get; set; }
     public bool UseVoiceActivityDetection { get; set; } = true;

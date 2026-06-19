@@ -187,11 +187,12 @@ public sealed class CallsignRuntimeWorker : BackgroundService
                 return;
             }
 
+            _overlayReadout = FormatOverlayReadout(_session.State);
+            _statusMessage = $"Wake word detected by {e.Result.Engine}. Waiting for callsign identity.";
+
             if (_session.State is AlphaSessionState.Idle or AlphaSessionState.Completed)
             {
                 _session.DetectWakeWord();
-                _overlayReadout = FormatOverlayReadout(_session.State);
-                _statusMessage = $"Wake word detected by {e.Result.Engine}. Waiting for callsign identity.";
             }
 
             WriteSnapshot();
@@ -313,26 +314,6 @@ public sealed class CallsignRuntimeWorker : BackgroundService
                 return;
             }
 
-            if (_session.State is AlphaSessionState.Idle or AlphaSessionState.Completed
-                && IsStrictWakeTranscript(e.Text, profile.Settings.WakeWord))
-            {
-                _lastWakeWordDetection = new WakeWordDetectionResult
-                {
-                    Detected = true,
-                    Score = Math.Clamp(e.Confidence, 0f, 1f),
-                    Threshold = 0.20,
-                    Engine = "transcript-wake-rescue",
-                    AudioQualityWarnings = e.AudioQualityWarnings,
-                    TimestampUtc = DateTime.UtcNow,
-                    CandidateWindowPath = e.CapturedAudioPath
-                };
-                _lastIdentityResult = null;
-                _session.DetectWakeWord();
-                _statusMessage = "Wake word recognized from speech. Waiting for callsign identity.";
-                WriteSnapshot();
-                return;
-            }
-
             if (_session.State == AlphaSessionState.WaitingForIdentity)
             {
                 HandleIdentityTranscript(profile, e.Text, e.Confidence, e.CapturedAudioPath);
@@ -360,11 +341,6 @@ public sealed class CallsignRuntimeWorker : BackgroundService
 
             WriteSnapshot();
         }
-    }
-
-    private static bool IsStrictWakeTranscript(string transcript, string? configuredWakeWord)
-    {
-        return AlphaVoiceTranscriptParser.ContainsWakeWord(transcript, configuredWakeWord ?? "Callsign");
     }
 
     private void HandleIdentityTranscript(UserProfile profile, string transcript, float confidence, string? capturedAudioPath)

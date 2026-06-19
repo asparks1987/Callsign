@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://callsign.local/schemas/runtime-snapshot.schema.json",
+  "title": "Callsign Runtime Snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "runtime_version",
+    "captured_utc",
+    "state",
+    "wake_ready",
+    "microphone_ready",
+    "overlay_visible"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "runtime_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 50
+    },
+    "captured_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "state": {
+      "enum": [
+        "Unconfigured",
+        "Idle",
+        "WakeDetected",
+        "AwaitingIdentity",
+        "EvaluatingIdentity",
+        "AwaitingCommand",
+        "ParsingCommand",
+        "AwaitingConfirmation",
+        "Executing",
+        "Verifying",
+        "Completed",
+        "Cancelled",
+        "TimedOut",
+        "LockedOut",
+        "Faulted"
+      ]
+    },
+    "session_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100
+    },
+    "correlation_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100
+    },
+    "active_profile_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64
+    },
+    "wake_ready": {
+      "type": "boolean"
+    },
+    "microphone_ready": {
+      "type": "boolean"
+    },
+    "wake_score": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "identity_status": {
+      "enum": [
+        "not_required",
+        "pending",
+        "evaluating",
+        "matched",
+        "mismatched",
+        "low_quality",
+        "locked_out",
+        "not_enrolled"
+      ]
+    },
+    "overlay_visible": {
+      "type": "boolean"
+    },
+    "readout": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 300
+    },
+    "deadline_utc": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "pending_action_class": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100
+    },
+    "last_error": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "recoverable"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_]+$",
+          "maxLength": 100
+        },
+        "recoverable": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

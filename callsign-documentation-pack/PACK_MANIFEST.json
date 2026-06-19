@@ -1,0 +1,503 @@
+{
+  "pack_name": "Callsign Documentation Pack",
+  "pack_version": "2026-06-19",
+  "purpose": "Patch-ready documentation overlay derived from the existing Callsign repository documentation.",
+  "source_note": "Generated from the synced Google Drive documentation corresponding to D:\\GoogleDrive\\dev\\Callsign; source code and runtime were not executed.",
+  "hash_algorithm": "SHA-256",
+  "manifest_excludes": [
+    "PACK_MANIFEST.json"
+  ],
+  "file_count_excluding_manifest": 98,
+  "files": [
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.yml",
+      "size_bytes": 1402,
+      "sha256": "916bedd1770d6dc2e7e2781746c18111a6ea901ca7bcb05533f1e8d586655b7f"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "size_bytes": 232,
+      "sha256": "ae7852e5b0c13a92a5c6815e7bff9fda8e57f504955f28faad4b9750ae4dd327"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature_request.yml",
+      "size_bytes": 874,
+      "sha256": "eb6f8cd281885ef5a97faade6df26854d0c00e775f5f33c79b084b12598faf4d"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/security_review.yml",
+      "size_bytes": 834,
+      "sha256": "d1cd22547f576a6dd13ef97353ee606d4b9954cb5b9582e434a8086aa2ce836a"
+    },
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE.md",
+      "size_bytes": 395,
+      "sha256": "3430aed57ae26d22bf6c386392133894cffb84025581ad089767c12477318977"
+    },
+    {
+      "path": "AGENTS.md",
+      "size_bytes": 7549,
+      "sha256": "ee43502621adc16e1117f800bc4cbde641323fd7bde9c46407d8da4f8706e2df"
+    },
+    {
+      "path": "CANON.md",
+      "size_bytes": 7463,
+      "sha256": "e8e689953b96b4c098eb909d8f0d17b6dad445f56bbf5e82b9ee6212bd59d148"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "size_bytes": 2975,
+      "sha256": "a8c2eb8f46c48dbd6fefdbe5b8437f1b7f0ef7f03bec215cbfc008b9451368bd"
+    },
+    {
+      "path": "GOVERNANCE.md",
+      "size_bytes": 1616,
+      "sha256": "d097ce21bc54660b63c5d4bc28ec0454ecbffa6524293df23a6d0ee4a9afd445"
+    },
+    {
+      "path": "MERGE_GUIDE.md",
+      "size_bytes": 2183,
+      "sha256": "f45ce58aaee5b78773179805ffba68fc7558e02df0d98cf2a89d3067031c3fe3"
+    },
+    {
+      "path": "README.md",
+      "size_bytes": 7740,
+      "sha256": "aafeafbf606ecca2beb36da4c88c2e678a3fb6978c45866ee4dafc2bd0478904"
+    },
+    {
+      "path": "SECURITY.md",
+      "size_bytes": 2462,
+      "sha256": "d0970dd505d201fc96234587c14a11c94fca9e2a4596f8da0c6f2268a3361b4e"
+    },
+    {
+      "path": "SOURCE_AUDIT.md",
+      "size_bytes": 4416,
+      "sha256": "f0bb8c622c7a56261346b4152baa0a99db2d6a6652acc84e3467a430b0bb59a3"
+    },
+    {
+      "path": "SUPPORT.md",
+      "size_bytes": 1174,
+      "sha256": "2c2c7ac84fc1ce42b446b6b7b8de757be352be99fdb44a8e12825e0483d3fc6b"
+    },
+    {
+      "path": "THIRD_PARTY_SOURCES.md",
+      "size_bytes": 1339,
+      "sha256": "8940a10bf55349413733f0b1d1a4f25975216464d4507913e5df730af6151169"
+    },
+    {
+      "path": "VALIDATION.md",
+      "size_bytes": 3226,
+      "sha256": "935994f6ed0135bd142185715d189f02fce43fd783bb19ee59f67e354870a1e5"
+    },
+    {
+      "path": "burndown.md",
+      "size_bytes": 146679,
+      "sha256": "187a4046178bbec2133e5f2ba8d03d23101181e3118bc35e05ad75c2ec57fc22"
+    },
+    {
+      "path": "docs/README.md",
+      "size_bytes": 3325,
+      "sha256": "ddc733a7c4a43db89c591a06c535a34d86691f112b58f76b33f76da7f530b1cc"
+    },
+    {
+      "path": "docs/checklists/ALPHA_V1_0_RELEASE.md",
+      "size_bytes": 1576,
+      "sha256": "57759d1cd702ea53644f3e1f839eb33f39da193f5962520c9ab0a606a4785266"
+    },
+    {
+      "path": "docs/checklists/ALPHA_V1_COMPLETE.md",
+      "size_bytes": 764,
+      "sha256": "ba4fa06a0732ebd5fb5589953ff44b4e952a396347b3a998fc8c37372b4e9a53"
+    },
+    {
+      "path": "docs/checklists/DOCS_REVIEW.md",
+      "size_bytes": 597,
+      "sha256": "452d1c3cb4185f50740dd4c34012abb7a304ad9e8ccbf4698c1fcfc1dbe834a4"
+    },
+    {
+      "path": "docs/checklists/NEW_TOOL.md",
+      "size_bytes": 686,
+      "sha256": "255f7243477ebd5f606488064813951b81e358b710ea26c567accb1e761cbbb8"
+    },
+    {
+      "path": "docs/checklists/SECURITY_REVIEW.md",
+      "size_bytes": 1208,
+      "sha256": "037250b8a98e9cc8fdc284134e9e3c480b2b6f0589bf132d6d3d4826d0ceea20"
+    },
+    {
+      "path": "docs/guides/ADDING_A_TOOL.md",
+      "size_bytes": 1627,
+      "sha256": "1cfc284a5e2ca61e362ba315502fda33752d5bae8f195db4c033abca638a3206"
+    },
+    {
+      "path": "docs/guides/DEVELOPMENT.md",
+      "size_bytes": 2289,
+      "sha256": "2dda2ab8538d496f677615658b6c2e42f6ac02c4713ef7b2aca01502c6debadc"
+    },
+    {
+      "path": "docs/guides/DOCS_WORKFLOW.md",
+      "size_bytes": 1113,
+      "sha256": "868c7433f7c86281c54cb8bb5b3b76be72bf9749dd15052040d5de02f417eb3f"
+    },
+    {
+      "path": "docs/guides/GETTING_STARTED.md",
+      "size_bytes": 2381,
+      "sha256": "5b4c01ae604f2cf066087c61c8992318ef7c7abf99ba26724d595b7a1c3a7ef5"
+    },
+    {
+      "path": "docs/guides/INCIDENT_RESPONSE.md",
+      "size_bytes": 1373,
+      "sha256": "07ac51370b91fe69c4e1ae8fb4ee658c3f18a202bcb01ab5ad1135f0193313c2"
+    },
+    {
+      "path": "docs/guides/MANUAL_ALPHA_WALKTHROUGH.md",
+      "size_bytes": 2848,
+      "sha256": "b046390b669f796d4da2e86217b71649cb36fc6943418837a2cfe5696b495559"
+    },
+    {
+      "path": "docs/guides/PRIVACY_REVIEW.md",
+      "size_bytes": 894,
+      "sha256": "f4e22cb83973e09f61530506d567f860ae33000b96da868383f7e1eb80633114"
+    },
+    {
+      "path": "docs/guides/RELEASE_PROCESS.md",
+      "size_bytes": 1572,
+      "sha256": "4b0de331c676b83d52e15543ab17a0dab970cb454e9829b50245df03efb14fc8"
+    },
+    {
+      "path": "docs/guides/TESTING.md",
+      "size_bytes": 2000,
+      "sha256": "a96d26c3a2681675f03e85828cb340933bbbf9935acc1633f3b4d06e58a52bdb"
+    },
+    {
+      "path": "docs/guides/TROUBLESHOOTING.md",
+      "size_bytes": 2488,
+      "sha256": "3fdce1bf0c6b5910de716acc31d980ff0246f0044b9bb332cc1c607217c46d06"
+    },
+    {
+      "path": "docs/reference/ACCESSIBILITY.md",
+      "size_bytes": 2158,
+      "sha256": "67c16bb9d3e4be56cfa5adbd4451d4e393936337e186bbb31ed5bac81e3248cf"
+    },
+    {
+      "path": "docs/reference/ADR/0000-template.md",
+      "size_bytes": 764,
+      "sha256": "88b39d386dca6c9b02dd5f062a6eb12548ad8786ec97ada364e9a1f4fa4791f9"
+    },
+    {
+      "path": "docs/reference/ADR/0001-local-stdio-mcp.md",
+      "size_bytes": 792,
+      "sha256": "61e6aea198ce7f5059912d53ffeead73a78256fd2d9b9c2b7c544e382ffe1bfd"
+    },
+    {
+      "path": "docs/reference/ADR/0002-uia-before-sendinput.md",
+      "size_bytes": 699,
+      "sha256": "3c07261f3dc480ce9b8e587290fc6b04e2782dfce8c4a8afc8e671dad3245fc1"
+    },
+    {
+      "path": "docs/reference/ADR/0003-policy-engine-required.md",
+      "size_bytes": 617,
+      "sha256": "82e825be0918d32299e74712482bea61740318f571a4142a5b6c9d858eaaf0b6"
+    },
+    {
+      "path": "docs/reference/ADR/0004-sensitive-observation-data.md",
+      "size_bytes": 664,
+      "sha256": "2fb4efebfe4c0d35670343e43a26e575cd96580c80ea4b82807b8ed9a00061b5"
+    },
+    {
+      "path": "docs/reference/ADR/0005-release-ladder-canon.md",
+      "size_bytes": 721,
+      "sha256": "57cad5ea07a07dc5035a0a30070e85f3aa35c32d6cc083d41c5affea647ae2b2"
+    },
+    {
+      "path": "docs/reference/ADR/0006-generated-site-derived.md",
+      "size_bytes": 709,
+      "sha256": "c67360431d99d8ff6896be0b5c87a7c515d901efaa89c9af620e819538a5f101"
+    },
+    {
+      "path": "docs/reference/ADR/0007-identity-assurance.md",
+      "size_bytes": 804,
+      "sha256": "802fe442ba7d4d2beb788e0bc9dacc0b8a79e3b4f3a520da8a2e09eea031e896"
+    },
+    {
+      "path": "docs/reference/ADR/0008-visible-verified-actions.md",
+      "size_bytes": 738,
+      "sha256": "10794c460f13f42e7cfbae07a72d77d6c0bc2031eac5703f51a8eb5a203dafc8"
+    },
+    {
+      "path": "docs/reference/ADR/README.md",
+      "size_bytes": 1271,
+      "sha256": "683fca7ed1e73cd6d184122bd5f28da8fe8694017943981264338e013052e6f0"
+    },
+    {
+      "path": "docs/reference/APP_LAUNCH.md",
+      "size_bytes": 2746,
+      "sha256": "b61c761288527f550b12a835c5c05fee1ca596851e077c93489dd2be5447c434"
+    },
+    {
+      "path": "docs/reference/ARCHITECTURE.md",
+      "size_bytes": 4924,
+      "sha256": "e300f261e5ee271c73401047f5d105f31e65e2301ccaa84d5f27b79b4a8f643f"
+    },
+    {
+      "path": "docs/reference/AUDIT_LOGGING.md",
+      "size_bytes": 2498,
+      "sha256": "1b075cba4422273be02a515b7c450f96f3b78ff7af5582b41c0a702243dacb96"
+    },
+    {
+      "path": "docs/reference/BROWSER_CONTROL.md",
+      "size_bytes": 2353,
+      "sha256": "2fc3c1d5fcfa15ca268dc8900c3f3ae9b294796ef95fafc4a8a97b91b584a17d"
+    },
+    {
+      "path": "docs/reference/BURNDOWN.md",
+      "size_bytes": 515,
+      "sha256": "5000b6b73208a014fc4b409f1ba4bb0f9a212e80b589311e4b3ab1646016534d"
+    },
+    {
+      "path": "docs/reference/CANON.md",
+      "size_bytes": 7463,
+      "sha256": "e8e689953b96b4c098eb909d8f0d17b6dad445f56bbf5e82b9ee6212bd59d148"
+    },
+    {
+      "path": "docs/reference/CONFIGURATION.md",
+      "size_bytes": 2157,
+      "sha256": "a42431251f8f30c77c862528410bf8aea660c639e8388ce4c4082c5a37f376b1"
+    },
+    {
+      "path": "docs/reference/DATA_MODEL.md",
+      "size_bytes": 2796,
+      "sha256": "a779cae138b76424adb92b236b051e3de0e64c4cfe2d3a9e1cd8a3851342896a"
+    },
+    {
+      "path": "docs/reference/DEPENDENCIES.md",
+      "size_bytes": 1452,
+      "sha256": "5e93193ed0d8e06caf11bfc28ce759551386596933ab9a1608b4bd0e493d1e23"
+    },
+    {
+      "path": "docs/reference/DEPLOYMENT.md",
+      "size_bytes": 2722,
+      "sha256": "3ce397245c39d5c78fdfc50f3828855dde3df87785d61307cfe95969dc176ed4"
+    },
+    {
+      "path": "docs/reference/DICTATION.md",
+      "size_bytes": 2127,
+      "sha256": "79ff4d675c3e171f3bfd21911567ac3979ad7b4dc7fb08185d85372cc01970b1"
+    },
+    {
+      "path": "docs/reference/ERROR_CATALOG.md",
+      "size_bytes": 3042,
+      "sha256": "9585adff2209d77adc59c608803757e20fd047d57955bd39ef8a24b8639e2b74"
+    },
+    {
+      "path": "docs/reference/FILE_SEARCH.md",
+      "size_bytes": 2068,
+      "sha256": "6e5e71fb75904dbe52ef568c22cecbb76acf7297916346275ff8d6beecf82ef0"
+    },
+    {
+      "path": "docs/reference/GLOSSARY.md",
+      "size_bytes": 1747,
+      "sha256": "d327db002c6fe18d995995a076b59c2db840738e5b9c005b7319303e72e68c19"
+    },
+    {
+      "path": "docs/reference/MCP_TOOLS.md",
+      "size_bytes": 4299,
+      "sha256": "a689e343c41f1a879240ae6b915813ffb6bb13c01617ceaea2ddc305edb0918c"
+    },
+    {
+      "path": "docs/reference/OBSERVABILITY.md",
+      "size_bytes": 2331,
+      "sha256": "07d22b4bb8009f164135c056f712a96d3145307da1e47c7006670e15a27162ba"
+    },
+    {
+      "path": "docs/reference/ONBOARDING.md",
+      "size_bytes": 2530,
+      "sha256": "9f933dacba194ea92180449d92be9b0fccba0ce371bb79cf5881944f6b83ff4c"
+    },
+    {
+      "path": "docs/reference/OPEN_QUESTIONS.md",
+      "size_bytes": 2381,
+      "sha256": "0c690c1c7954dd2fe1b73581d6b93e64a1f2e7ac07789f7f9ffdacc47fc87ba0"
+    },
+    {
+      "path": "docs/reference/OVERLAY_UX.md",
+      "size_bytes": 2207,
+      "sha256": "c8fd7f92157abe2932459930ef0c70925891e8226f29468ced118585634f6d32"
+    },
+    {
+      "path": "docs/reference/POLICY_ENGINE.md",
+      "size_bytes": 2666,
+      "sha256": "418310497d16f31b23d0ef4cb51b2c953109306c62cd634f279b323a6ee63d64"
+    },
+    {
+      "path": "docs/reference/PRIVACY_MODEL.md",
+      "size_bytes": 3071,
+      "sha256": "bed49b68c0f3eb329e817dafb4325ca38262dbc76ffb2dc00fdbcda99e465b76"
+    },
+    {
+      "path": "docs/reference/PRODUCT_SPEC.md",
+      "size_bytes": 5681,
+      "sha256": "bb8aa21538d890e31eee0285a92730542ecf95ab80d1afb361e104a0d413a06a"
+    },
+    {
+      "path": "docs/reference/README.md",
+      "size_bytes": 976,
+      "sha256": "f580f0b0850513b06a9ed177c2a041a98e67a1a4ac034f345dbc4f91d944788d"
+    },
+    {
+      "path": "docs/reference/RELEASE_LADDER.md",
+      "size_bytes": 2956,
+      "sha256": "84b1361ffeff82e8571d641a41cf6ef60cd791dc19e2b13ab9b3a325a0dcccb9"
+    },
+    {
+      "path": "docs/reference/RISK_TIERS.md",
+      "size_bytes": 1925,
+      "sha256": "bf4ca2e626629ea23987ff3d5216b9ac6207f764df60f8bf52c666d1c3da93ac"
+    },
+    {
+      "path": "docs/reference/ROADMAP.md",
+      "size_bytes": 2016,
+      "sha256": "28de9e1808f68752f4300a52e2b8ba4601f4fb934baf0cfcb8ae550698b7a28a"
+    },
+    {
+      "path": "docs/reference/SECURITY_MODEL.md",
+      "size_bytes": 3316,
+      "sha256": "c4018071dd20b0d50e567fe086df02cb1316091c4b99ed0eb6d82321e78c4b25"
+    },
+    {
+      "path": "docs/reference/SESSION_STATE_MACHINE.md",
+      "size_bytes": 3503,
+      "sha256": "f04a58083457644a7dd951893551c0c0f228bd6b100aa97360413ed41946fb18"
+    },
+    {
+      "path": "docs/reference/STORAGE_AND_RETENTION.md",
+      "size_bytes": 2260,
+      "sha256": "3eb0af95fb44a3093b8db96446fe45fe28263ecd3f42a75ec72cf076d81c341d"
+    },
+    {
+      "path": "docs/reference/SYSTEM_CONTROL.md",
+      "size_bytes": 1692,
+      "sha256": "df00b5abe993d10169cc29a267868d62c765af1a4976d2de099aa870a04dd2b0"
+    },
+    {
+      "path": "docs/reference/TEST_PLAN.md",
+      "size_bytes": 4592,
+      "sha256": "c03c416944cd8cdbef8bdea61e42b773aaee537f6700a5b8b67633017937e891"
+    },
+    {
+      "path": "docs/reference/THREAT_MODEL.md",
+      "size_bytes": 4180,
+      "sha256": "84549faa971a041efbc692d79c32d4a74d19f997d89cd2053f042d01731d2e3b"
+    },
+    {
+      "path": "docs/reference/VOICE_ENROLLMENT.md",
+      "size_bytes": 2711,
+      "sha256": "7cbd102a6be3e525cb9ea1897ceb1e805afd0d281958710171aa09e4a56af505"
+    },
+    {
+      "path": "docs/reference/VOICE_PIPELINE.md",
+      "size_bytes": 3495,
+      "sha256": "04b0ba3e65790f85a951ec095768b483c2b89bd28b0fad8b871e69285502c595"
+    },
+    {
+      "path": "docs/reference/VOICE_UX.md",
+      "size_bytes": 2567,
+      "sha256": "c3f50f0209f85d102a84033ebf0be86c2515e4c50e2b2ddb5ef4d35b15cc0c20"
+    },
+    {
+      "path": "docs/reference/WINDOWS_AUTOMATION.md",
+      "size_bytes": 2051,
+      "sha256": "f64c63812028ae9dae2aab026c8b0b2f621b488b5495e39b41dc1a315dc38143"
+    },
+    {
+      "path": "docs/templates/ADR.md",
+      "size_bytes": 764,
+      "sha256": "88b39d386dca6c9b02dd5f062a6eb12548ad8786ec97ada364e9a1f4fa4791f9"
+    },
+    {
+      "path": "docs/templates/FEATURE_SPEC.md",
+      "size_bytes": 497,
+      "sha256": "8a68bd69ca62fa6788af6194facb538b462a71f11db961864181877d8222ebd8"
+    },
+    {
+      "path": "docs/templates/ISSUE.md",
+      "size_bytes": 341,
+      "sha256": "1c4c5622fce0b054980eadcb707e09b1431ca33b2acafb87e71568e445d15aeb"
+    },
+    {
+      "path": "docs/templates/PULL_REQUEST.md",
+      "size_bytes": 395,
+      "sha256": "3430aed57ae26d22bf6c386392133894cffb84025581ad089767c12477318977"
+    },
+    {
+      "path": "docs/templates/TEST_EVIDENCE.md",
+      "size_bytes": 673,
+      "sha256": "138a079e57f4ed6dd8a3017334b2c6e9c91d66ace30ad55ba5e0775400958601"
+    },
+    {
+      "path": "examples/README.md",
+      "size_bytes": 386,
+      "sha256": "efbe1b479be286dfbc23a50e021440026838b1d72536b7d75c0d179e633fb181"
+    },
+    {
+      "path": "examples/audit-event.example.jsonl",
+      "size_bytes": 1208,
+      "sha256": "6b56866dc1f7a2e5ea9dec300eb148dd3bd81d305e86beaef5941198ebd02907"
+    },
+    {
+      "path": "examples/command-intents.example.json",
+      "size_bytes": 677,
+      "sha256": "730559d70083f0c36a29ea9c7c0dfa1e90dd1cbcf592d207bb508bf0ecd0770c"
+    },
+    {
+      "path": "examples/policy-decision.example.json",
+      "size_bytes": 460,
+      "sha256": "b99908b5e4511b12bb15db88b821abe0fa80b15930a4fb57eda2961a8c72d344"
+    },
+    {
+      "path": "examples/profile.example.json",
+      "size_bytes": 617,
+      "sha256": "422849d09ea917685864bf198e26020b1049f706f18e7e6a72b7ece383b25196"
+    },
+    {
+      "path": "examples/runtime-snapshot.example.json",
+      "size_bytes": 552,
+      "sha256": "bbaeaa9f77fc5333dd4235503e925e73cffeb1a5d37ee27b95babe6478684cc8"
+    },
+    {
+      "path": "examples/tool-manifest.example.json",
+      "size_bytes": 732,
+      "sha256": "349c78185f268a420f60214c778c64e1de2f9c6d34c57678f47476fd59639f00"
+    },
+    {
+      "path": "schemas/audit-event.schema.json",
+      "size_bytes": 3242,
+      "sha256": "219f1e8b23200d0761342d690159c1167280a7afaa90c2438fdf5866dbe7bfb3"
+    },
+    {
+      "path": "schemas/command-intent.schema.json",
+      "size_bytes": 1565,
+      "sha256": "f76e8a7e772cfb401d3d0eee19c159f0ffe4361990b33491fd4d196f68c435dd"
+    },
+    {
+      "path": "schemas/policy-decision.schema.json",
+      "size_bytes": 1700,
+      "sha256": "9dd02c1e7a8c0656fed4e29cc105b43624d63e70e421900add59952fce8a5091"
+    },
+    {
+      "path": "schemas/profile.schema.json",
+      "size_bytes": 2605,
+      "sha256": "90bb2d028474b20f9bc780161036bfa08b337f33aac24f49ea96eb489ff53b6c"
+    },
+    {
+      "path": "schemas/runtime-snapshot.schema.json",
+      "size_bytes": 2632,
+      "sha256": "8ebb17f7f28999c93d485b9ee18a5decec707e0456c5cd4f85a6571c56dd65bd"
+    },
+    {
+      "path": "schemas/tool-result.schema.json",
+      "size_bytes": 3091,
+      "sha256": "4c4811f671b12c0e29d449c71dcc9ffd3ebcf2075506440ba455129b106d3e79"
+    }
+  ]
+}

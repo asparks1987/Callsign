@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://callsign.local/schemas/audit-event.schema.json",
+  "title": "Callsign Audit Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "timestamp_utc",
+    "component",
+    "event_type",
+    "outcome",
+    "redaction_applied"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 100
+    },
+    "timestamp_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "component": {
+      "type": "string",
+      "enum": [
+        "ui",
+        "service",
+        "automation",
+        "policy",
+        "installer",
+        "updater"
+      ]
+    },
+    "component_version": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 50
+    },
+    "event_type": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+$",
+      "maxLength": 100
+    },
+    "session_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100
+    },
+    "correlation_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100
+    },
+    "risk_tier": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "observe",
+        "local_reversible",
+        "local_state_change",
+        "external_side_effect",
+        "dangerous_or_blocked"
+      ]
+    },
+    "outcome": {
+      "enum": [
+        "success",
+        "failure",
+        "denied",
+        "cancelled",
+        "timeout",
+        "handoff",
+        "unknown"
+      ]
+    },
+    "target_class": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100
+    },
+    "policy_rule_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100
+    },
+    "verification": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "performed": {
+          "type": "boolean"
+        },
+        "method": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 100
+        },
+        "result": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            null,
+            "passed",
+            "failed",
+            "not_applicable",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "error_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Z0-9_]+$",
+      "maxLength": 100
+    },
+    "duration_ms": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 3600000
+    },
+    "redaction_applied": {
+      "type": "boolean"
+    },
+    "privacy_classes": {
+      "type": "array",
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "profile",
+          "audio",
+          "transcript",
+          "biometric_like",
+          "window_metadata",
+          "ui_text",
+          "path",
+          "clipboard",
+          "screenshot",
+          "audit",
+          "none"
+        ]
+      }
+    }
+  }
+}

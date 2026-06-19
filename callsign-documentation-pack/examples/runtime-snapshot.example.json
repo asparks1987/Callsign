@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "runtime_version": "0.1.0-alpha",
+  "captured_utc": "2026-06-19T12:31:00Z",
+  "state": "AwaitingCommand",
+  "session_id": "session-example-0001",
+  "correlation_id": "session-example-0001.step-03",
+  "active_profile_id": "profile-alpha-0001",
+  "wake_ready": true,
+  "microphone_ready": true,
+  "wake_score": 0.91,
+  "identity_status": "matched",
+  "overlay_visible": true,
+  "readout": "Identity confirmed. Say the app name.",
+  "deadline_utc": "2026-06-19T12:31:10Z",
+  "pending_action_class": null,
+  "last_error": null
+}

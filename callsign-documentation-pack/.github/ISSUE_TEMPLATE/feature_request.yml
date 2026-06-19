@@ -1,0 +1,40 @@
+name: Feature request
+description: Propose a scoped, safe Callsign capability
+title: "[Feature] "
+labels: ["enhancement", "needs-design"]
+body:
+  - type: input
+    id: release
+    attributes:
+      label: Proposed release
+      placeholder: v1.0 alpha, v1.1 alpha, later
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: User outcome
+    validations:
+      required: true
+  - type: textarea
+    id: nongoals
+    attributes:
+      label: Non-goals
+    validations:
+      required: true
+  - type: textarea
+    id: flow
+    attributes:
+      label: Visible user flow
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and privacy impact
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Acceptance and verification

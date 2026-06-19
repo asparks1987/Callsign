@@ -112,3 +112,15 @@ Mitigation:
 - A user may approve a bad action if the product grows beyond the current alpha.
 - Future cloud features may add privacy risk unless they stay opt-in.
 - Pro and Advanced increase blast radius unless policy, approvals, and audits are complete first.
+
+## Callsign canon alignment
+
+The Alpha v1 line is intended to compete with Windows Voice Access-level functionality, but Callsign's threat model is stricter because it adds wake plus identity verification before command execution.
+
+Threat considerations added by the wake overlay and live readout:
+
+- False wake must not trigger action; it may only show the overlay and request identity.
+- Misheard identity must not be treated as a command.
+- The text readout is diagnostic feedback and must not become an alternate authorization path.
+- A stuck overlay or stale transcript could confuse the user, so terminal session states must hide the overlay and clear active readout.
+- v1.3 system control and file search expand local context exposure and require policy, visibility, and audit controls beyond v1.0 launch.

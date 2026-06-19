@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Canon - Callsign</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../index.html">Callsign</a>
+    <nav><a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
+<a href="architecture.html">Architecture</a>
+<a href="windows-automation.html">Windows Automation</a>
+<a href="security-model.html">Security Model</a>
+<a href="threat-model.html">Threat Model</a>
+<a href="voice-ux.html">Voice UX</a>
+<a href="data-model.html">Data Model</a>
+<a href="test-plan.html">Test Plan</a>
+<a href="deployment.html">Deployment</a>
+<a href="roadmap.html">Roadmap</a>
+<a href="burndown.html">Burndown</a>
+<a href="github-pages.html">GitHub Pages</a></nav>
+  </header>
+  <main class="doc-shell">
+    <aside class="doc-sidebar">
+      <strong>Docs</strong>
+      <a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
+<a href="architecture.html">Architecture</a>
+<a href="windows-automation.html">Windows Automation</a>
+<a href="security-model.html">Security Model</a>
+<a href="threat-model.html">Threat Model</a>
+<a href="voice-ux.html">Voice UX</a>
+<a href="data-model.html">Data Model</a>
+<a href="test-plan.html">Test Plan</a>
+<a href="deployment.html">Deployment</a>
+<a href="roadmap.html">Roadmap</a>
+<a href="burndown.html">Burndown</a>
+<a href="github-pages.html">GitHub Pages</a>
+    </aside>
+    <article class="doc-content">
+      <h1>Callsign Canon Book</h1>
+<h2>Mission</h2>
+<p>Callsign is the open-source Windows voice-control killer.</p>
+<p>It should feel as approachable as Apple Voice Control, grow toward more power than Talon, and stay visibly safer because every session follows the same identity-first structure:</p>
+<p><code>Callsign -&gt; identity verification -&gt; command -&gt; visible action</code></p>
+<h2>Product promise</h2>
+<p>Callsign is built around a simple promise:</p>
+<ul><li>the user can always see when Callsign is listening,</li><li>the user can always see what Callsign heard,</li><li>the user can always stop the session,</li><li>and the user never has to guess whether a command was authorized.</li></ul>
+<p>The wake word only opens a session. The enrolled callsign unlocks command capture. The command only becomes action when the product can show the path visibly.</p>
+<h2>Why this exists</h2>
+<p>Current desktop voice tools usually break down in one of three places:</p>
+<ul><li>they hide what they heard,</li><li>they make users trust a black box,</li><li>or they stop short of practical everyday control.</li></ul>
+<p>Callsign is the opposite:</p>
+<ul><li>open-source core,</li><li>local-first operation,</li><li>identity-gated sessions,</li><li>visible overlay feedback,</li><li>and a clear release ladder from launch to broader control.</li></ul>
+<h2>Alpha v1 release line</h2>
+<p>All Alpha v1 features are free and remain free until at least beta.</p>
+<ul><li><code>v1.0 alpha</code>: background service wake detection, identity verification, <code>callsign.gif</code> overlay, live text readout, and visible Start menu app launch.</li><li><code>v1.1 alpha</code>: dictation with visible review.</li><li><code>v1.2 alpha</code>: browser control with safe external-action boundaries.</li><li><code>v1.3 alpha</code>: Windows, WSL, and Linux system control, including Explorer-backed file search.</li></ul>
+<h2>Windows Voice Access parity line</h2>
+<p>Alpha v1 is the path to functional parity with built-in Windows voice tools.</p>
+<p>The target is not just feature count. The target is:</p>
+<ul><li>practical daily usefulness,</li><li>readable state changes,</li><li>visible control surfaces,</li><li>and a much stronger trust model than the default platform tools.</li></ul>
+<h2>UX bar</h2>
+<p>The experience should feel:</p>
+<ul><li>as polished and calm as Apple Voice Control,</li><li>as powerful and extensible as Talon,</li><li>and more trustworthy because identity is required before action.</li></ul>
+<h2>Required interaction model</h2>
+<p>The public alpha flow is fixed and testable:</p>
+<p>1. Say <code>Callsign</code>. 2. See <code>callsign.gif</code> appear on top of everything. 3. Read the live transcript or hearing cue below the animation. 4. Say your enrolled callsign. 5. Wait for identity confirmation. 6. Say the installed app or command. 7. Watch the visible action happen.</p>
+<p>Accepted wake variants include <code>Callsign</code> and <code>call sign</code>.</p>
+<h2>Overlay canon</h2>
+<p>The wake overlay is a user-facing cue, not an authorization path.</p>
+<p>It must:</p>
+<ul><li>appear immediately when wake is detected,</li><li>stay visible through identity and command capture,</li><li>show live text readout below the animation,</li><li>remain topmost without stealing focus,</li><li>and hide when the session completes, cancels, times out, or locks out.</li></ul>
+<p>Readout examples:</p>
+<ul><li><code>Callsign heard. Say your callsign.</code></li><li><code>Hearing your callsign...</code></li><li><code>Heard: womprat</code></li><li><code>Hearing your command...</code></li><li><code>Command: open Notepad</code></li><li><code>Launching Notepad...</code></li></ul>
+<h2>Architecture canon</h2>
+<p>Callsign is service-first.</p>
+<p>The UI is for setup, configuration, and monitoring. The background runtime is the authority for wake detection, identity gating, and command orchestration.</p>
+<p>The alpha v1 runtime is intentionally narrow:</p>
+<ul><li>openWakeWord wake detection,</li><li>strict identity gate,</li><li>visible Start menu launch path,</li><li>and readable telemetry for session, audio, and overlay sync.</li></ul>
+<h2>Safety canon</h2>
+<p>No action can skip identity.</p>
+<ul><li>Transcript-only wake is ignored.</li><li>Misheard identity is treated as a repeat request or rejection.</li><li>Session termination states must remain visible.</li><li>Closed-source features stay out of alpha canon and out of the public repo.</li></ul>
+<h2>Platform direction</h2>
+<p>Windows is the practical alpha launch platform.</p>
+<p>WSL and Linux are part of the same product story and should be documented early, but they expand from the same visible, identity-first session model rather than replacing it.</p>
+<h2>Public site canon</h2>
+<p>The public website should sell the open-source core clearly and simply:</p>
+<ul><li>the app is visible,</li><li>the workflow is identity-first,</li><li>the alpha is free,</li><li>and the product is meant to be a credible Windows Voice Control alternative that grows into deeper power.</li></ul>
+<p>Internal plumbing stays in contributor docs. Public pages stay focused on the user story.</p>
+<h2>Non-goals for v1.0</h2>
+<ul><li>arbitrary shell execution,</li><li>hidden actions or silent completion paths,</li><li>full command parity in the first public MVP,</li><li>paid-feature requirements in Alpha v1.</li></ul>
+    </article>
+  </main>
+  <script src="../assets/site.js"></script>
+</body>
+</html>

@@ -9,9 +9,9 @@
 <body>
   <header class="site-header">
     <a class="brand" href="../index.html">Callsign</a>
-    <nav><a href="product-spec.html">Product Spec</a>
+    <nav><a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -26,9 +26,9 @@
   <main class="doc-shell">
     <aside class="doc-sidebar">
       <strong>Docs</strong>
-      <a href="product-spec.html">Product Spec</a>
+      <a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -41,17 +41,13 @@
 <a href="github-pages.html">GitHub Pages</a>
     </aside>
     <article class="doc-content">
-      <h1>Callsign v1 Alpha Burndown</h1>
-<p>The canonical checklist lives at the repository root in <a href="/burndown.md">burndown.md</a>.</p>
-<p>v1 alpha means a fresh checkout can be built, installed, launched, and smoke-tested, and the app can complete the four documented MVP flows:</p>
-<ul><li>Start menu launching.</li><li>Text dictation.</li><li>Web browsing.</li><li>File search.</li></ul>
-<p>The alpha also requires:</p>
-<ul><li>Profile and callsign creation.</li><li>Voice enrollment and re-training.</li><li>Wake word plus spoken callsign identity confirmation.</li><li>Visible states for missing microphone, silence, transcription failure, cancel, and stop.</li><li>Human-readable action feedback before and after execution.</li></ul>
-<h2>Phase map</h2>
-<p>| Phase | Area | Goal | |---:|---|---| | 0 | Canon and release hygiene | Keep docs, site, and release claims aligned with the alpha contract. | | 1 | Profile foundation | Create, save, select, and delete user profiles with a personal callsign. | | 2 | Voice reliability | Record, replay, enroll, and recognize the user&#x27;s voice and callsign reliably. | | 3 | Session control | Run the wake/identity/command flow with visible stop, cancel, timeout, and lockout behavior. | | 4 | Start menu launch | Launch installed apps reliably through the visible Start menu path. | | 5 | Dictation | Capture speech, transcribe it, and expose or insert the text per the documented UX. | | 6 | Web browsing | Open and navigate browsing targets with useful feedback and failure recovery. | | 7 | File search | Search the intended file scope and act on results safely. | | 8 | Build and install | Produce the executable installer and documented launch entry from a clean checkout. | | 9 | Alpha verification | Prove the full alpha flow through smoke tests, manual checks, and release gate criteria. |</p>
-<h2>Required gates</h2>
-<ul><li>Root <code>burndown.md</code> is the source of truth.</li><li>Free remains the visible open-source core.</li><li>The alpha does not launch when identity fails or times out.</li><li>Unsafe launch text, secrets, hidden actions, and silent failures stay blocked.</li><li>Docs and generated pages must match the same alpha contract.</li></ul>
-<p>See <a href="/burndown.md">burndown.md</a> for the detailed checklist.</p>
+      <p>﻿# Burndown</p>
+<p>This page mirrors the root <code>burndown.md</code> canon for generated docs.</p>
+<p>Alpha v1 is a release line. <code>v1.0 alpha</code> is the first public MVP: background service wake detection, identity verification, animated wake overlay with live text readout, and visible Start menu app launch.</p>
+<p>The full Alpha v1 line is the path to Windows Voice Access parity:</p>
+<ul><li><code>v1.0 alpha</code>: wake, identity, overlay, live readout, and Start menu app launch.</li><li><code>v1.1 alpha</code>: dictation with visible review.</li><li><code>v1.2 alpha</code>: browser control.</li><li><code>v1.3 alpha</code>: system control and Explorer-backed file search.</li></ul>
+<p>All Alpha v1 features are free and remain free until at least beta.</p>
+<p>For the full engineering checklist, read the root-level <code>burndown.md</code>.</p>
     </article>
   </main>
   <script src="../assets/site.js"></script>

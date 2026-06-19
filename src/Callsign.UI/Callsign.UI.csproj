@@ -6,7 +6,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>Callsign.UI</RootNamespace>
+    <ApplicationIcon>..\..\assets\callsign.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <Content Include="..\..\assets\callsign.ico" Link="callsign.ico" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="..\..\callsign.gif" LogicalName="callsign.gif" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="Whisper.net" Version="1.9.1" />

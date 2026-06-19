@@ -16,9 +16,20 @@ public sealed class UserSettings
     public int VoiceSamplesRequired { get; set; } = 3;
     public DateTime? VoiceEnrolledUtc { get; set; }
     public string VoiceRecognitionMode { get; set; } = "Local";
+    public List<string> VoiceCallsignAliases { get; set; } = [];
+    public double VoiceInputGainDb { get; set; } = 12;
+    public bool VoiceAutoGainEnabled { get; set; } = true;
+    public double VoiceTargetRms { get; set; } = 0.08;
+    public bool VoiceAdaptiveSpeechThresholdEnabled { get; set; } = true;
+    public bool VoiceBiometricRequired { get; set; } = true;
+    public double VoiceBiometricThreshold { get; set; } = 0.72;
+    public double VoiceBiometricNearMatchThreshold { get; set; } = 0.86;
+    public int VoiceBiometricMaxCandidateAgeSeconds { get; set; } = 30;
     public string? VoiceModelPath { get; set; }
-    public double VoiceWakeThreshold { get; set; } = 0.010;
-    public int VoiceSilenceMilliseconds { get; set; } = 850;
+    public double VoiceWakeThreshold { get; set; } = 0;
+    public string VoiceWakeSensitivity { get; set; } = "More responsive";
+    public bool VoiceWakeDiagnosticsEnabled { get; set; }
+    public int VoiceSilenceMilliseconds { get; set; } = 300;
     public double VoiceCommandConfidenceThreshold { get; set; } = 0.65;
     public bool VoiceCloudOptIn { get; set; }
     public bool UseVoiceActivityDetection { get; set; } = true;

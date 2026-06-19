@@ -11,6 +11,7 @@ internal static class Program
     {
         try
         {
+            ClearStartupErrorLog();
             ApplicationConfiguration.Initialize();
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
             Application.ThreadException += (_, e) => ShowStartupError(e.Exception);
@@ -27,16 +28,28 @@ internal static class Program
         }
     }
 
+    private static void ClearStartupErrorLog()
+    {
+        try
+        {
+            var logFile = GetStartupErrorLogPath();
+            if (File.Exists(logFile))
+                File.Delete(logFile);
+        }
+        catch
+        {
+            // no-op: stale startup diagnostics should not block a normal launch
+        }
+    }
+
     private static void ShowStartupError(Exception ex)
     {
         try
         {
-            var logDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Callsign",
-                "Logs");
+            var logFile = GetStartupErrorLogPath();
+            var logDir = Path.GetDirectoryName(logFile)
+                ?? throw new InvalidOperationException("Startup log directory could not be resolved.");
             Directory.CreateDirectory(logDir);
-            var logFile = Path.Combine(logDir, "startup-error.log");
             File.WriteAllText(logFile, $"{DateTime.UtcNow:O}{Environment.NewLine}{ex}");
             MessageBox.Show(
                 $"Callsign could not start.{Environment.NewLine}{Environment.NewLine}{ex.Message}{Environment.NewLine}{Environment.NewLine}Details saved to:{Environment.NewLine}{logFile}",
@@ -49,4 +62,11 @@ internal static class Program
             // no-op: avoid secondary failures while reporting startup issues
         }
     }
+
+    private static string GetStartupErrorLogPath() =>
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Callsign",
+            "Logs",
+            "startup-error.log");
 }

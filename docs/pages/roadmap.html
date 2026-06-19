@@ -9,9 +9,9 @@
 <body>
   <header class="site-header">
     <a class="brand" href="../index.html">Callsign</a>
-    <nav><a href="product-spec.html">Product Spec</a>
+    <nav><a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -26,9 +26,9 @@
   <main class="doc-shell">
     <aside class="doc-sidebar">
       <strong>Docs</strong>
-      <a href="product-spec.html">Product Spec</a>
+      <a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -42,37 +42,24 @@
     </aside>
     <article class="doc-content">
       <h1>Roadmap</h1>
-<h2>Phase 0: Canon and repo hygiene</h2>
-<p>Status: current focus.</p>
-<p>Deliverables:</p>
-<ul><li>Root <code>burndown.md</code> as the canonical multiphase checklist.</li><li>Free, Pro, and Advanced tier language across all docs and the website.</li><li><code>/closed-source/</code> ignored by git for private paid-tier material.</li><li>Generated GitHub Pages output aligned with source docs.</li></ul>
-<p>Exit criteria:</p>
-<ul><li>No deprecated middle-tier wording remains in user-facing docs.</li><li>Public docs explain what exists now versus what is planned.</li></ul>
-<h2>Phase 1: Free tier completion</h2>
-<p>Deliverables:</p>
-<ul><li>Account creation and profile storage.</li><li>Voice sample recording and playback.</li><li>Callsign identity and wake-word flow.</li><li>Reliable Start menu application launch.</li><li>Local recognition quality checks and ambiguous transcript confirmation.</li><li>Dictation, browser, and file-search tools with readable errors and visible output.</li><li>Build/install path that emits the installer and launchable executable from a fresh checkout.</li></ul>
-<p>Exit criteria:</p>
-<ul><li>A user can create a callsign profile and launch common installed apps by voice.</li><li>Free rejects paths, URLs, shells, command text, and non-launch automation.</li><li>A user can dictate text, open a website or search query, and search local files with visible results or clear empty/error states.</li><li>The documented build/install path works from a clean checkout.</li></ul>
-<h2>Phase 2: Always-on background service</h2>
-<p>Deliverables:</p>
-<ul><li>Background service process.</li><li>Wake-word listener.</li><li>Callsign identity gate.</li><li>Tray/status controls.</li><li>Local launch audit log.</li></ul>
-<p>Exit criteria:</p>
-<ul><li>Callsign can wait in the background and act only after identity is confirmed.</li><li>Stop, cancel, timeout, and lockout paths work without opening hidden actions.</li></ul>
-<h2>Phase 3: Pro tier</h2>
-<p>Deliverables:</p>
-<ul><li>Full Windows desktop control by voice.</li><li>WSL workflow bridge.</li><li>Linux desktop MVP support.</li><li>Policy engine, approvals, and audit dashboard.</li><li>Pro command catalog for routine desktop workflows.</li></ul>
-<p>Exit criteria:</p>
-<ul><li>Pro can safely control Windows, WSL, and Linux workflows with visible approvals.</li><li>Risky actions require policy approval before execution.</li></ul>
-<h2>Phase 4: Advanced tier</h2>
-<p>Deliverables:</p>
-<ul><li>Hundreds of specialized commands.</li><li>Recipe workflow system.</li><li>Policy packs.</li><li>Developer, admin, data, and document workflow packs.</li><li>Diagnostics center, workflow memory, and advanced voice modes.</li></ul>
-<p>Exit criteria:</p>
-<ul><li>Advanced supports power-user workflows without weakening the safety model.</li><li>Dangerous, external, secret, and destructive actions are blocked unless explicitly designed and approved.</li></ul>
-<h2>Phase 5: Productization</h2>
-<p>Deliverables:</p>
-<ul><li>Licensing and tier gates.</li><li>Installer, updater, release notes, and rollback strategy.</li><li>Opt-in telemetry and privacy-preserving diagnostics.</li><li>Support and feedback path.</li><li>Signed release packages when distribution begins.</li></ul>
-<p>Exit criteria:</p>
-<ul><li>Free remains useful without a subscription.</li><li>Pro and Advanced are monetizable without hiding the open-source core.</li><li>Public docs, website, and release artifacts match the tier model.</li></ul>
+<h2>Release ladder</h2>
+<p>All Alpha v1 features are free and remain free until at least beta.</p>
+<p>The Alpha v1 line is the path to practical Windows Voice Access parity while keeping Callsign&#x27;s identity model and visible action model.</p>
+<table><thead><tr><th>Release</th><th>Focus</th><th>Goal</th></tr></thead><tbody><tr><td>v1.0 alpha</td><td>Wake + identity + overlay + Start menu launch</td><td>Service wakeword, verified callsign gate, topmost overlay readout, and visible Start menu launch.</td></tr><tr><td>v1.1 alpha</td><td>Dictation</td><td>Speak text locally and review before insertion or copy.</td></tr><tr><td>v1.2 alpha</td><td>Browser control</td><td>Open, search, and navigate visible browser flows with explicit boundaries.</td></tr><tr><td>v1.3 alpha</td><td>System control and file search</td><td>Broad Windows control, WSL/Linux workflow expansion, and Explorer-backed search actions.</td></tr><tr><td>Beta or later</td><td>Packaging and monetization</td><td>Revisit Pro/Advanced packaging and support model after alpha parity targets are stable.</td></tr></tbody></table>
+<h2>v1.0 alpha (current)</h2>
+<ul><li>Account and callsign setup</li><li>Voice sample recording and playback</li><li>Background service listening</li><li><code>Callsign</code> wake word detection for <code>Callsign</code> and <code>call sign</code></li><li>Overlay activation at wake with live readout</li><li>Callsign identity verification before launch</li><li>Visible Start menu app launch</li><li>Stop/cancel/timeout/lockout safety</li></ul>
+<h2>Exit criteria</h2>
+<ul><li>Fresh install can complete service startup and profile enrollment.</li><li>Wake is visible, audible enough, and synchronized with overlay lifecycle.</li><li><code>callsign.gif</code> is shown at wake and hidden only in terminal states.</li><li>Start menu launch succeeds on common installed apps.</li><li>Wrong/missing identity never launches.</li><li>Safe terminal behavior is visible to users.</li></ul>
+<h2>v1.1 alpha</h2>
+<ul><li>Dictation visible review mode.</li><li>Clear typed insertion/copy actions.</li><li>Explicit failure and stop handling.</li></ul>
+<h2>v1.2 alpha</h2>
+<ul><li>Browser open/search/navigation flows.</li><li>External action boundaries (purchases, messages, uploads, etc).</li></ul>
+<h2>v1.3 alpha</h2>
+<ul><li>Windows control workflows and safe policy checks.</li><li>WSL and Linux control bridge.</li><li>File and folder search with Explorer open path.</li></ul>
+<h2>Alpha parity hold point</h2>
+<p>Before leaving Alpha v1, product should be compared against Windows Voice Access for reliability and usability of daily command set and visibility behavior.</p>
+<h2>Beta or later</h2>
+<ul><li>Paid tier model and packaging boundaries.</li><li>Signed installer and update/rollback story.</li><li>Support and telemetry options with opt-in only.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

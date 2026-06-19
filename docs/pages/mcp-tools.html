@@ -9,9 +9,9 @@
 <body>
   <header class="site-header">
     <a class="brand" href="../index.html">Callsign</a>
-    <nav><a href="product-spec.html">Product Spec</a>
+    <nav><a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -26,9 +26,9 @@
   <main class="doc-shell">
     <aside class="doc-sidebar">
       <strong>Docs</strong>
-      <a href="product-spec.html">Product Spec</a>
+      <a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -60,7 +60,7 @@ workflow.stop</code></pre>
 <p>Every tool must include:</p>
 <ul><li>Name.</li><li>Description.</li><li>Input schema.</li><li>Output schema.</li><li>Risk tier.</li><li>Privacy impact.</li><li>Reversibility.</li><li>Required approval behavior.</li><li>Audit requirements.</li><li>Verification behavior.</li></ul>
 <h2>Risk tiers</h2>
-<p>| Tier | Name | Meaning | |---:|---|---| | 0 | <code>observe</code> | Reads state only | | 1 | <code>local_reversible</code> | Performs visible local action that is usually reversible | | 2 | <code>local_state_change</code> | Changes local files, documents, or settings | | 3 | <code>external_side_effect</code> | Sends, uploads, submits, posts, or otherwise affects external systems | | 4 | <code>dangerous_or_blocked</code> | Credentials, shell, admin, deletion, payment, security settings |</p>
+<table><thead><tr><th>Tier</th><th>Name</th><th>Meaning</th></tr></thead><tbody><tr><td>0</td><td><code>observe</code></td><td>Reads state only</td></tr><tr><td>1</td><td><code>local_reversible</code></td><td>Performs visible local action that is usually reversible</td></tr><tr><td>2</td><td><code>local_state_change</code></td><td>Changes local files, documents, or settings</td></tr><tr><td>3</td><td><code>external_side_effect</code></td><td>Sends, uploads, submits, posts, or otherwise affects external systems</td></tr><tr><td>4</td><td><code>dangerous_or_blocked</code></td><td>Credentials, shell, admin, deletion, payment, security settings</td></tr></tbody></table>
 <h2>Standard result envelope</h2>
 <pre><code class="language-json">{
   &quot;ok&quot;: true,

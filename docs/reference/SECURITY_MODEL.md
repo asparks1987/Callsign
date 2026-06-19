@@ -88,3 +88,15 @@ Paid tiers must not require hidden data collection for the core experience. Clou
 ## Closed-source boundary
 
 Private paid-tier material belongs in `/closed-source/`, which is ignored by git. Public security docs should describe the safety model, but proprietary implementation details should not be tracked in the open-source repo.
+
+## Callsign canon alignment
+
+The Alpha v1 line aims for Windows Voice Access parity, but v1.0 remains intentionally narrow: wake, identity verification, animated overlay with live readout, and Start menu app launch.
+
+Security rules for the overlay and transcript readout:
+
+- The overlay is a user-visible listening cue, not authorization.
+- The wake word alone never permits command execution.
+- Transcript text shown below `callsign.gif` must not bypass the identity gate.
+- The overlay must hide when a session completes, cancels, times out, locks out, or listening stops.
+- Future browser, file, WSL, Linux, and system control features require stronger approvals, policy checks, and audit trails than v1.0 app launch.

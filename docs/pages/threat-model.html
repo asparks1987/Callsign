@@ -9,9 +9,9 @@
 <body>
   <header class="site-header">
     <a class="brand" href="../index.html">Callsign</a>
-    <nav><a href="product-spec.html">Product Spec</a>
+    <nav><a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -26,9 +26,9 @@
   <main class="doc-shell">
     <aside class="doc-sidebar">
       <strong>Docs</strong>
-      <a href="product-spec.html">Product Spec</a>
+      <a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -86,6 +86,10 @@
 <ul><li>Keep proprietary paid-tier material in <code>/closed-source/</code>.</li><li>Ignore <code>/closed-source/</code> in git.</li><li>Keep public docs high-level when describing paid capabilities.</li></ul>
 <h2>Residual risks</h2>
 <ul><li>Voice recognition can mishear.</li><li>A nearby person can still speak a similar callsign.</li><li>A user may approve a bad action if the product grows beyond the current alpha.</li><li>Future cloud features may add privacy risk unless they stay opt-in.</li><li>Pro and Advanced increase blast radius unless policy, approvals, and audits are complete first.</li></ul>
+<h2>Callsign canon alignment</h2>
+<p>The Alpha v1 line is intended to compete with Windows Voice Access-level functionality, but Callsign&#x27;s threat model is stricter because it adds wake plus identity verification before command execution.</p>
+<p>Threat considerations added by the wake overlay and live readout:</p>
+<ul><li>False wake must not trigger action; it may only show the overlay and request identity.</li><li>Misheard identity must not be treated as a command.</li><li>The text readout is diagnostic feedback and must not become an alternate authorization path.</li><li>A stuck overlay or stale transcript could confuse the user, so terminal session states must hide the overlay and clear active readout.</li><li>v1.3 system control and file search expand local context exposure and require policy, visibility, and audit controls beyond v1.0 launch.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

@@ -1,34 +1,42 @@
-from pathlib import Path
+﻿from pathlib import Path
 import html
 import re
+import shutil
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 REF = DOCS / "reference"
 PAGES = DOCS / "pages"
+ASSETS = DOCS / "assets"
 PAGES.mkdir(parents=True, exist_ok=True)
+ASSETS.mkdir(parents=True, exist_ok=True)
+
+GIF_SOURCE = ROOT / "callsign.gif"
+if GIF_SOURCE.exists():
+    shutil.copy2(GIF_SOURCE, ASSETS / "callsign.gif")
 
 DOC_ORDER = [
-    ("Product Spec", "PRODUCT_SPEC.md", "product-spec.html", "Current alpha scope, user flow, and product principles."),
-    ("Architecture", "ARCHITECTURE.md", "architecture.html", "Current UI shell and future service split."),
+    ("Canon", "CANON.md", "canon.html", "The Callsign product book: mission, promise, alpha ladder, and UX bar."),
+    ("Product Spec", "PRODUCT_SPEC.md", "product-spec.html", "Alpha v1.0 scope, release ladder, and product principles."),
+    ("Architecture", "ARCHITECTURE.md", "architecture.html", "Service runtime, setup UI, wake overlay, and staged alpha architecture."),
     ("MCP Tools", "MCP_TOOLS.md", "mcp-tools.html", "Future automation contract and tool design."),
-    ("Windows Automation", "WINDOWS_AUTOMATION.md", "windows-automation.html", "Visible app launching and future desktop control."),
-    ("Security Model", "SECURITY_MODEL.md", "security-model.html", "Identity, local data handling, and blocked actions."),
-    ("Threat Model", "THREAT_MODEL.md", "threat-model.html", "Threats and mitigations for the alpha and future service."),
-    ("Voice UX", "VOICE_UX.md", "voice-ux.html", "Wake word, callsign identity, and launch prompts."),
+    ("Windows Automation", "WINDOWS_AUTOMATION.md", "windows-automation.html", "v1.0 Start menu launch and v1.3 system control direction."),
+    ("Security Model", "SECURITY_MODEL.md", "security-model.html", "Identity, local data handling, overlay behavior, and blocked actions."),
+    ("Threat Model", "THREAT_MODEL.md", "threat-model.html", "Threats and mitigations for alpha service control."),
+    ("Voice UX", "VOICE_UX.md", "voice-ux.html", "Wake word, callsign identity, overlay readout, and launch prompts."),
     ("Data Model", "DATA_MODEL.md", "data-model.html", "Profile storage, enrollment state, and launch history."),
-    ("Test Plan", "TEST_PLAN.md", "test-plan.html", "UI, identity, launch, and safety checks."),
+    ("Test Plan", "TEST_PLAN.md", "test-plan.html", "v1.0 service, overlay, identity, launch, and safety checks."),
     ("Deployment", "DEPLOYMENT.md", "deployment.html", "Current build flow, GitHub Pages, and packaging notes."),
-    ("Roadmap", "ROADMAP.md", "roadmap.html", "Alpha priorities, service work, and future expansion."),
-    ("Burndown", "BURNDOWN.md", "burndown.html", "Current backlog and acceptance criteria."),
+    ("Roadmap", "ROADMAP.md", "roadmap.html", "v1.0, v1.1, v1.2, v1.3, and beta-or-later packaging."),
+    ("Burndown", "BURNDOWN.md", "burndown.html", "Release checklist and acceptance criteria."),
     ("GitHub Pages", "GITHUB_PAGES.md", "github-pages.html", "How the public site and reference docs fit together."),
 ]
 
+PUBLIC_DOC_ORDER = [entry for entry in DOC_ORDER if entry[0] != "MCP Tools"]
+
 try:
     import mistune
-
     _markdown = mistune.create_markdown(plugins=["table", "strikethrough", "task_lists"])
-
     def render_markdown(text: str) -> str:
         return _markdown(text)
 except Exception:
@@ -38,14 +46,34 @@ except Exception:
         text = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", text)
         text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', text)
         return text
-
     def flush_paragraph(buf, out):
         if buf:
             out.append("<p>" + inline_md(" ".join(buf).strip()) + "</p>")
             buf.clear()
-
+    def is_table_separator(line: str) -> bool:
+        stripped = line.strip()
+        if "|" not in stripped or not stripped.startswith("|") or not stripped.endswith("|"):
+            return False
+        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+        return len(cells) >= 1 and all(re.fullmatch(r":?-{3,}:?", cell or "") for cell in cells)
+    def split_table_row(line: str) -> list[str]:
+        return [cell.strip() for cell in line.strip().strip("|").split("|")]
+    def flush_table(table_rows, out):
+        if not table_rows:
+            return
+        header = table_rows[0]
+        body_rows = table_rows[1:]
+        parts = ["<table><thead><tr>"]
+        parts.extend(f"<th>{inline_md(cell)}</th>" for cell in header)
+        parts.append("</tr></thead><tbody>")
+        for row in body_rows:
+            parts.append("<tr>")
+            parts.extend(f"<td>{inline_md(cell)}</td>" for cell in row)
+            parts.append("</tr>")
+        parts.append("</tbody></table>")
+        out.append("".join(parts))
     def render_markdown(text: str) -> str:
-        out, para, list_buf = [], [], []
+        out, para, list_buf, table_rows = [], [], [], []
         in_code = False
         code_lang = ""
         code_lines = []
@@ -56,6 +84,8 @@ except Exception:
                     if list_buf:
                         out.append("<ul>" + "".join(f"<li>{inline_md(x)}</li>" for x in list_buf) + "</ul>")
                         list_buf.clear()
+                    flush_table(table_rows, out)
+                    table_rows.clear()
                     in_code = True
                     code_lang = line[3:].strip()
                     code_lines = []
@@ -72,6 +102,8 @@ except Exception:
                 if list_buf:
                     out.append("<ul>" + "".join(f"<li>{inline_md(x)}</li>" for x in list_buf) + "</ul>")
                     list_buf.clear()
+                flush_table(table_rows, out)
+                table_rows.clear()
                 continue
             m = re.match(r"^(#{1,6})\s+(.*)$", line)
             if m:
@@ -79,23 +111,39 @@ except Exception:
                 if list_buf:
                     out.append("<ul>" + "".join(f"<li>{inline_md(x)}</li>" for x in list_buf) + "</ul>")
                     list_buf.clear()
+                flush_table(table_rows, out)
+                table_rows.clear()
                 level = len(m.group(1))
                 out.append(f"<h{level}>" + inline_md(m.group(2)) + f"</h{level}>")
                 continue
             if line.startswith("- "):
                 flush_paragraph(para, out)
+                flush_table(table_rows, out)
+                table_rows.clear()
                 list_buf.append(line[2:].strip())
                 continue
+            if table_rows or (line.startswith("|") and "|" in line):
+                if not table_rows:
+                    if not line.startswith("|"):
+                        para.append(line.strip())
+                        continue
+                    table_rows.append(split_table_row(line))
+                    continue
+                if is_table_separator(line):
+                    continue
+                if line.startswith("|"):
+                    table_rows.append(split_table_row(line))
+                    continue
+                flush_table(table_rows, out)
+                table_rows.clear()
             para.append(line.strip())
         flush_paragraph(para, out)
         if list_buf:
             out.append("<ul>" + "".join(f"<li>{inline_md(x)}</li>" for x in list_buf) + "</ul>")
+        flush_table(table_rows, out)
         return "\n".join(out)
 
-
-nav_links = "\n".join(
-    f'<a href="{out}">{html.escape(title)}</a>' for title, _src, out, _desc in DOC_ORDER
-)
+nav_links = "\n".join(f'<a href="{out}">{html.escape(title)}</a>' for title, _src, out, _desc in PUBLIC_DOC_ORDER)
 
 PAGE_TEMPLATE = """<!doctype html>
 <html lang="en">
@@ -124,26 +172,24 @@ PAGE_TEMPLATE = """<!doctype html>
 </html>
 """
 
-
 for title, src, out, _desc in DOC_ORDER:
-    md = (REF / src).read_text(encoding="utf-8")
+    md_path = REF / src
+    if not md_path.exists():
+        continue
+    md = md_path.read_text(encoding="utf-8")
     body = render_markdown(md)
-    (PAGES / out).write_text(
-        PAGE_TEMPLATE.format(title=html.escape(title), nav=nav_links, body=body),
-        encoding="utf-8",
-    )
-
+    (PAGES / out).write_text(PAGE_TEMPLATE.format(title=html.escape(title), nav=nav_links, body=body), encoding="utf-8")
 
 public_docs = [
-    ("Product Spec", "pages/product-spec.html", "What Callsign does now and why the alpha exists."),
-    ("Architecture", "pages/architecture.html", "The current UI shell and the future background service."),
-    ("Roadmap", "pages/roadmap.html", "What comes after the visible alpha."),
-    ("Burndown", "pages/burndown.html", "The v1 alpha checklist from account setup to dictation, browsing, file search, and Start menu launch."),
-    ("Test Plan", "pages/test-plan.html", "How we prove the alpha works safely."),
+    ("Canon Book", "pages/canon.html", "The mission, product promise, alpha ladder, and design bar."),
+    ("Product Spec", "pages/product-spec.html", "The v1.0 alpha MVP and the Alpha v1 parity line."),
+    ("Roadmap", "pages/roadmap.html", "Wake launch first, then dictation, browser control, system control, and file search."),
+    ("Burndown", "pages/burndown.html", "The release checklist from v1.0 MVP to the Alpha v1 parity line."),
+    ("Test Plan", "pages/test-plan.html", "How we prove wake, overlay, identity, and visible app launch work safely."),
 ]
 
 public_cards = "\n".join(
-    f'''<article class="card" data-doc-card>
+    f'''<article class="card doc-card" data-doc-card>
       <h3><a href="{href}">{html.escape(title)}</a></h3>
       <p>{html.escape(desc)}</p>
     </article>'''
@@ -155,82 +201,116 @@ index = f"""<!doctype html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Callsign | Open Source AI for Your Desktop</title>
-  <meta name="description" content="Callsign is an open source Windows and Linux desktop assistant with Free, Pro, and Advanced tiers. Free wakes on your callsign, confirms identity, launches installed apps, and exposes dictation, browsing, and file search in a visible way." />
+  <title>Callsign | Open-source voice control for Windows, WSL, and Linux</title>
+  <meta name="description" content="Callsign is the open-source voice-control layer for Windows, WSL, and Linux. A visible, identity-first desktop assistant that feels like Apple Voice Control and grows toward Talon-level power." />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body>
   <header class="site-header">
     <a class="brand" href="index.html">Callsign</a>
     <nav>
-      <a href="#how-it-works">How it works</a>
-      <a href="#open-source">Open source</a>
+      <a href="#promise">Promise</a>
+      <a href="#alpha">Alpha</a>
+      <a href="#overlay">Wake overlay</a>
       <a href="#docs">Docs</a>
-      <a href="#roadmap">Roadmap</a>
     </nav>
   </header>
 
   <main>
-    <section class="hero">
-      <div class="eyebrow">Windows and Linux MVP - open source core - Free, Pro, and Advanced tiers</div>
-      <h1>Say Callsign. Launch the app. Stay in control.</h1>
-      <p>Callsign is a voice-driven desktop assistant for Windows and Linux. Free focuses on the visible workflow: create an account, train your voice, say your callsign, launch installed apps through the Start menu, dictate text, browse the web, and search files. Pro unlocks full Windows, WSL, and Linux control. Advanced adds command packs, recipes, diagnostics, and power-user workflows.</p>
-      <div class="actions">
-        <a class="button primary" href="#how-it-works">See how it works</a>
-        <a class="button" href="pages/burndown.html">View the burndown</a>
+    <section class="hero" id="promise">
+      <div class="hero-copy">
+        <div class="eyebrow">Open-source voice control for the desktop</div>
+        <h1>The open-source Windows Voice Control killer.</h1>
+      <p class="lede">Say <strong>Callsign</strong>. Verify it is you. Control your computer through visible, user-approved actions. The alpha experience targets practical Windows Voice Access parity with a stricter trust model: live overlay, explicit identity gating, and Start menu-native execution.</p>
+        <div class="actions">
+          <a class="button primary" href="pages/canon.html">Read the canon book</a>
+          <a class="button" href="pages/burndown.html">View the alpha burndown</a>
+        </div>
+      </div>
+      <div class="hero-device" aria-label="Callsign wake overlay preview">
+        <div class="orb-frame">
+          <img src="assets/callsign.gif" alt="Callsign wake animation" />
+          <div class="live-caption">
+            <span>Listening</span>
+            <strong>Callsign heard. Say your callsign.</strong>
+          </div>
+          <div class="transcript-strip" aria-label="Callsign live transcript preview">
+            <p><span>Live readout</span><strong>Hearing your callsign...</strong></p>
+            <p><span>Heard</span><strong>Heard: womprat</strong></p>
+            <p><span>Command</span><strong>Command: open Notepad</strong></p>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section class="section" id="how-it-works">
-      <h2>How It Works</h2>
+    <section class="section split">
+      <div>
+        <div class="eyebrow">Why it matters</div>
+        <h2>Voice control should be open, powerful, and safe enough to trust.</h2>
+      </div>
+      <p>Closed assistants are impressive until they hide what they heard, guess at your intent, or disappear into a black box. Callsign keeps the user in the loop: wake, verify identity, show the transcript, then act visibly.</p>
+    </section>
+
+    <section class="section">
+      <div class="grid three">
+        <article class="card"><h3>Apple-level clarity</h3><p>Setup should feel obvious. Recording, listening, and acting states should be visible at a glance.</p></article>
+        <article class="card"><h3>More power than Talon</h3><p>The long-term ceiling is full Windows, WSL, Linux, browser, and workflow control by voice.</p></article>
+        <article class="card"><h3>Identity before action</h3><p>The wake word opens a session. Your callsign and voice identity unlock command capture.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="alpha">
+      <div class="section-heading">
+        <div class="eyebrow">Alpha v1 release line</div>
+        <h2>Start narrow. Reach parity. Keep it free through alpha.</h2>
+      </div>
+      <div class="timeline">
+        <article><span>v1.0</span><h3>Wake, verify, launch</h3><p>Background service wake detection, identity verification, animated overlay, live readout, and Start menu app launch.</p></article>
+        <article><span>v1.1</span><h3>Dictation</h3><p>Visible text review so the user decides when dictated text gets copied, pasted, or inserted.</p></article>
+        <article><span>v1.2</span><h3>Browser control</h3><p>Open, search, and navigate visibly with safe boundaries around submissions and external actions.</p></article>
+        <article><span>v1.3</span><h3>System control</h3><p>Windows, WSL, and Linux workflows, plus file search results shown or opened through Explorer.</p></article>
+      </div>
+    </section>
+
+    <section class="section feature-band" id="overlay">
+      <div>
+        <div class="eyebrow">The wake moment</div>
+        <h2>When Callsign hears you, you see it.</h2>
+        <p>The animated wake overlay appears above everything when the wake word is heard. The readout below it shows the phase and transcript, or an animated live hearing cue while speech is arriving: identity, command, or launch. While that cue is active, the card pulses subtly so it feels alive. The overlay also shows a compact recent speech history beneath the live readout, and the Session tab keeps the same recent history so the user can review what Callsign heard without hunting through logs. Callsign can also paint numbered badges over visible controls and keep the focused target highlighted so you can say the number you see, not guess where the cursor is. No guessing. No hidden listening. No silent action. The homepage preview now mirrors that behavior with a wake cue, a live hearing line, a heard transcript, and the next command cue stacked under `callsign.gif`.</p>
+      </div>
+      <div class="mini-overlay">
+        <img src="assets/callsign.gif" alt="Callsign animated wake cue" />
+        <p><span>Wake</span> Callsign heard. Say your callsign.</p>
+        <p><span>Readout</span> Heard: womprat</p>
+        <p><span>History</span> Callsign &bull; womprat &bull; open Notepad</p>
+      </div>
+    </section>
+
+    <section class="section">
       <div class="grid">
-        <article class="card"><h3>Create an account</h3><p>Set up a profile with your callsign and the details Callsign needs to recognize you.</p></article>
-        <article class="card"><h3>Train your voice</h3><p>Record a few samples so the assistant knows when the right person is speaking.</p></article>
-        <article class="card"><h3>Say the wake word</h3><p>Speak <strong>Callsign</strong>, then say your callsign to unlock the command window.</p></article>
-        <article class="card"><h3>Launch the app</h3><p>Ask for an installed app by name and Callsign opens it through a visible Start menu flow.</p></article>
-      </div>
-    </section>
-
-    <section class="section" id="trust">
-      <h2>Magic With Manners</h2>
-      <div class="grid">
-        <article class="card"><h3>Visible by design</h3><p>Nothing starts unless the user sees what is happening and can stop it.</p></article>
-        <article class="card"><h3>Local first</h3><p>The alpha keeps profile data and enrollment state on the device by default.</p></article>
-        <article class="card"><h3>Easy to explain</h3><p>The product promise is simple: say the word, confirm identity, launch the app.</p></article>
-        <article class="card"><h3>Open source core</h3><p>The base desktop experience stays free, with Pro and Advanced reserved for deeper control.</p></article>
-      </div>
-    </section>
-
-    <section class="section" id="open-source">
-      <h2>Open Source and Paid Tiers</h2>
-      <div class="card">
-        <p>Callsign is being built as an open source desktop assistant with Free, Pro, and Advanced tiers. Free stays useful on its own as the Start menu launcher, while Pro and Advanced help cover costs, support the team, and unlock deeper control of the system without hiding the core workflow behind a subscription wall.</p>
-      </div>
-    </section>
-
-    <section class="section" id="roadmap">
-      <h2>Current Alpha</h2>
-      <div class="grid">
-        <article class="card"><h3>Free tier</h3><p>Profile setup, voice enrollment, callsign identity, Start menu app launching, dictation, web browsing, and file search.</p></article>
-        <article class="card"><h3>Pro tier</h3><p>Broad Windows, WSL, and Linux control by voice with policy, approvals, and visible stop controls.</p></article>
-        <article class="card"><h3>Advanced tier</h3><p>Specialized command packs, recipes, diagnostics, and power-user workflows for users who need deeper control.</p></article>
-        <article class="card"><h3>Core stays free</h3><p>The base desktop experience stays open source and free to use across Windows and Linux.</p></article>
+        <article class="card"><h3>Open-source core</h3><p>The alpha core stays inspectable and useful on its own.</p></article>
+        <article class="card"><h3>Free through alpha</h3><p>All Alpha v1 features remain free until at least beta.</p></article>
+        <article class="card"><h3>Future Pro and Advanced</h3><p>Paid tiers may later fund deeper control, recipes, diagnostics, command catalogs, and richer visible overlays.</p></article>
+        <article class="card"><h3>Visible by default</h3><p>Actions happen where the user can see them, with stop, cancel, timeout, and lockout states.</p></article>
       </div>
     </section>
 
     <section class="section" id="docs">
-      <h2>Contributor Docs</h2>
+      <div class="section-heading">
+        <div class="eyebrow">Canon and contributor docs</div>
+        <h2>Build from the same book.</h2>
+      </div>
       <div class="grid">
         {public_cards}
       </div>
     </section>
   </main>
 
-  <footer class="footer">Callsign - open source desktop AI with Free, Pro, and Advanced tiers.</footer>
+  <footer class="footer">Callsign - open-source voice control with identity before action.</footer>
   <script src="assets/site.js"></script>
 </body>
 </html>
 """
 
 (DOCS / "index.html").write_text(index, encoding="utf-8")
-print(f"Generated {len(DOC_ORDER)} pages and docs/index.html")
+print(f"Generated {len(DOC_ORDER)} reference pages and docs/index.html")

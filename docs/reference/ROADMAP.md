@@ -1,97 +1,62 @@
 # Roadmap
 
-## Phase 0: Canon and repo hygiene
+## Release ladder
 
-Status: current focus.
+All Alpha v1 features are free and remain free until at least beta.
 
-Deliverables:
+The Alpha v1 line is the path to practical Windows Voice Access parity while keeping Callsign's identity model and visible action model.
 
-- Root `burndown.md` as the canonical multiphase checklist.
-- Free, Pro, and Advanced tier language across all docs and the website.
-- `/closed-source/` ignored by git for private paid-tier material.
-- Generated GitHub Pages output aligned with source docs.
+| Release | Focus | Goal |
+|---|---|---|
+| v1.0 alpha | Wake + identity + overlay + Start menu launch | Service wakeword, verified callsign gate, topmost overlay readout, and visible Start menu launch. |
+| v1.1 alpha | Dictation | Speak text locally and review before insertion or copy. |
+| v1.2 alpha | Browser control | Open, search, and navigate visible browser flows with explicit boundaries. |
+| v1.3 alpha | System control and file search | Broad Windows control, WSL/Linux workflow expansion, and Explorer-backed search actions. |
+| Beta or later | Packaging and monetization | Revisit Pro/Advanced packaging and support model after alpha parity targets are stable. |
 
-Exit criteria:
+## v1.0 alpha (current)
 
-- No deprecated middle-tier wording remains in user-facing docs.
-- Public docs explain what exists now versus what is planned.
+- Account and callsign setup
+- Voice sample recording and playback
+- Background service listening
+- `Callsign` wake word detection for `Callsign` and `call sign`
+- Overlay activation at wake with live readout
+- Callsign identity verification before launch
+- Visible Start menu app launch
+- Stop/cancel/timeout/lockout safety
 
-## Phase 1: Free tier completion
+## Exit criteria
 
-Deliverables:
+- Fresh install can complete service startup and profile enrollment.
+- Wake is visible, audible enough, and synchronized with overlay lifecycle.
+- `callsign.gif` is shown at wake and hidden only in terminal states.
+- Start menu launch succeeds on common installed apps.
+- Wrong/missing identity never launches.
+- Safe terminal behavior is visible to users.
 
-- Account creation and profile storage.
-- Voice sample recording and playback.
-- Callsign identity and wake-word flow.
-- Reliable Start menu application launch.
-- Local recognition quality checks and ambiguous transcript confirmation.
-- Dictation, browser, and file-search tools with readable errors and visible output.
-- Build/install path that emits the installer and launchable executable from a fresh checkout.
+## v1.1 alpha
 
-Exit criteria:
+- Dictation visible review mode.
+- Clear typed insertion/copy actions.
+- Explicit failure and stop handling.
 
-- A user can create a callsign profile and launch common installed apps by voice.
-- Free rejects paths, URLs, shells, command text, and non-launch automation.
-- A user can dictate text, open a website or search query, and search local files with visible results or clear empty/error states.
-- The documented build/install path works from a clean checkout.
+## v1.2 alpha
 
-## Phase 2: Always-on background service
+- Browser open/search/navigation flows.
+- External action boundaries (purchases, messages, uploads, etc).
 
-Deliverables:
+## v1.3 alpha
 
-- Background service process.
-- Wake-word listener.
-- Callsign identity gate.
-- Tray/status controls.
-- Local launch audit log.
+- Windows control workflows and safe policy checks.
+- WSL and Linux control bridge.
+- File and folder search with Explorer open path.
 
-Exit criteria:
+## Alpha parity hold point
 
-- Callsign can wait in the background and act only after identity is confirmed.
-- Stop, cancel, timeout, and lockout paths work without opening hidden actions.
+Before leaving Alpha v1, product should be compared against Windows Voice Access for reliability and usability of daily command set and visibility behavior.
 
-## Phase 3: Pro tier
+## Beta or later
 
-Deliverables:
-
-- Full Windows desktop control by voice.
-- WSL workflow bridge.
-- Linux desktop MVP support.
-- Policy engine, approvals, and audit dashboard.
-- Pro command catalog for routine desktop workflows.
-
-Exit criteria:
-
-- Pro can safely control Windows, WSL, and Linux workflows with visible approvals.
-- Risky actions require policy approval before execution.
-
-## Phase 4: Advanced tier
-
-Deliverables:
-
-- Hundreds of specialized commands.
-- Recipe workflow system.
-- Policy packs.
-- Developer, admin, data, and document workflow packs.
-- Diagnostics center, workflow memory, and advanced voice modes.
-
-Exit criteria:
-
-- Advanced supports power-user workflows without weakening the safety model.
-- Dangerous, external, secret, and destructive actions are blocked unless explicitly designed and approved.
-
-## Phase 5: Productization
-
-Deliverables:
-
-- Licensing and tier gates.
-- Installer, updater, release notes, and rollback strategy.
-- Opt-in telemetry and privacy-preserving diagnostics.
-- Support and feedback path.
-- Signed release packages when distribution begins.
-
-Exit criteria:
-
-- Free remains useful without a subscription.
-- Pro and Advanced are monetizable without hiding the open-source core.
-- Public docs, website, and release artifacts match the tier model.
+- Paid tier model and packaging boundaries.
+- Signed installer and update/rollback story.
+- Support and telemetry options with opt-in only.

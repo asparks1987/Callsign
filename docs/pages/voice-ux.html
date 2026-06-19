@@ -9,9 +9,9 @@
 <body>
   <header class="site-header">
     <a class="brand" href="../index.html">Callsign</a>
-    <nav><a href="product-spec.html">Product Spec</a>
+    <nav><a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -26,9 +26,9 @@
   <main class="doc-shell">
     <aside class="doc-sidebar">
       <strong>Docs</strong>
-      <a href="product-spec.html">Product Spec</a>
+      <a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -41,26 +41,46 @@
 <a href="github-pages.html">GitHub Pages</a>
     </aside>
     <article class="doc-content">
-      <h1>Voice UX</h1>
+      <p>﻿# Voice UX</p>
 <h2>Goal</h2>
-<p>Callsign should feel calm, direct, and visible. The alpha voice experience is simple:</p>
-<p>1. Say <code>Callsign</code>. 2. Say your callsign. 3. Speak the app you want to launch. 4. Watch the app open through a visible Start menu flow.</p>
-<h2>Voice interaction modes</h2>
+<p>Callsign should feel calm, premium, direct, and visible. The v1.0 alpha voice experience is deliberately narrow:</p>
+<p>1. Say <code>Callsign</code> or <code>call sign</code>. 2. See <code>callsign.gif</code> appear above the desktop. 3. Read what Callsign heard below the animation. 4. Say your callsign. 5. Speak the app you want to launch. 6. Watch the app open through a visible Start menu flow.</p>
+<p>All Alpha v1 features are free and remain free until at least beta.</p>
+<h2>v1.0 voice interaction modes</h2>
 <h3>Wake mode</h3>
-<p>The assistant waits for the wake word.</p>
+<p>The background service waits for the wake word through openWakeWord audio detection.</p>
 <p>Examples:</p>
-<ul><li><code>Callsign</code></li><li><code>Callsign, open Notepad</code></li></ul>
+<ul><li><code>Callsign</code></li><li><code>Call sign</code></li></ul>
+<p>Transcription mistakes such as <code>paul sign</code> or <code>wall sign</code> can be shown as diagnostics after audio capture, but they do not wake the service by themselves.</p>
+<h3>Overlay mode</h3>
+<p>When wake is detected, Callsign shows the animated overlay and readout. If speech is currently arriving but no final transcript has landed yet, the overlay should show an animated live hearing cue such as <code>Hearing your callsign...</code> or <code>Hearing your command...</code> instead of staying blank. While that hearing cue is active, the overlay should also have a subtle pulse or glow so the user can see that Callsign is actively listening, a small live badge such as <code>LIVE</code> should switch on so the state is obvious at a glance, and a compact mic activity meter should reflect incoming audio instead of leaving the user guessing whether the microphone is alive. The overlay should also show a compact caption strip for the last heard transcript beneath the readout, with confidence when available. After a command completes, the overlay may also append the most recent system action so the user can see what actually ran without leaving the voice session. The overlay should also show an authority line that makes it obvious whether the authoritative user runtime is hearing audio or whether the app is only in preview/listener mode. When wake detection is uncertain, the overlay should also show a wake-candidate line with score and threshold when available, so the user can tell whether Callsign heard speech but did not clear wake.</p>
+<p>It should also show a compact recent speech history beneath that caption, and the Session tab should keep the same recent history plus a dedicated speech cue line that mirrors whether Callsign is hearing speech or waiting for the next turn, and shows transcript confidence when a transcript is present, so the user can review what Callsign heard without hunting through logs. The Session tab should also keep a live <code>Last heard</code> row and command row synchronized with the runtime snapshot, and the visible-controls overlay should follow the same fresh runtime cue when the service is active. The Session tab should also show the same wake-candidate line so wake misses are visible in both the live overlay and the control surface.</p>
+<p>The Dictation tab should mirror that same speech cue pattern so the user can see when dictation is hearing speech versus waiting for the next turn, without making them look at the Session tab to know what is happening. The Browser tab should also mirror the live voice cue and last-heard row so browser control feels like part of the same visible voice session, not a separate silent panel. The System tab should also show which action is selected and the last action that actually ran so the user can see the current system target before it runs and confirm what finished. The System and Files tabs should stay equally live and visible while Callsign is listening. The Files tab should also show the selected result immediately so the user can see which file or folder is ready to open in Explorer.</p>
+<p>The visible-controls overlay should also include the live voice cue line so numbered targets and active listening state stay visible together when the user is navigating by voice.</p>
+<p>Required readout examples:</p>
+<ul><li><code>Callsign heard. Say your callsign.</code></li><li><code>Hearing your callsign...</code></li><li><code>Heard: womprat</code></li><li><code>Hearing your command...</code></li><li><code>Command: open Notepad</code></li><li><code>Launching Notepad...</code></li><li><code>Wake candidate: heard &#x27;call sign&#x27; (23% / 35%) but it stayed below threshold.</code></li></ul>
+<p>The overlay must never steal focus, block input, or prevent the user from stopping the session.</p>
+<h3>Visible control mode</h3>
+<p>Setup and control surfaces should be voice-addressable by label wherever possible. When Callsign shows visible controls, it should paint numbered badges over the live UI and keep the currently focused control highlighted so the user can see what is active.</p>
+<p>Examples:</p>
+<ul><li><code>click callsign</code></li><li><code>click active account</code></li><li><code>click display name</code></li><li><code>click repair wakeword</code></li><li><code>click train voice identity</code></li><li><code>click browser target</code></li><li><code>click browser back</code></li><li><code>click search results</code></li><li><code>click system volume up</code></li><li><code>click volume up</code></li><li><code>show numbers</code></li><li><code>show visible controls</code></li><li><code>hide visible controls</code></li><li><code>click 1</code></li><li><code>click 2</code></li><li><code>click 3</code></li></ul>
+<p>This is part of the broader Windows Voice Access parity target: the user should be able to name the thing they can see and have Callsign move to it or activate it visibly. The overlay should follow focus as the user navigates so the highlighted number stays in sync with the active control. The visible-controls overlay should also name the currently focused control at the top so the user can hear and see which target is active. The visible-controls overlay should keep the same live voice cue language used by the Session tab so the user can tell at a glance that Callsign is still listening while they choose a target.</p>
 <h3>Identity mode</h3>
-<p>The assistant listens for the user&#x27;s enrolled callsign.</p>
+<p>The service listens for the user&#x27;s enrolled callsign.</p>
 <p>Examples:</p>
-<ul><li><code>Alpha</code></li><li><code>Jordan</code></li></ul>
-<h3>Command mode</h3>
-<p>The assistant listens for the task after identity is confirmed.</p>
+<ul><li><code>Alpha</code></li><li><code>Jordan</code></li><li><code>womprat</code></li></ul>
+<p>The identity phrase is identity-only. Commands in the same utterance must not execute.</p>
+<h3>Launch command mode</h3>
+<p>After identity is confirmed, the service listens for an installed app launch request.</p>
 <p>Examples:</p>
-<ul><li><code>launch Notepad</code></li><li><code>open Calculator</code></li><li><code>start Visual Studio Code</code></li></ul>
-<p>For the Free tier, the main supported action is launching installed apps from the Start menu. Full Windows, WSL, and Linux control belongs in Pro. Specialized command packs, recipes, diagnostics, and power-user workflows belong in Advanced.</p>
-<h3>Recovery mode</h3>
+<ul><li><code>launch Notepad</code></li><li><code>open Calculator</code></li><li><code>start Visual Studio Code</code></li><li><code>open Settings</code></li><li><code>open File Explorer</code></li><li><code>open Downloads</code></li><li><code>open Documents</code></li></ul>
+<p>For <code>v1.0 alpha</code>, Start menu app launch is the only required voice action.</p>
+<h2>Follow-up voice modes</h2>
+<ul><li><code>v1.1 alpha</code>: dictation mode for visible text capture, with safe text actions like copy, paste, cut, undo, redo, go to start, go to end, go to line start, go to line end, go to paragraph start, go to paragraph end, select to start, select to end, select to line start, select to line end, select to paragraph start, select to paragraph end, delete to start, delete to end, delete to line start, delete to line end, delete to paragraph start, delete to paragraph end, select previous word, select next word, select previous sentence, select next sentence, delete previous word, delete previous sentence, replace previous word, replace previous sentence, replace previous paragraph, replace all, new line, new paragraph, delete word, punctuation, clear, and select-all.</li><li><code>v1.2 alpha</code>: browser control mode for visible navigation and search, including back, forward, refresh, new tab, close tab, focus address bar, find in page, find next, find previous, zoom in, zoom out, zoom reset, scroll up, scroll down, scroll to top, scroll to bottom, and visible URL/search entry.</li><li><code>v1.3 alpha</code>: system control mode, including safe desktop controls such as volume up, volume down, mute, show desktop, and file search results opened through Windows Explorer.</li></ul>
+<p>The full Alpha v1 line is the path to Windows Voice Access parity.</p>
+<h2>Recovery mode</h2>
 <p>If identity fails or times out, the assistant should clearly tell the user to try again.</p>
+<p>If wake readiness fails, the configuration UI should point the tester to <code>Repair Wakeword</code> first. Manual PowerShell commands remain a fallback for advanced troubleshooting.</p>
 <p>Examples:</p>
 <ul><li><code>I did not match that callsign. Try again.</code></li><li><code>The session timed out. Say Callsign to start over.</code></li></ul>
 <h2>Response style</h2>
@@ -72,9 +92,9 @@
 <p>Required stop phrases:</p>
 <ul><li><code>Stop</code></li><li><code>Stop now</code></li><li><code>Cancel</code></li><li><code>Pause</code></li></ul>
 <p>Required behavior:</p>
-<p>1. Stop pending actions. 2. Clear the session. 3. Show a visible status update. 4. Return to idle.</p>
+<p>1. Stop pending actions. 2. Clear the session. 3. Hide the overlay. 4. Show a visible status update. 5. Return to idle.</p>
 <h2>Accessibility considerations</h2>
-<ul><li>Support keyboard interaction for all setup screens.</li><li>Keep the session state visible.</li><li>Make the current phase obvious.</li><li>Allow voice enrollment to be retried.</li></ul>
+<ul><li>Support keyboard interaction for all setup screens.</li><li>Keep the session state visible.</li><li>Make the current phase obvious.</li><li>Show the animated listening state on wake.</li><li>Show live text readout while the user is speaking.</li><li>Show a short recent speech history in the Session tab.</li><li>Allow voice enrollment to be retried.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

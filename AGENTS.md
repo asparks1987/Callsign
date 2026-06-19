@@ -2,7 +2,11 @@
 
 ## Mission
 
-Build Callsign as a Windows + WSL-first, voice-driven desktop assistant that feels visible, consent-first, and easy to stop. The alpha focus is the Free tier: account setup, voice enrollment, callsign recognition, and launching installed apps after wake word plus callsign identity confirmation.
+Build Callsign as an open-source Windows-first, service-driven desktop voice assistant that is visible, consent-first, and easy to stop.
+
+The alpha focus is the Free tier: account setup, voice enrollment, callsign recognition, wake overlay, and launching installed apps through visible Start menu flow after wake word plus callsign identity confirmation.
+
+Windows is the practical launch platform first; WSL and Linux are in the v1.x extension path.
 
 The project is not a general-purpose malware-like automation framework. It is an accessibility-oriented, user-visible desktop assistant with a free open-source core and future paid Pro and Advanced tiers.
 
@@ -12,41 +16,42 @@ Canonical tier names:
 - Pro: paid tier for full Windows, WSL, and Linux control by voice.
 - Advanced: paid tier for specialized command catalogs, recipes, diagnostics, and power-user automation.
 
+All Alpha v1 features remain free until at least beta.
+
 Closed-source or proprietary tier material belongs only in `/closed-source/`, which is ignored by git.
 
 ## Core architecture
 
-Callsign is moving toward a two-layer design, but the current repo state is the visible setup/onboarding app first.
+Callsign is moving toward a two-layer design, but the current repo state keeps the visible setup/onboarding app first.
 
 ### 1. Voice / Agent Host
 
-Callsign will run as a background service process and is composed of two primary layers:
+Callsign runs as a background service process and is the runtime owner for wake and session orchestration.
 
-- Wake-word listener.
+- openWakeWord wake-word listener using a clean custom `Callsign` model.
 - Callsign identity/authorization gate.
-- Session orchestration and planner.
+- Session state machine and planner.
 - Local policy and approval enforcement.
-- Task execution through MCP tools.
+- Task execution through local automation adapters.
 
-The host handles:
+The runtime host handles:
 
 - Microphone input.
 - Speech-to-text.
-- Text-to-speech.
 - Realtime voice sessions.
-- LLM provider routing.
-- Task planning.
-- MCP client connections.
-- User-facing approval prompts.
 - Session state.
+- User-facing approval prompts.
+- Runtime role signaling and status snapshots.
 
-The host does **not** directly manipulate the Windows desktop.
+The host does **not** perform hidden actions.
 
 Current alpha state:
 
-- The visible setup app exists now.
+- The visible app is primarily a monitoring and configuration surface.
+- The always-on background service is the real runtime for wake detection, callsign gate, and session orchestration.
 - Voice enrollment is tracked locally in the profile.
 - The wake word plus callsign session flow is represented in the UI.
+- `callsign.gif` overlay and readout are required alpha user feedback.
 - Visible Start menu launching is the first desktop action.
 
 ### 2. Windows Automation MCP Server
@@ -196,6 +201,8 @@ The v1 alpha session contract is:
 - The user opens the Callsign setup app and creates an account.
 - The user records voice samples and marks the profile as enrolled.
 - The user says the wake word `Callsign`.
+- The service treats openWakeWord audio detection as the wake event; transcript text alone must not wake the session.
+- The `Callsign` wake cue appears with live readout.
 - The user says their callsign or username.
 - If the identity matches, the session accepts a command.
 - The user speaks the app name or launch request.
@@ -214,3 +221,16 @@ Assume screenshots and clipboard data may contain secrets.
 Assume users need a visible, understandable way to stop the agent.
 
 Build accordingly.
+
+## Canon update: Alpha v1 voice-control target
+
+The Alpha v1 release line is the path to practical Windows Voice Access parity while keeping Callsign's identity-first structure.
+
+- v1.0 alpha remains the first public MVP: background service wake detection, voice/callsign identity verification, `callsign.gif` wake overlay with live text readout, and visible Start menu app launch.
+- v1.1 alpha adds dictation with visible review.
+- v1.2 alpha adds browser control.
+- v1.3 alpha adds system control for Windows, WSL, and Linux, including file search results shown or opened through Explorer.
+
+The UX bar is Apple Voice Control-level clarity, Talon-level long-term power, and Callsign-level identity safety. The user must always be able to see when Callsign is listening, what it thinks it heard, and how to stop the session.
+
+The user-visible canon is `CANON.md`, mirrored in `docs/reference/CANON.md`.

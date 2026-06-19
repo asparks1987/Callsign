@@ -3,97 +3,131 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Callsign | Open Source AI for Your Desktop</title>
-  <meta name="description" content="Callsign is an open source Windows and Linux desktop assistant with Free, Pro, and Advanced tiers. Free wakes on your callsign, confirms identity, launches installed apps, and exposes dictation, browsing, and file search in a visible way." />
+  <title>Callsign | Open-source voice control for Windows, WSL, and Linux</title>
+  <meta name="description" content="Callsign is the open-source voice-control layer for Windows, WSL, and Linux. A visible, identity-first desktop assistant that feels like Apple Voice Control and grows toward Talon-level power." />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body>
   <header class="site-header">
     <a class="brand" href="index.html">Callsign</a>
     <nav>
-      <a href="#how-it-works">How it works</a>
-      <a href="#open-source">Open source</a>
+      <a href="#promise">Promise</a>
+      <a href="#alpha">Alpha</a>
+      <a href="#overlay">Wake overlay</a>
       <a href="#docs">Docs</a>
-      <a href="#roadmap">Roadmap</a>
     </nav>
   </header>
 
   <main>
-    <section class="hero">
-      <div class="eyebrow">Windows and Linux MVP - open source core - Free, Pro, and Advanced tiers</div>
-      <h1>Say Callsign. Launch the app. Stay in control.</h1>
-      <p>Callsign is a voice-driven desktop assistant for Windows and Linux. Free focuses on the visible workflow: create an account, train your voice, say your callsign, launch installed apps through the Start menu, dictate text, browse the web, and search files. Pro unlocks full Windows, WSL, and Linux control. Advanced adds command packs, recipes, diagnostics, and power-user workflows.</p>
-      <div class="actions">
-        <a class="button primary" href="#how-it-works">See how it works</a>
-        <a class="button" href="pages/burndown.html">View the burndown</a>
+    <section class="hero" id="promise">
+      <div class="hero-copy">
+        <div class="eyebrow">Open-source voice control for the desktop</div>
+        <h1>The open-source Windows Voice Control killer.</h1>
+      <p class="lede">Say <strong>Callsign</strong>. Verify it is you. Control your computer through visible, user-approved actions. The alpha experience targets practical Windows Voice Access parity with a stricter trust model: live overlay, explicit identity gating, and Start menu-native execution.</p>
+        <div class="actions">
+          <a class="button primary" href="pages/canon.html">Read the canon book</a>
+          <a class="button" href="pages/burndown.html">View the alpha burndown</a>
+        </div>
+      </div>
+      <div class="hero-device" aria-label="Callsign wake overlay preview">
+        <div class="orb-frame">
+          <img src="assets/callsign.gif" alt="Callsign wake animation" />
+          <div class="live-caption">
+            <span>Listening</span>
+            <strong>Callsign heard. Say your callsign.</strong>
+          </div>
+          <div class="transcript-strip" aria-label="Callsign live transcript preview">
+            <p><span>Live readout</span><strong>Hearing your callsign...</strong></p>
+            <p><span>Heard</span><strong>Heard: womprat</strong></p>
+            <p><span>Command</span><strong>Command: open Notepad</strong></p>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section class="section" id="how-it-works">
-      <h2>How It Works</h2>
+    <section class="section split">
+      <div>
+        <div class="eyebrow">Why it matters</div>
+        <h2>Voice control should be open, powerful, and safe enough to trust.</h2>
+      </div>
+      <p>Closed assistants are impressive until they hide what they heard, guess at your intent, or disappear into a black box. Callsign keeps the user in the loop: wake, verify identity, show the transcript, then act visibly.</p>
+    </section>
+
+    <section class="section">
+      <div class="grid three">
+        <article class="card"><h3>Apple-level clarity</h3><p>Setup should feel obvious. Recording, listening, and acting states should be visible at a glance.</p></article>
+        <article class="card"><h3>More power than Talon</h3><p>The long-term ceiling is full Windows, WSL, Linux, browser, and workflow control by voice.</p></article>
+        <article class="card"><h3>Identity before action</h3><p>The wake word opens a session. Your callsign and voice identity unlock command capture.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="alpha">
+      <div class="section-heading">
+        <div class="eyebrow">Alpha v1 release line</div>
+        <h2>Start narrow. Reach parity. Keep it free through alpha.</h2>
+      </div>
+      <div class="timeline">
+        <article><span>v1.0</span><h3>Wake, verify, launch</h3><p>Background service wake detection, identity verification, animated overlay, live readout, and Start menu app launch.</p></article>
+        <article><span>v1.1</span><h3>Dictation</h3><p>Visible text review so the user decides when dictated text gets copied, pasted, or inserted.</p></article>
+        <article><span>v1.2</span><h3>Browser control</h3><p>Open, search, and navigate visibly with safe boundaries around submissions and external actions.</p></article>
+        <article><span>v1.3</span><h3>System control</h3><p>Windows, WSL, and Linux workflows, plus file search results shown or opened through Explorer.</p></article>
+      </div>
+    </section>
+
+    <section class="section feature-band" id="overlay">
+      <div>
+        <div class="eyebrow">The wake moment</div>
+        <h2>When Callsign hears you, you see it.</h2>
+        <p>The animated wake overlay appears above everything when the wake word is heard. The readout below it shows the phase and transcript, or an animated live hearing cue while speech is arriving: identity, command, or launch. While that cue is active, the card pulses subtly so it feels alive. The overlay also shows a compact recent speech history beneath the live readout, and the Session tab keeps the same recent history so the user can review what Callsign heard without hunting through logs. Callsign can also paint numbered badges over visible controls and keep the focused target highlighted so you can say the number you see, not guess where the cursor is. No guessing. No hidden listening. No silent action. The homepage preview now mirrors that behavior with a wake cue, a live hearing line, a heard transcript, and the next command cue stacked under `callsign.gif`.</p>
+      </div>
+      <div class="mini-overlay">
+        <img src="assets/callsign.gif" alt="Callsign animated wake cue" />
+        <p><span>Wake</span> Callsign heard. Say your callsign.</p>
+        <p><span>Readout</span> Heard: womprat</p>
+        <p><span>History</span> Callsign &bull; womprat &bull; open Notepad</p>
+      </div>
+    </section>
+
+    <section class="section">
       <div class="grid">
-        <article class="card"><h3>Create an account</h3><p>Set up a profile with your callsign and the details Callsign needs to recognize you.</p></article>
-        <article class="card"><h3>Train your voice</h3><p>Record a few samples so the assistant knows when the right person is speaking.</p></article>
-        <article class="card"><h3>Say the wake word</h3><p>Speak <strong>Callsign</strong>, then say your callsign to unlock the command window.</p></article>
-        <article class="card"><h3>Launch the app</h3><p>Ask for an installed app by name and Callsign opens it through a visible Start menu flow.</p></article>
-      </div>
-    </section>
-
-    <section class="section" id="trust">
-      <h2>Magic With Manners</h2>
-      <div class="grid">
-        <article class="card"><h3>Visible by design</h3><p>Nothing starts unless the user sees what is happening and can stop it.</p></article>
-        <article class="card"><h3>Local first</h3><p>The alpha keeps profile data and enrollment state on the device by default.</p></article>
-        <article class="card"><h3>Easy to explain</h3><p>The product promise is simple: say the word, confirm identity, launch the app.</p></article>
-        <article class="card"><h3>Open source core</h3><p>The base desktop experience stays free, with Pro and Advanced reserved for deeper control.</p></article>
-      </div>
-    </section>
-
-    <section class="section" id="open-source">
-      <h2>Open Source and Paid Tiers</h2>
-      <div class="card">
-        <p>Callsign is being built as an open source desktop assistant with Free, Pro, and Advanced tiers. Free stays useful on its own as the Start menu launcher, while Pro and Advanced help cover costs, support the team, and unlock deeper control of the system without hiding the core workflow behind a subscription wall.</p>
-      </div>
-    </section>
-
-    <section class="section" id="roadmap">
-      <h2>Current Alpha</h2>
-      <div class="grid">
-        <article class="card"><h3>Free tier</h3><p>Profile setup, voice enrollment, callsign identity, Start menu app launching, dictation, web browsing, and file search.</p></article>
-        <article class="card"><h3>Pro tier</h3><p>Broad Windows, WSL, and Linux control by voice with policy, approvals, and visible stop controls.</p></article>
-        <article class="card"><h3>Advanced tier</h3><p>Specialized command packs, recipes, diagnostics, and power-user workflows for users who need deeper control.</p></article>
-        <article class="card"><h3>Core stays free</h3><p>The base desktop experience stays open source and free to use across Windows and Linux.</p></article>
+        <article class="card"><h3>Open-source core</h3><p>The alpha core stays inspectable and useful on its own.</p></article>
+        <article class="card"><h3>Free through alpha</h3><p>All Alpha v1 features remain free until at least beta.</p></article>
+        <article class="card"><h3>Future Pro and Advanced</h3><p>Paid tiers may later fund deeper control, recipes, diagnostics, command catalogs, and richer visible overlays.</p></article>
+        <article class="card"><h3>Visible by default</h3><p>Actions happen where the user can see them, with stop, cancel, timeout, and lockout states.</p></article>
       </div>
     </section>
 
     <section class="section" id="docs">
-      <h2>Contributor Docs</h2>
+      <div class="section-heading">
+        <div class="eyebrow">Canon and contributor docs</div>
+        <h2>Build from the same book.</h2>
+      </div>
       <div class="grid">
-        <article class="card" data-doc-card>
+        <article class="card doc-card" data-doc-card>
+      <h3><a href="pages/canon.html">Canon Book</a></h3>
+      <p>The mission, product promise, alpha ladder, and design bar.</p>
+    </article>
+<article class="card doc-card" data-doc-card>
       <h3><a href="pages/product-spec.html">Product Spec</a></h3>
-      <p>What Callsign does now and why the alpha exists.</p>
+      <p>The v1.0 alpha MVP and the Alpha v1 parity line.</p>
     </article>
-<article class="card" data-doc-card>
-      <h3><a href="pages/architecture.html">Architecture</a></h3>
-      <p>The current UI shell and the future background service.</p>
-    </article>
-<article class="card" data-doc-card>
+<article class="card doc-card" data-doc-card>
       <h3><a href="pages/roadmap.html">Roadmap</a></h3>
-      <p>What comes after the visible alpha.</p>
+      <p>Wake launch first, then dictation, browser control, system control, and file search.</p>
     </article>
-<article class="card" data-doc-card>
+<article class="card doc-card" data-doc-card>
       <h3><a href="pages/burndown.html">Burndown</a></h3>
-      <p>The v1 alpha checklist from account setup to dictation, browsing, file search, and Start menu launch.</p>
+      <p>The release checklist from v1.0 MVP to the Alpha v1 parity line.</p>
     </article>
-<article class="card" data-doc-card>
+<article class="card doc-card" data-doc-card>
       <h3><a href="pages/test-plan.html">Test Plan</a></h3>
-      <p>How we prove the alpha works safely.</p>
+      <p>How we prove wake, overlay, identity, and visible app launch work safely.</p>
     </article>
       </div>
     </section>
   </main>
 
-  <footer class="footer">Callsign - open source desktop AI with Free, Pro, and Advanced tiers.</footer>
+  <footer class="footer">Callsign - open-source voice control with identity before action.</footer>
   <script src="assets/site.js"></script>
 </body>
 </html>

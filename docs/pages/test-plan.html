@@ -9,9 +9,9 @@
 <body>
   <header class="site-header">
     <a class="brand" href="../index.html">Callsign</a>
-    <nav><a href="product-spec.html">Product Spec</a>
+    <nav><a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -26,9 +26,9 @@
   <main class="doc-shell">
     <aside class="doc-sidebar">
       <strong>Docs</strong>
-      <a href="product-spec.html">Product Spec</a>
+      <a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -42,63 +42,26 @@
     </aside>
     <article class="doc-content">
       <h1>Test Plan</h1>
-<h2>Goals</h2>
-<p>The Callsign alpha must prove three things:</p>
-<p>1. A new user can set up the app. 2. Voice identity gates the session correctly. 3. The app can launch a visible installed application reliably. 4. The documented dictation, browsing, and file-search tools work end to end.</p>
-<h2>Test layers</h2>
-<h3>Unit tests</h3>
-<p>Targets:</p>
-<ul><li>Callsign validation.</li><li>Profile storage.</li><li>Voice enrollment state.</li><li>Session state machine transitions.</li><li>App name parsing.</li><li>Error and lockout handling.</li></ul>
-<h3>UI tests</h3>
-<p>Targets:</p>
-<ul><li>Create account flow.</li><li>Save and reload profile flow.</li><li>Record sample flow.</li><li>Train and reset voice flow.</li><li>Wake, verify, capture, launch flow.</li></ul>
-<h3>Launch tests</h3>
-<p>Targets:</p>
-<ul><li>Start menu search opens visibly.</li><li>App name is typed into search.</li><li>Matching installed app launches.</li><li>Failure path leaves the session in a safe state.</li></ul>
-<h3>Dictation tests</h3>
-<p>Targets:</p>
-<ul><li>Dictation mode starts and stops visibly.</li><li>Speech is transcribed into visible text.</li><li>Missing microphone, silence, and transcription failure are readable.</li><li>Copy and paste actions keep the dictated text user-visible.</li></ul>
-<h3>Browser tests</h3>
-<p>Targets:</p>
-<ul><li>Web address or search phrase resolves to a visible browser target.</li><li>The default browser opens without hidden automation.</li><li>Invalid local paths or shell text are rejected.</li><li>Search phrases produce a useful search URL.</li></ul>
-<h3>File search tests</h3>
-<p>Targets:</p>
-<ul><li>The intended local file scope is searched.</li><li>Matching results are shown in the UI.</li><li>Empty and access-denied states are readable.</li><li>Selected results can be opened or acted on.</li></ul>
-<h3>Safety tests</h3>
-<p>Targets:</p>
-<ul><li>Identity mismatch blocks launch.</li><li>Missing enrollment blocks launch.</li><li>Timeout blocks launch.</li><li>Cancel returns to idle.</li><li>Stop/reset clears the session.</li></ul>
-<h2>Alpha acceptance tests</h2>
-<h3>Test: first-run setup</h3>
-<p>Expected:</p>
-<ul><li>User can create an account.</li><li>The profile persists after restart.</li><li>The profile folder path is shown correctly.</li></ul>
-<h3>Test: voice enrollment</h3>
-<p>Expected:</p>
-<ul><li>User can record samples.</li><li>Training reflects the enrollment state.</li><li>Reset returns the profile to not enrolled.</li></ul>
-<h3>Test: wake and verify</h3>
-<p>Expected:</p>
-<ul><li>Saying <code>Callsign</code> moves the session into identity wait.</li><li>Saying the correct callsign allows command capture.</li><li>Saying the wrong callsign locks out the session.</li></ul>
-<h3>Test: launch app</h3>
-<p>Expected:</p>
-<ul><li>A spoken command such as <code>launch Notepad</code> resolves the app name.</li><li>The app launches through Start search.</li><li>The launch result is shown in the UI.</li></ul>
-<h3>Test: timeout and cancel</h3>
-<p>Expected:</p>
-<ul><li>If the user waits too long, the session locks out.</li><li>Cancel returns to idle.</li><li>Reset clears the current session state.</li></ul>
+<h2>Purpose</h2>
+<p><code>v1.0 alpha</code> is proven when the core service runtime works end-to-end from install through live launch.</p>
+<p>All Alpha v1 features are free and remain free until at least beta.</p>
+<h2>v1.0 automated coverage</h2>
+<p>Default smoke command:</p>
+<pre><code class="language-powershell">dotnet run --project tests/Callsign.AlphaSmoke/Callsign.AlphaSmoke.csproj</code></pre>
+<p>Required checks:</p>
+<ul><li>fresh install and service start</li><li>wake-only speech does not launch</li><li>wake word detection and identity gate works for <code>Callsign</code> / <code>call sign</code></li><li><code>callsign.gif</code> appears and session readout updates while active</li><li>identity success and mismatch handling</li><li>visible Start menu launch path</li><li>safe stop/cancel/timeout/lockout handling</li><li>runtime snapshot includes session state, transcript, overlay readout, and microphone telemetry</li></ul>
+<h2>Manual Alpha v1 smoke walkthrough</h2>
+<p>1. Build and install from clean state. 2. Create profile and train identity. 3. Speak wake phrase and confirm overlay + live text. 4. Speak callsign. 5. Speak launch command. 6. Confirm Start menu action is visible. 7. Validate wrong identity and no-mic cases do not launch.</p>
+<h2>Follow-up alpha checks</h2>
+<h3>v1.1</h3>
+<ul><li>dictation review path</li><li>clear stop/abort behavior</li></ul>
+<h3>v1.2</h3>
+<ul><li>visible browser control</li><li>external action boundaries</li></ul>
+<h3>v1.3</h3>
+<ul><li>system control by explicit voice commands</li><li>file search results open in Explorer</li></ul>
 <h2>Release gate</h2>
-<p>A release candidate cannot ship unless:</p>
-<ul><li>The onboarding UI works from a clean profile store.</li><li>Voice enrollment is saved and restored.</li><li>Identity failure prevents launch.</li><li>App launch works on a common installed app.</li><li>Dictation exposes transcribed text and clear error states.</li><li>Browser and file search work on the documented paths.</li><li>Docs and the public site describe the current behavior.</li></ul>
-<h2>Tier acceptance checks</h2>
-<h3>Free</h3>
-<p>Expected:</p>
-<ul><li>Voice/callsign recognition gates all spoken launch commands.</li><li>Start menu app launch works for common installed apps.</li><li>Free rejects paths, URLs, shells, command text, and non-launch automation.</li></ul>
-<h3>Pro</h3>
-<p>Expected:</p>
-<ul><li>Windows, WSL, and Linux control actions pass policy evaluation before execution.</li><li>Risky desktop actions show readable intent and require explicit approval.</li><li>Audit logs record approved, denied, failed, and cancelled actions.</li></ul>
-<h3>Advanced</h3>
-<p>Expected:</p>
-<ul><li>Advanced-only command packs are unavailable without the Advanced tier gate.</li><li>Dangerous, external, secret, or destructive commands are blocked unless explicitly approved by policy.</li><li>Recipe workflows show intent, approval points, and audit output before execution.</li></ul>
-<h3>Documentation and site drift</h3>
-<p>Expected:</p>
-<ul><li>Root <code>burndown.md</code> exists and describes Free, Pro, and Advanced.</li><li><code>docs/reference/BURNDOWN.md</code> points to the canonical burndown.</li><li>No user-facing docs use deprecated middle-tier wording.</li><li><code>docs/index.html</code> mentions Free, Pro, and Advanced after regeneration.</li><li><code>.gitignore</code> includes <code>/closed-source/</code>.</li></ul>
+<p>No <code>v1.0 alpha</code> release until:</p>
+<ul><li>build site and installer are reproducible</li><li>service/session fields are readable in runtime state</li><li>overlay is visible at wake and hidden in terminal states</li><li>identity failures remain safe and visible</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

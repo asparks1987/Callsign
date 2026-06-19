@@ -103,8 +103,10 @@ public sealed class ProfileStore
                 profile.Settings.DashboardTitle = "Callsign";
             if (string.IsNullOrWhiteSpace(profile.Settings.VoiceEnrollmentStatus))
                 profile.Settings.VoiceEnrollmentStatus = "Not enrolled";
-            profile.Settings.VoiceSamplesRequired = Math.Max(1, profile.Settings.VoiceSamplesRequired);
+            profile.Settings.VoiceSamplesRequired = Math.Max(3, profile.Settings.VoiceSamplesRequired);
             profile.Settings.VoiceSamplesRecorded = Math.Max(0, profile.Settings.VoiceSamplesRecorded);
+            UpgradeWakeDefaults(profile.Settings);
+            UpgradeSpeechTimingDefaults(profile.Settings);
             profile.Callsign = NormalizeCallsign(Path.GetFileName(Path.GetDirectoryName(profileFile)));
             return profile;
         }
@@ -144,4 +146,28 @@ public sealed class ProfileStore
 
     private static string NormalizeCallsign(string? callsign) =>
         callsign?.Trim().ToLowerInvariant() ?? string.Empty;
+
+    private static void UpgradeWakeDefaults(UserSettings settings)
+    {
+        if (settings.VoiceWakeThreshold > 0
+            && Math.Abs(settings.VoiceWakeThreshold - 0.30) > 0.0001
+            && Math.Abs(settings.VoiceWakeThreshold - 0.35) > 0.0001
+            && Math.Abs(settings.VoiceWakeThreshold - 0.42) > 0.0001)
+            return;
+
+        if (!string.Equals(settings.VoiceWakeSensitivity, "Balanced", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(settings.VoiceWakeSensitivity))
+            return;
+
+        settings.VoiceWakeThreshold = 0;
+        settings.VoiceWakeSensitivity = "More responsive";
+    }
+
+    private static void UpgradeSpeechTimingDefaults(UserSettings settings)
+    {
+        if (settings.VoiceSilenceMilliseconds > 0 && settings.VoiceSilenceMilliseconds < 400)
+            return;
+
+        settings.VoiceSilenceMilliseconds = 300;
+    }
 }

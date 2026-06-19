@@ -9,9 +9,9 @@
 <body>
   <header class="site-header">
     <a class="brand" href="../index.html">Callsign</a>
-    <nav><a href="product-spec.html">Product Spec</a>
+    <nav><a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -26,9 +26,9 @@
   <main class="doc-shell">
     <aside class="doc-sidebar">
       <strong>Docs</strong>
-      <a href="product-spec.html">Product Spec</a>
+      <a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -45,44 +45,33 @@
 <h2>Product name</h2>
 <p>Callsign</p>
 <h2>One-line description</h2>
-<p>Callsign is a Windows + WSL-first voice assistant that wakes on the word <code>Callsign</code>, confirms the user&#x27;s callsign, and helps launch installed apps in a visible way.</p>
-<h2>Product thesis</h2>
-<p>Callsign should feel like a helpful desktop companion, not a hidden macro recorder.</p>
-<p>The public promise is simple:</p>
-<p>1. The user speaks the wake word. 2. Callsign confirms the user by callsign. 3. Callsign shows what it is about to do. 4. Callsign performs the action in a visible, stoppable flow.</p>
-<h2>Alpha v1 interaction flow</h2>
-<p>The current alpha is focused on onboarding, voice identity, and the four visible MVP tools:</p>
-<p>1. User creates an account in the setup UI. 2. User records a few voice samples. 3. The profile is marked as voice-enrolled. 4. The user says <code>Callsign</code>. 5. The user says their callsign or username. 6. Callsign verifies identity against the enrolled profile. 7. The user speaks a command such as <code>launch Notepad</code>. 8. Callsign resolves the app name through a visible Start menu search flow. 9. Callsign launches the app and records what happened. 10. User can open the Dictation tool and capture dictated text visibly. 11. User can open the Browser tool and search or navigate through the default browser. 12. User can open the Files tool and search the intended local scope.</p>
-<p>If identity fails, the command window closes and nothing launches.</p>
-<h2>Current MVP scope</h2>
-<ul><li>Windows setup and onboarding UI.</li><li>User account creation and profile storage.</li><li>Voice sample recording and enrollment state.</li><li>Wake word plus callsign identity flow.</li><li>Visible app launch through the Start menu.</li><li>Clear status messages and stop/reset controls.</li><li>Dictation capture with visible text output.</li><li>Web browsing/search through the default browser.</li><li>Local file search with visible results and open actions.</li></ul>
-<h2>Product tiers</h2>
-<h3>Free</h3>
-<p>The free version should support:</p>
-<ul><li>Wake word plus callsign identity.</li><li>Launching installed apps through the Start menu.</li><li>Basic setup and voice enrollment.</li><li>Local-first recognition and visible stop/reset controls.</li><li>Dictation, browser, and file-search tools that expose results visibly and fail with readable messages.</li></ul>
-<h3>Pro</h3>
-<p>The Pro tier should add:</p>
-<ul><li>Full Windows desktop control by voice.</li><li>WSL workflow control from Windows.</li><li>Linux desktop MVP control by voice.</li><li>Safer automation approvals, policy checks, and audit logs.</li></ul>
-<h3>Advanced</h3>
-<p>The Advanced tier should add:</p>
-<ul><li>Hundreds of specialized commands.</li><li>Recipe-style workflows and command packs.</li><li>Diagnostics, policy packs, workflow memory, and power-user tools.</li><li>Higher-value features that justify a paid subscription or license.</li></ul>
-<h2>Explicit non-goals for alpha</h2>
-<ul><li>Arbitrary shell execution.</li><li>Password, 2FA, or payment entry.</li><li>Hidden or minimized automation.</li><li>Remote control or background surveillance.</li><li>Silent email, upload, or submission actions.</li><li>Linux as a baseline target separate from Windows and WSL MVP support.</li></ul>
-<h2>Product principles</h2>
-<h3>1. The user stays in command</h3>
-<p>Callsign only acts after the user has clearly asked it to.</p>
-<h3>2. Identity comes first</h3>
-<p>The user must say the wake word and their callsign before command capture begins.</p>
-<h3>3. Visibility beats cleverness</h3>
-<p>The user should be able to see what Callsign is doing, stop it, and understand the result.</p>
-<h3>4. Open source core, Pro and Advanced tiers</h3>
-<p>The core desktop experience should remain free and open source. Future paid tiers, including Pro and Advanced, should help cover costs and create profit, but they must not undermine the local, visible workflow.</p>
-<h2>Success metrics</h2>
-<ul><li>A new user can create an account without help.</li><li>A new user can enroll voice in a few clear steps.</li><li>The app can launch a common installed application reliably.</li><li>The user can stop or reset the session at any time.</li><li>The app does not proceed when identity fails.</li></ul>
-<h2>Open product questions</h2>
-<ul><li>How much of the voice enrollment should be guided by the app versus spoken prompts later?</li><li>Should the next phase focus on background service reliability or broader app launch support?</li><li>Which Pro workflows should ship first after the Free tier is reliable?</li></ul>
-<h2>Closed-source boundary</h2>
-<p>Private paid-tier implementation details, licensing experiments, proprietary command packs, and business materials belong in <code>/closed-source/</code>. Public docs can describe the tier direction, but tracked source should not include proprietary material.</p>
+<p>Callsign is an open-source, service-first voice-control layer for Windows voice workflows: say <code>Callsign</code>, verify the caller, then execute visible desktop actions.</p>
+<h2>Mission</h2>
+<p>Be the practical Windows Voice Access-level control layer with:</p>
+<ul><li>Apple-level usability polish</li><li>Strong identity safety</li><li>Visible overlay and command feedback</li><li>Open-source core for trust and inspectability</li></ul>
+<h2>Canon flow</h2>
+<pre><code class="language-text">Callsign -&gt; identity verification -&gt; command -&gt; visible action</code></pre>
+<p>Transcript text alone must never bypass wake and identity gate.</p>
+<h2>Alpha v1 release line</h2>
+<p>All Alpha v1 capabilities are free and remain free until at least beta.</p>
+<p>The Alpha v1 line remains service-first and visible:</p>
+<table><thead><tr><th>Release</th><th>Scope</th></tr></thead><tbody><tr><td>v1.0 alpha</td><td>Service wake, callsign verification, overlay + live readout, and visible Start menu app launch.</td></tr><tr><td>v1.1 alpha</td><td>Dictation with visible review and explicit insertion/copy controls.</td></tr><tr><td>v1.2 alpha</td><td>Browser open/search/navigation with safe external boundaries.</td></tr><tr><td>v1.3 alpha</td><td>Windows, WSL, and Linux system workflows; file search opened through Explorer.</td></tr><tr><td>Beta or later</td><td>Paid packaging and Pro/Advanced feature expansion.</td></tr></tbody></table>
+<h2>v1.0 alpha interaction</h2>
+<p>The v1.0 alpha MVP is intentionally narrow:</p>
+<p>1. User creates account and callsign. 2. User records and reviews samples. 3. User activates voice identity. 4. Service runs as background listener. 5. User says <code>Callsign</code> or <code>call sign</code>. 6. <code>callsign.gif</code> overlay appears above other windows. 7. Overlay shows live readout of wake, identity, command, and launch phases. 8. User says enrolled callsign. 9. Identity verification succeeds. 10. User says install command (app launch intent). 11. App launches through visible Start menu flow. 12. Session exits safely or returns on cancel/timeout/lockout.</p>
+<h2>v1.0 scope rules</h2>
+<ul><li>Open-source source and local profile storage for identity state.</li><li>Wake is detected by openWakeWord (audio path) and never transcript-only text.</li><li>Identity must pass before command capture.</li><li>Command scope stays to app launch targets that are clearly installed app names.</li><li>No arbitrary shell execution in alpha.</li><li>Startup/installer/service/smoke behavior remains part of v1.0 pass criteria.</li></ul>
+<h2>Follow-up alpha releases</h2>
+<h3>v1.1 dictation</h3>
+<p>Visible dictated text first, with explicit user confirmation before insertion or copy.</p>
+<h3>v1.2 browser control</h3>
+<p>Open a browser target, search web content, and navigate visible pages. Submission actions remain constrained in alpha policy.</p>
+<h3>v1.3 system control and file search</h3>
+<p>Safe Windows/WSL/Linux control and Explorer-based file search results. File search is visible and action-transparent; no content reading/uploading by default.</p>
+<h2>Pricing canon during alpha</h2>
+<ul><li>All Alpha v1 features are free.</li><li>No alpha feature is retroactively paywalled.</li><li>Beta or later may split Free/Pro/Advanced packaging.</li></ul>
+<h2>Non-goals for v1.0 alpha</h2>
+<ul><li>Full command parity in one release.</li><li>Silent command execution.</li><li>Hidden background automation.</li><li>Closed-source logic in the open-source core.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

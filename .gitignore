@@ -12,7 +12,9 @@ cache/
 *.local.yaml
 *.local.json
 /fzf.exe
+/Callsign-Service.exe
 /src/Callsign.Setup/Payload/fzf.exe
+/src/Callsign.Setup/Payload/Callsign.Service.exe
 
 # Proprietary/private Callsign material
 /closed-source/

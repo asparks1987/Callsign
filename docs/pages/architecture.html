@@ -9,9 +9,9 @@
 <body>
   <header class="site-header">
     <a class="brand" href="../index.html">Callsign</a>
-    <nav><a href="product-spec.html">Product Spec</a>
+    <nav><a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -26,9 +26,9 @@
   <main class="doc-shell">
     <aside class="doc-sidebar">
       <strong>Docs</strong>
-      <a href="product-spec.html">Product Spec</a>
+      <a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -43,43 +43,28 @@
     <article class="doc-content">
       <h1>Architecture</h1>
 <h2>Overview</h2>
-<p>Callsign is moving toward a split architecture:</p>
-<ul><li>A visible Windows setup and onboarding app exists now.</li><li>A background voice service is the next major step.</li></ul>
-<p>The current repo state is not a full always-on agent yet. The code today focuses on the Free tier foundation: account setup, voice enrollment state, session gating, local recognition, and a visible Start menu launch flow.</p>
-<h2>Current implementation shape</h2>
-<h3>Windows setup app</h3>
-<p>The current app is a WinForms onboarding experience that lets the user:</p>
-<ul><li>Create and select an account.</li><li>Save a callsign profile.</li><li>Record and reset voice samples.</li><li>Start the wake word plus identity session flow.</li><li>Launch an installed app through Start search.</li></ul>
-<h3>Local profile store</h3>
-<p>Profiles are stored locally under <code>%LOCALAPPDATA%\Callsign\Profiles\&lt;callsign&gt;\settings.json</code>.</p>
-<p>The storage model is simple on purpose:</p>
-<ul><li>One folder per callsign.</li><li>One settings file per profile.</li><li>Local-only by default.</li></ul>
-<h3>Session state machine</h3>
-<p>The alpha session flow is:</p>
-<p>1. Idle. 2. Wake word detected. 3. Identity verification. 4. Command capture. 5. Launch or cancel. 6. Timeout or lockout on failed identity.</p>
-<p>This is the first step toward a real service process.</p>
-<h2>Target architecture</h2>
-<h3>1. Background service</h3>
-<p>The future service will handle:</p>
-<ul><li>Wake word listening.</li><li>Identity confirmation.</li><li>Command capture.</li><li>Session timing and lockout.</li><li>Task handoff to the desktop launcher or future automation layers.</li></ul>
-<h3>2. Windows desktop interaction layer</h3>
-<p>The launcher and later automation logic should stay visible, safe, and easy to stop.</p>
-<p>For alpha, the visible app launch path is deliberately simple:</p>
-<ul><li>Open Start search.</li><li>Type the app name.</li><li>Launch the matching app.</li></ul>
-<h3>3. Pro automation layer</h3>
-<p>The Pro tier is planned to add full Windows, WSL, and Linux control by voice. This layer must include policy checks, visible approvals, and audit logging before it can execute deeper desktop workflows.</p>
-<h3>4. Advanced command layer</h3>
-<p>The Advanced tier is planned to add large command catalogs, recipe workflows, diagnostics, policy packs, and specialized power-user automation. Advanced-only implementation details and proprietary command packs belong in <code>/closed-source/</code> when they are not part of the open-source core.</p>
-<h2>Platform direction</h2>
-<h3>Windows and Linux MVP</h3>
-<p>Windows and Linux are both MVP targets.</p>
-<h3>WSL as the bridge</h3>
-<p>WSL is the bridge for Linux development and runtime workflows from Windows.</p>
-<p>The current alpha should keep the Windows desktop path visible while also keeping the Linux story realistic through WSL-first tooling and parity planning.</p>
-<h2>Tier architecture</h2>
-<ul><li>Free stays open source and local-first, limited to callsign identity and visible Start menu launch.</li><li>Pro adds paid Windows, WSL, and Linux control with policy and approval gates.</li><li>Advanced adds specialized power-user commands, recipes, diagnostics, and workflow memory.</li><li>Closed-source tier code or private business material must stay in <code>/closed-source/</code>.</li></ul>
-<h2>Design rules</h2>
-<ul><li>Keep the user visible to the system.</li><li>Keep identity before action.</li><li>Keep local state simple and inspectable.</li><li>Keep the product easy to explain.</li></ul>
+<p>Callsign is service-first. The UI is for setup and monitoring; the background runtime is the voice session owner.</p>
+<p>The canonical v1.0 path is:</p>
+<ul><li>openWakeWord wake detection</li><li>service-driven identity verification</li><li>command capture and execution</li><li>visible Start menu action</li></ul>
+<h2>Setup surface</h2>
+<p>The WinForms app lets users:</p>
+<ul><li>create and select local profiles</li><li>record and replay samples</li><li>train callsign identity</li><li>manage runtime repair and logs</li><li>monitor service state, microphone health, and recent speech readout</li></ul>
+<p>This app is intentionally not the final execution owner.</p>
+<h2>Runtime</h2>
+<p><code>src/Callsign.Service</code> provides:</p>
+<ul><li>microphone capture and wake detection</li><li>session state machine (<code>wake -&gt; identity -&gt; command</code>)</li><li>identity/biometric gate integration</li><li>Start menu launch execution</li><li>runtime snapshot writes for UI synchronization</li><li>overlay readout serialization for visible feedback</li></ul>
+<p>Transcript text is treated as a command channel only after a dedicated wake event and identity confirmation.</p>
+<h2>Overlay and status</h2>
+<p><code>callsign.gif</code> is a UI-only cue, driven by runtime session state.</p>
+<p>Behavior:</p>
+<ul><li>appears on wake transition</li><li>stays on-screen through identity + command capture</li><li>hides on completion, cancel, timeout, lockout, or explicit stop</li></ul>
+<h2>v1.0 scope</h2>
+<p>v1.0 only launches installed apps by visible Start menu path. No arbitrary shell execution exists in alpha core.</p>
+<h2>v1.1, v1.2, v1.3 direction</h2>
+<ul><li>v1.1 adds dictation.</li><li>v1.2 adds visible browser flows.</li><li>v1.3 expands to system and filesystem control with stronger policy rules.</li></ul>
+<h2>Safety and platform direction</h2>
+<p>The architecture is intentionally local-first, open-source core:</p>
+<ul><li>user-visible actions and stop controls</li><li>no hidden background side effects</li><li>no paywall in Alpha v1</li><li>Pro/Advanced expansion happens after the alpha parity core is stable</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

@@ -9,9 +9,9 @@
 <body>
   <header class="site-header">
     <a class="brand" href="../index.html">Callsign</a>
-    <nav><a href="product-spec.html">Product Spec</a>
+    <nav><a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -26,9 +26,9 @@
   <main class="doc-shell">
     <aside class="doc-sidebar">
       <strong>Docs</strong>
-      <a href="product-spec.html">Product Spec</a>
+      <a href="canon.html">Canon</a>
+<a href="product-spec.html">Product Spec</a>
 <a href="architecture.html">Architecture</a>
-<a href="mcp-tools.html">MCP Tools</a>
 <a href="windows-automation.html">Windows Automation</a>
 <a href="security-model.html">Security Model</a>
 <a href="threat-model.html">Threat Model</a>
@@ -42,20 +42,19 @@
     </aside>
     <article class="doc-content">
       <h1>GitHub Pages</h1>
-<p>The <code>/docs</code> folder contains the public Callsign site.</p>
-<p>The site has two audiences:</p>
-<ul><li>New users who want to understand what Callsign does.</li><li>Contributors who want the source docs and roadmap.</li></ul>
+<p>The <code>/docs</code> folder is the public-facing Callsign site plus generated contributor reference pages.</p>
 <h2>Public landing page</h2>
-<p>The top-level <code>docs/index.html</code> is the marketing page.</p>
-<p>It should:</p>
-<ul><li>Explain the product in plain language.</li><li>Sell the Free, Pro, and Advanced tier story clearly.</li><li>Show the alpha workflow.</li><li>Avoid technical protocol details in the hero section.</li><li>Link readers to the canonical burndown.</li></ul>
-<h2>Reference pages</h2>
-<p>The rendered docs under <code>docs/pages/</code> are generated from <code>docs/reference/</code>.</p>
-<p>Those pages are for contributors and future implementation work.</p>
+<p><code>docs/index.html</code> is the marketing page for open-source users.</p>
+<p>It must:</p>
+<ul><li>explain the canon in plain language,</li><li>reinforce the <code>Callsign -&gt; identity verification -&gt; command</code> flow,</li><li>show the overlay-first UX and live transcript concept,</li><li>state that all Alpha v1 capabilities are free until at least beta,</li><li>and guide users to the release ladder.</li></ul>
+<h2>Reference docs</h2>
+<p><code>docs/pages/</code> is generated from <code>docs/reference/</code>.</p>
+<p>Reference content may include internal implementation details needed for contributors, while keeping <code>/docs/index.html</code> clean and user-facing.</p>
+<p><code>docs/pages/canon.html</code> is the canonical product book for the launch plan.</p>
 <h2>Regeneration</h2>
 <p>Run:</p>
 <pre><code class="language-bash">python scripts/build_site.py</code></pre>
-<p>Before publishing, check that the generated site no longer uses deprecated middle-tier wording and that <code>docs/index.html</code> describes Free, Pro, and Advanced consistently.</p>
+<p>and confirm the site pages reflect the same canonical alpha ladder and free-through-alpha canon as <code>README.md</code>, <code>CANON.md</code>, and <code>burndown.md</code>.</p>
     </article>
   </main>
   <script src="../assets/site.js"></script>

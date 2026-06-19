@@ -16,7 +16,8 @@ public sealed record FileSearchResult(
 
 public sealed record FileSearchReport(
     IReadOnlyList<FileSearchResult> Results,
-    IReadOnlyList<string> Warnings);
+    IReadOnlyList<string> Warnings,
+    string SearchEngine = "built-in");
 
 internal sealed record SearchCandidate(
     string Name,
@@ -73,7 +74,7 @@ public sealed class FileSearchService
         var candidates = EnumerateCandidates(searchRoots, maxResults * 100, warnings);
 
         if (TrySearchWithFzf(candidates, trimmed, maxResults, warnings, out var fzfResults))
-            return new FileSearchReport(fzfResults, warnings);
+            return new FileSearchReport(fzfResults, warnings, "fzf");
 
         var normalizedQuery = Normalize(trimmed);
         var fallbackResults = candidates
@@ -84,22 +85,27 @@ public sealed class FileSearchService
             .Take(maxResults)
             .ToArray();
 
-        return new FileSearchReport(fallbackResults, warnings);
+        return new FileSearchReport(fallbackResults, warnings, "built-in");
     }
 
     public bool TryOpen(FileSearchResult result, out string message)
     {
+        var explorerTarget = result.IsDirectory
+            ? $"\"{result.FullPath}\""
+            : $"/select,\"{result.FullPath}\"";
+
         try
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = result.FullPath,
+                FileName = "explorer.exe",
+                Arguments = explorerTarget,
                 UseShellExecute = true
             });
 
             message = result.IsDirectory
-                ? $"Opened folder '{result.FullPath}'."
-                : $"Opened file '{result.FullPath}'.";
+                ? $"Opened folder result in Explorer: '{result.FullPath}'."
+                : $"Selected file result in Explorer: '{result.FullPath}'.";
             return true;
         }
         catch (Exception ex)
@@ -201,7 +207,13 @@ public sealed class FileSearchService
     {
         results = Array.Empty<FileSearchResult>();
         var fzfPath = LocateFzfExecutable();
-        if (string.IsNullOrWhiteSpace(fzfPath) || candidates.Count == 0)
+        if (string.IsNullOrWhiteSpace(fzfPath))
+        {
+            warnings.Add("fzf.exe was not available, so Callsign used the built-in file search fallback.");
+            return false;
+        }
+
+        if (candidates.Count == 0)
             return false;
 
         try

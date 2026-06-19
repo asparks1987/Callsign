@@ -1,6 +1,6 @@
 # Callsign Setup App
 
-This folder contains the alpha setup experience for Callsign.
+This folder contains the alpha setup and monitoring experience for Callsign.
 
 ## Run
 
@@ -11,11 +11,10 @@ This folder contains the alpha setup experience for Callsign.
 
 - Create and manage user accounts.
 - Activate and reset voice control for the selected callsign.
-- Run the visible wake word plus callsign session flow.
+- Run the visible wake word plus identity plus command session flow.
+- Show the `callsign.gif` wake overlay and live transcript readout while speaking, including confidence when available.
 - Launch an installed app through the Start menu search experience.
-- Dictate text into a visible editor and copy or paste the result.
-- Open websites or search the web through the default browser.
-- Search the intended local file scope and open matching results.
+- Expose follow-on alpha surfaces for dictation, browser control, and file search.
 
 ## Profile storage
 
@@ -36,17 +35,16 @@ The alpha audit file records only the callsign, requested app name, timestamp, a
 - Session tab: wake, verify identity, capture the command, and launch the app.
 - Storage path label: shows exactly where each callsign profile is stored.
 
-## Alpha v1 happy path
+## Alpha v1 MVP happy path
 
 1. Open Callsign.
 2. Create an account with a speakable callsign, such as `Alpha` or `Aryn One`; prefer spoken words over digits.
 3. Select the Session tab and choose `Start Listening`; Callsign activates voice for the saved callsign if needed.
 4. Confirm the listener is running.
 5. Say `Callsign Alpha open Notepad`, replacing `Alpha` with the saved callsign.
-6. Callsign should show the recognized phrase, verify the callsign, show the Start menu launch intent, and open the requested app through Start search.
-7. Open the Dictation tab, choose `Start Dictation`, speak a short sentence, and verify the text appears in the visible dictation box.
-8. Open the Browser tab, enter a URL or search phrase, and confirm the default browser opens the visible target.
-9. Open the Files tab, search for a known file name, and confirm the result list shows matching files or a clear empty state.
+6. Callsign should show the wake overlay, show the recognized identity and command, verify the callsign, and open the requested app through Start search.
+7. The overlay should stay visible until the voice session completes, cancels, times out, or locks out.
+8. The Dictation, Browser, and Files tabs are follow-on alpha surfaces, not the `v1.0` launch MVP.
 
 If microphone recognition is unavailable, use `Launch test phrase` and `Test Phrase Launch` with the same phrase to exercise the same alpha state machine and Start menu launcher. This is a real launch test and can open the requested app. Passing this test proves the account, callsign, parser, policy boundary, audit, and Start menu launch path; it does not prove microphone recognition. You can also test the two-step flow by first entering `Callsign Alpha`, then entering `Notepad` after identity is verified.
 
@@ -71,12 +69,11 @@ Before calling the UI alpha ready, verify:
 5. `Launch test phrase` with `Callsign Alpha open Notepad` launches Notepad through Start search.
 6. Microphone input with `Callsign Alpha open Notepad` launches Notepad through Start search.
 7. The two-step flow works: `Callsign Alpha`, then `Notepad`.
-8. `stop listening` stops the listener without launching anything.
-9. Path, URL, WSL, terminal, and shell-like command requests are rejected.
-10. `%LOCALAPPDATA%\Callsign\Profiles\Alpha\alpha-audit.jsonl` records the Start menu launch event.
-11. The Dictation tab captures speech and exposes the text visibly.
-12. The Browser tab opens a website or search query in the default browser.
-13. The Files tab finds a known local file and opens it from the results list.
+8. The wake overlay appears on wake and shows the live readout below `callsign.gif`, plus a transcript confidence cue when Callsign has one.
+9. `stop listening` stops the listener without launching anything.
+10. Path, URL, WSL, terminal, and shell-like command requests are rejected.
+11. `%LOCALAPPDATA%\Callsign\Profiles\Alpha\alpha-audit.jsonl` records the Start menu launch event.
+12. The Dictation, Browser, and Files tabs remain usable as follow-on alpha surfaces.
 
 ## Troubleshooting alpha launch
 

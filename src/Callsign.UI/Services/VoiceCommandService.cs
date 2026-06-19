@@ -1,7 +1,10 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
+using System.Text.Json;
 using System.Speech.Recognition;
+using Callsign.UI.Models;
+using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using Whisper.net;
 using Whisper.net.Ggml;
@@ -13,9 +16,9 @@ public sealed class VoiceCommandService : IDisposable
     private const int SampleRate = 16000;
     private const int Channels = 1;
     private const int BitsPerSample = 16;
-    private const int SegmentSilenceMilliseconds = 850;
     private const int MinimumSegmentMilliseconds = 300;
-    private const double SpeechEnergyThreshold = 0.010;
+    private const int DefaultSegmentSilenceMilliseconds = 300;
+    private const double DefaultWakeDetectionThreshold = 0.22;
 
     private readonly object _gate = new();
     private readonly SemaphoreSlim _segmentSignal = new(0);
@@ -25,13 +28,25 @@ public sealed class VoiceCommandService : IDisposable
         "Callsign",
         "Models",
         "ggml-base.bin");
+    private readonly string _openWakeWordModelPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "Callsign",
+        "Models",
+        "callsign.onnx");
+    private readonly string _openWakeWordRuntimeRoot = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "Callsign",
+        "Runtime",
+        "openwakeword");
+    private readonly string _openWakeWordRuntimePythonPath;
 
-    private WaveInEvent? _waveIn;
+    private IWaveIn? _waveIn;
     private WaveFileWriter? _currentSegmentWriter;
     private FileStream? _currentSegmentStream;
     private CancellationTokenSource? _cts;
     private Task? _segmentPumpTask;
     private ICommandTranscriber? _transcriber;
+    private IWakeWordDetector? _wakeWordDetector;
     private string? _startupWarning;
     private bool _isInitializing;
     private DateTime _currentSegmentStartedUtc;
@@ -40,16 +55,52 @@ public sealed class VoiceCommandService : IDisposable
     private string _languageCode = "en-US";
     private string _wakeWord = "Callsign";
     private string _callsign = string.Empty;
+    private double _wakeDetectionThreshold = DefaultWakeDetectionThreshold;
+    private bool _wakeDiagnosticsEnabled;
+    private MicrophoneAudioProcessor _microphoneProcessor = new(new MicrophoneAudioSettings());
+    private MicrophoneAudioSnapshot? _lastMicrophoneSnapshot;
+    private WaveFormat _captureFormat = MicrophoneAudioProcessor.OutputWaveFormat;
+    private HashSet<string>? _currentSegmentWarnings;
+    private string? _activeCaptureDeviceName;
+    private DateTime? _lastAudioPacketUtc;
+    private int _segmentSilenceMilliseconds = DefaultSegmentSilenceMilliseconds;
+    private readonly VoiceRecognitionDiagnostics _wakeDiagnostics = new();
+    private bool _isSpeechActive;
+    private DateTime? _lastSpeechActivityUtc;
 
+    public VoiceCommandService()
+    {
+        _openWakeWordRuntimePythonPath = Path.Combine(_openWakeWordRuntimeRoot, "venv", "Scripts", "python.exe");
+    }
+
+    public event EventHandler<WakeWordDetectedEventArgs>? WakeWordDetected;
+    public event EventHandler<WakeWordDetectedEventArgs>? WakeWordEvaluated;
     public event EventHandler<VoiceTranscriptEventArgs>? TranscriptReceived;
     public event EventHandler<VoiceRecognitionErrorEventArgs>? RecognitionError;
     public event EventHandler? ListeningStateChanged;
+    public event EventHandler? SpeechActivityChanged;
 
     public bool IsListening { get; private set; }
     public string? LastStartupWarning { get; private set; }
     public string CurrentModeDescription { get; private set; } = "Offline recognition is stopped.";
+    public string CurrentWakeWordEngine => _wakeWordDetector?.EngineName ?? "No wake detector";
+    public WakeWordDetectionResult? LastWakeWordDetection { get; private set; }
+    public MicrophoneAudioSnapshot? CurrentAudioTelemetry => _lastMicrophoneSnapshot;
+    public string? ActiveCaptureDeviceName => _activeCaptureDeviceName;
+    public DateTime? LastAudioPacketUtc => _lastAudioPacketUtc;
+    public bool IsSpeechActive => _isSpeechActive;
+    public DateTime? LastSpeechActivityUtc => _lastSpeechActivityUtc;
+    public IReadOnlyList<string> WakeDiagnostics => _wakeDiagnostics.Recent;
 
-    public void Start(string languageCode, string wakeWord, string callsign)
+    public void Start(
+        string languageCode,
+        string wakeWord,
+        string callsign,
+        double? wakeThreshold = null,
+        string? wakeSensitivity = null,
+        bool wakeDiagnosticsEnabled = false,
+        MicrophoneAudioSettings? microphoneSettings = null,
+        int? segmentSilenceMilliseconds = null)
     {
         if (IsListening)
             return;
@@ -57,24 +108,36 @@ public sealed class VoiceCommandService : IDisposable
         _languageCode = string.IsNullOrWhiteSpace(languageCode) ? "en-US" : languageCode;
         _wakeWord = string.IsNullOrWhiteSpace(wakeWord) ? "Callsign" : wakeWord.Trim();
         _callsign = string.IsNullOrWhiteSpace(callsign) ? string.Empty : callsign.Trim();
+        _wakeDetectionThreshold = ResolveWakeThreshold(wakeThreshold, wakeSensitivity);
+        _wakeDiagnosticsEnabled = wakeDiagnosticsEnabled;
+        _microphoneProcessor = new MicrophoneAudioProcessor(microphoneSettings ?? new MicrophoneAudioSettings());
+        _segmentSilenceMilliseconds = Math.Clamp(segmentSilenceMilliseconds ?? DefaultSegmentSilenceMilliseconds, 150, 2000);
+        _lastMicrophoneSnapshot = _microphoneProcessor.LastSnapshot;
         _startupWarning = null;
+        if (OpenWakeWordPythonWakeWordDetector.TryCreate(_openWakeWordModelPath, _openWakeWordRuntimePythonPath, out var openWakeWordDetector, out var wakeWarning))
+        {
+            _wakeWordDetector = openWakeWordDetector;
+        }
+        else
+        {
+            _wakeWordDetector = new OpenWakeWordUnavailableWakeWordDetector(wakeWarning);
+            AppendStartupWarning(wakeWarning);
+        }
+
         _isInitializing = true;
 
         try
         {
             _cts = new CancellationTokenSource();
-            _waveIn = new WaveInEvent
-            {
-                WaveFormat = new WaveFormat(SampleRate, Channels),
-                BufferMilliseconds = 50
-            };
+            _waveIn = CreateMicrophoneCapture(out _activeCaptureDeviceName);
+            _captureFormat = _waveIn.WaveFormat;
             _waveIn.DataAvailable += WaveInDataAvailable;
             _waveIn.RecordingStopped += WaveInRecordingStopped;
             _waveIn.StartRecording();
 
             _segmentPumpTask = Task.Run(() => PumpSegmentsAsync(_cts.Token));
             IsListening = true;
-            CurrentModeDescription = "Listening with local transcription.";
+            UpdateCurrentModeDescription();
             ListeningStateChanged?.Invoke(this, EventArgs.Empty);
             _ = Task.Run(() => InitializeTranscriberAsync(_cts.Token));
         }
@@ -128,30 +191,55 @@ public sealed class VoiceCommandService : IDisposable
                 return;
 
             var now = DateTime.UtcNow;
-            var speechEnergy = GetSpeechEnergy(e.Buffer, e.BytesRecorded);
-            var speechDetected = speechEnergy >= SpeechEnergyThreshold;
+            _lastAudioPacketUtc = now;
+            var processed = _microphoneProcessor.ProcessBuffer(e.Buffer, e.BytesRecorded, _captureFormat, now);
+            _lastMicrophoneSnapshot = processed.Snapshot;
+            var speechDetected = processed.SpeechDetected;
+            var audioWarnings = processed.Snapshot.Warnings;
+            var speechActivityChanged = false;
 
             if (speechDetected && _currentSegmentWriter == null)
             {
                 StartCurrentSegment(now);
+                speechActivityChanged = UpdateSpeechActivityStateLocked(now);
             }
 
             if (_currentSegmentWriter == null)
-                return;
+            {
+                if (_isSpeechActive && UpdateSpeechActivityStateLocked(now))
+                    speechActivityChanged = true;
 
-            _currentSegmentWriter.Write(e.Buffer, 0, e.BytesRecorded);
+                if (speechActivityChanged)
+                    SpeechActivityChanged?.Invoke(this, EventArgs.Empty);
+
+                return;
+            }
+
+            foreach (var warning in audioWarnings)
+                _currentSegmentWarnings?.Add(warning);
+
+            _currentSegmentWriter.Write(processed.ProcessedBuffer, 0, processed.BytesRecorded);
             _currentSegmentWriter.Flush();
 
             if (speechDetected)
+            {
                 _lastSpeechUtc = now;
+                if (UpdateSpeechActivityStateLocked(now))
+                    speechActivityChanged = true;
+            }
 
             var elapsedSinceLastSpeech = now - _lastSpeechUtc;
             var segmentAge = now - _currentSegmentStartedUtc;
             if (segmentAge.TotalMilliseconds >= MinimumSegmentMilliseconds
-                && elapsedSinceLastSpeech.TotalMilliseconds >= SegmentSilenceMilliseconds)
+                && elapsedSinceLastSpeech.TotalMilliseconds >= _segmentSilenceMilliseconds)
             {
                 readySegment = FinalizeCurrentSegment(commit: true);
+                if (UpdateSpeechActivityStateLocked(now))
+                    speechActivityChanged = true;
             }
+
+            if (speechActivityChanged)
+                SpeechActivityChanged?.Invoke(this, EventArgs.Empty);
         }
 
         if (readySegment != null)
@@ -181,11 +269,22 @@ public sealed class VoiceCommandService : IDisposable
             {
                 try
                 {
+                    var wakeResult = await DetectWakeWordFromAudioAsync(segment, cancellationToken).ConfigureAwait(false);
+                    if (wakeResult.Detected)
+                        PublishWakeWordDetection(wakeResult);
+
                     var transcript = await TranscribeSegmentAsync(segment, cancellationToken).ConfigureAwait(false);
+
                     if (string.IsNullOrWhiteSpace(transcript.Transcript))
                         continue;
 
-                    TranscriptReceived?.Invoke(this, new VoiceTranscriptEventArgs(transcript.Transcript, transcript.Confidence));
+                    TranscriptReceived?.Invoke(
+                        this,
+                        new VoiceTranscriptEventArgs(
+                            transcript.Transcript,
+                            transcript.Confidence,
+                            segment.Path,
+                            segment.AudioQualityWarnings));
                 }
                 catch (OperationCanceledException)
                 {
@@ -197,7 +296,8 @@ public sealed class VoiceCommandService : IDisposable
                 }
                 finally
                 {
-                    TryDeleteSegmentFile(segment.Path);
+                    if (!_wakeDiagnosticsEnabled)
+                        TryDeleteSegmentFile(segment.Path);
                 }
             }
         }
@@ -216,17 +316,16 @@ public sealed class VoiceCommandService : IDisposable
                 warning => AppendStartupWarning(warning),
                 cancellationToken).ConfigureAwait(false);
 
-            CurrentModeDescription = _transcriber.ModeDescription;
-            LastStartupWarning = _startupWarning;
+            _startupWarning = null;
+            UpdateCurrentModeDescription();
+            LastStartupWarning = null;
             ListeningStateChanged?.Invoke(this, EventArgs.Empty);
-            if (!string.IsNullOrWhiteSpace(_startupWarning))
-                RecognitionError?.Invoke(this, new VoiceRecognitionErrorEventArgs(_startupWarning));
         }
         catch (Exception ex)
         {
             AppendStartupWarning($"Local Whisper transcription was unavailable. Falling back to compatibility mode. {ex.Message}");
-            CurrentModeDescription = "Compatibility transcription fallback.";
             _transcriber = new SystemSpeechCommandTranscriber(_languageCode, warning => AppendStartupWarning(warning));
+            UpdateCurrentModeDescription();
             LastStartupWarning = _startupWarning;
             ListeningStateChanged?.Invoke(this, EventArgs.Empty);
             RecognitionError?.Invoke(this, new VoiceRecognitionErrorEventArgs(_startupWarning ?? ex.Message));
@@ -241,6 +340,38 @@ public sealed class VoiceCommandService : IDisposable
     {
         var transcriber = await EnsureTranscriberAsync(cancellationToken).ConfigureAwait(false);
         return await transcriber.TranscribeAsync(segment.Path, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<WakeWordDetectionResult> DetectWakeWordFromAudioAsync(CapturedSegment segment, CancellationToken cancellationToken)
+    {
+        var detector = _wakeWordDetector ?? new OpenWakeWordUnavailableWakeWordDetector("openWakeWord wake detection is not initialized.");
+        var result = await detector.DetectAsync(
+            new WakeWordDetectionRequest(
+                segment.Path,
+                _wakeWord,
+                _languageCode,
+                _wakeDetectionThreshold,
+                BuildWakePhrases(_wakeWord),
+                segment.AudioQualityWarnings,
+                _wakeDiagnosticsEnabled),
+            cancellationToken).ConfigureAwait(false);
+
+        RememberWakeWordDetection(result);
+        WakeWordEvaluated?.Invoke(this, new WakeWordDetectedEventArgs(result));
+        return result;
+    }
+
+    private void PublishWakeWordDetection(WakeWordDetectionResult result)
+    {
+        WakeWordDetected?.Invoke(this, new WakeWordDetectedEventArgs(result));
+    }
+
+    private void RememberWakeWordDetection(WakeWordDetectionResult result)
+    {
+        LastWakeWordDetection = result;
+        var verdict = result.Detected ? "detected" : "rejected";
+        _wakeDiagnostics.Add(
+            $"Wake {verdict}: engine={result.Engine}; score={result.Score:0.000}; threshold={result.Threshold:0.000}; warnings={string.Join("|", result.AudioQualityWarnings)}");
     }
 
     private async Task<ICommandTranscriber> EnsureTranscriberAsync(CancellationToken cancellationToken)
@@ -277,9 +408,10 @@ public sealed class VoiceCommandService : IDisposable
 
         var path = Path.Combine(directory, $"segment-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Interlocked.Increment(ref _segmentId)}.wav");
         _currentSegmentStream = new FileStream(path, FileMode.Create, FileAccess.ReadWrite, FileShare.Read);
-        _currentSegmentWriter = new WaveFileWriter(_currentSegmentStream, new WaveFormat(SampleRate, BitsPerSample, Channels));
+        _currentSegmentWriter = new WaveFileWriter(_currentSegmentStream, MicrophoneAudioProcessor.OutputWaveFormat);
         _currentSegmentStartedUtc = nowUtc;
         _lastSpeechUtc = nowUtc;
+        _currentSegmentWarnings = [];
     }
 
     private CapturedSegment? FinalizeCurrentSegment(bool commit)
@@ -290,6 +422,7 @@ public sealed class VoiceCommandService : IDisposable
         var path = _currentSegmentStream.Name;
         var startedUtc = _currentSegmentStartedUtc;
         var duration = DateTime.UtcNow - startedUtc;
+        var warnings = _currentSegmentWarnings?.ToArray() ?? Array.Empty<string>();
 
         try
         {
@@ -300,6 +433,7 @@ public sealed class VoiceCommandService : IDisposable
         {
             _currentSegmentWriter = null;
             _currentSegmentStream = null;
+            _currentSegmentWarnings = null;
         }
 
         if (!commit || duration.TotalMilliseconds < MinimumSegmentMilliseconds)
@@ -308,7 +442,16 @@ public sealed class VoiceCommandService : IDisposable
             return null;
         }
 
-        return new CapturedSegment(path, startedUtc, duration);
+        try
+        {
+            _microphoneProcessor.NormalizeWaveFileInPlace(path);
+        }
+        catch (Exception ex)
+        {
+            _wakeDiagnostics.Add($"Audio normalization failed for {Path.GetFileName(path)}: {ex.Message}");
+        }
+
+        return new CapturedSegment(path, startedUtc, duration, warnings);
     }
 
     private void DisposeEngine()
@@ -332,6 +475,11 @@ public sealed class VoiceCommandService : IDisposable
 
         _cts?.Dispose();
         _cts = null;
+        _wakeWordDetector = null;
+        _activeCaptureDeviceName = null;
+        _lastAudioPacketUtc = null;
+        _isSpeechActive = false;
+        _lastSpeechActivityUtc = null;
 
         if (_segmentPumpTask != null)
         {
@@ -361,25 +509,90 @@ public sealed class VoiceCommandService : IDisposable
         IsListening = false;
         CurrentModeDescription = "Offline recognition is stopped.";
         LastStartupWarning = _startupWarning;
+        SpeechActivityChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private static double GetSpeechEnergy(byte[] buffer, int bytesRecorded)
+    public static double ResolveWakeThreshold(double? threshold, string? wakeSensitivity = null)
     {
-        if (bytesRecorded < 2)
-            return 0;
-
-        var sampleCount = bytesRecorded / 2;
-        if (sampleCount == 0)
-            return 0;
-
-        double total = 0;
-        for (var index = 0; index < sampleCount; index++)
+        var sensitivityThreshold = wakeSensitivity?.Trim().ToLowerInvariant() switch
         {
-            var sample = BitConverter.ToInt16(buffer, index * 2);
-            total += Math.Abs(sample) / 32768.0;
+            "more responsive" => 0.20,
+            "balanced" => 0.30,
+            "fewer false wakes" => 0.50,
+            _ => DefaultWakeDetectionThreshold
+        };
+
+        var value = threshold.GetValueOrDefault(sensitivityThreshold);
+        if (value <= 0
+            || Math.Abs(value - 0.55) < 0.0001
+            || Math.Abs(value - 0.50) < 0.0001
+            || Math.Abs(value - 0.35) < 0.0001
+            || Math.Abs(value - 0.42) < 0.0001)
+            value = sensitivityThreshold;
+
+        return Math.Clamp(value, 0.20, 0.95);
+    }
+
+    private static IReadOnlyList<string> BuildWakePhrases(string wakeWord)
+    {
+        var phrases = new[]
+        {
+            wakeWord,
+            "Callsign",
+            "call sign",
+            "call-sign",
+            "callsign wake",
+            "call sign wake"
+        };
+
+        return phrases
+            .Where(phrase => !string.IsNullOrWhiteSpace(phrase))
+            .Select(phrase => phrase.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private IWaveIn CreateMicrophoneCapture(out string? deviceName)
+    {
+        deviceName = null;
+        try
+        {
+            using var enumerator = new MMDeviceEnumerator();
+            var device = TryGetDefaultCaptureDevice(enumerator, Role.Communications)
+                ?? TryGetDefaultCaptureDevice(enumerator, Role.Console)
+                ?? TryGetDefaultCaptureDevice(enumerator, Role.Multimedia);
+
+            if (device != null)
+            {
+                deviceName = device.FriendlyName;
+                return new WasapiCapture(device);
+            }
+        }
+        catch
+        {
+            // Fall back to WaveIn below so Callsign can still run on older machines.
         }
 
-        return total / sampleCount;
+        deviceName = "Default microphone capture";
+        return new WaveInEvent
+        {
+            WaveFormat = MicrophoneAudioProcessor.OutputWaveFormat,
+            BufferMilliseconds = 50,
+            NumberOfBuffers = 4
+        };
+    }
+
+    private static MMDevice? TryGetDefaultCaptureDevice(MMDeviceEnumerator enumerator, Role role)
+    {
+        try
+        {
+            var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, role);
+            return device.State == DeviceState.Active ? device : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private void AppendStartupWarning(string message)
@@ -388,6 +601,24 @@ public sealed class VoiceCommandService : IDisposable
             ? message
             : $"{_startupWarning} {message}";
         LastStartupWarning = _startupWarning;
+    }
+
+    private void UpdateCurrentModeDescription()
+    {
+        var wakeEngine = CurrentWakeWordEngine;
+        var transcription = _transcriber?.ModeDescription ?? "transcription initializing";
+        CurrentModeDescription = $"{wakeEngine} wake detection + {transcription}";
+    }
+
+    private bool UpdateSpeechActivityStateLocked(DateTime utcNow)
+    {
+        var speechActive = _currentSegmentWriter != null;
+        if (_isSpeechActive == speechActive)
+            return false;
+
+        _isSpeechActive = speechActive;
+        _lastSpeechActivityUtc = utcNow;
+        return true;
     }
 
     private static void TryDeleteSegmentFile(string path)
@@ -415,7 +646,11 @@ public sealed class VoiceCommandService : IDisposable
         return $"Unable to start microphone listener: {ex.Message}";
     }
 
-    private sealed record CapturedSegment(string Path, DateTime StartedUtc, TimeSpan Duration);
+    private sealed record CapturedSegment(
+        string Path,
+        DateTime StartedUtc,
+        TimeSpan Duration,
+        IReadOnlyList<string> AudioQualityWarnings);
 }
 
 public sealed class VoiceRecognitionSettings
@@ -424,11 +659,24 @@ public sealed class VoiceRecognitionSettings
     public string? InputDeviceId { get; set; }
     public string? ModelPath { get; set; }
     public string LanguageCode { get; set; } = "en-US";
-    public double WakeThreshold { get; set; } = 0.010;
+    public double WakeThreshold { get; set; } = 0;
+    public string WakeSensitivity { get; set; } = "More responsive";
     public double CommandConfidenceThreshold { get; set; } = 0.65;
     public bool CloudOptIn { get; set; }
+    public bool WakeDiagnosticsEnabled { get; set; }
     public bool UseVoiceActivityDetection { get; set; } = true;
     public bool UseNoiseSuppression { get; set; }
+}
+
+public sealed class WakeWordDetectionResult
+{
+    public required bool Detected { get; init; }
+    public required double Score { get; init; }
+    public required double Threshold { get; init; }
+    public required string Engine { get; init; }
+    public IReadOnlyList<string> AudioQualityWarnings { get; init; } = Array.Empty<string>();
+    public required DateTime TimestampUtc { get; init; }
+    public string? CandidateWindowPath { get; init; }
 }
 
 public sealed class VoiceRecognitionResult
@@ -481,6 +729,262 @@ internal interface ICommandTranscriber
     Task<VoiceRecognitionResult> TranscribeAsync(string wavPath, CancellationToken cancellationToken);
 }
 
+internal sealed record WakeWordDetectionRequest(
+    string WavPath,
+    string WakeWord,
+    string LanguageCode,
+    double Threshold,
+    IReadOnlyList<string> WakePhrases,
+    IReadOnlyList<string> AudioQualityWarnings,
+    bool KeepCandidateWindow);
+
+internal interface IWakeWordDetector
+{
+    string EngineName { get; }
+    Task<WakeWordDetectionResult> DetectAsync(WakeWordDetectionRequest request, CancellationToken cancellationToken);
+}
+
+internal sealed class OpenWakeWordPythonWakeWordDetector : IWakeWordDetector
+{
+    private readonly string _pythonCommand;
+    private readonly string[] _pythonPrefixArgs;
+    private readonly string _modelPath;
+    private readonly string _scriptPath;
+
+    private OpenWakeWordPythonWakeWordDetector(string pythonCommand, string[] pythonPrefixArgs, string modelPath, string scriptPath)
+    {
+        _pythonCommand = pythonCommand;
+        _pythonPrefixArgs = pythonPrefixArgs;
+        _modelPath = modelPath;
+        _scriptPath = scriptPath;
+    }
+
+    public string EngineName => "openWakeWord";
+
+    public static bool TryCreate(string modelPath, string bundledPythonPath, out IWakeWordDetector detector, out string warning)
+    {
+        detector = new OpenWakeWordUnavailableWakeWordDetector("openWakeWord wake detection is not initialized.");
+        if (!File.Exists(modelPath))
+        {
+            warning = "openWakeWord wake detection is required, but the installed Callsign wake model is missing. Use Repair Wakeword to restore it.";
+            return false;
+        }
+
+        if (!TryFindBundledPythonWithOpenWakeWord(bundledPythonPath, out var pythonCommand, out var prefixArgs, out warning))
+            return false;
+
+        var scriptPath = EnsureDetectorScript();
+        detector = new OpenWakeWordPythonWakeWordDetector(pythonCommand, prefixArgs, modelPath, scriptPath);
+        warning = string.Empty;
+        return true;
+    }
+
+    public async Task<WakeWordDetectionResult> DetectAsync(WakeWordDetectionRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = _pythonCommand,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            foreach (var arg in _pythonPrefixArgs)
+                startInfo.ArgumentList.Add(arg);
+            startInfo.ArgumentList.Add(_scriptPath);
+            startInfo.ArgumentList.Add(request.WavPath);
+            startInfo.ArgumentList.Add(_modelPath);
+
+            using var process = Process.Start(startInfo);
+            if (process == null)
+                throw new InvalidOperationException("Python process could not be started for openWakeWord.");
+
+            var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            var output = await outputTask.ConfigureAwait(false);
+            var error = await errorTask.ConfigureAwait(false);
+
+            if (process.ExitCode != 0)
+                throw new InvalidOperationException(string.IsNullOrWhiteSpace(error) ? $"openWakeWord exited with code {process.ExitCode}." : error.Trim());
+
+            var prediction = JsonSerializer.Deserialize<OpenWakeWordPrediction>(output);
+            var score = prediction?.Score ?? 0;
+            var warnings = request.AudioQualityWarnings;
+            return new WakeWordDetectionResult
+            {
+                Detected = score >= request.Threshold,
+                Score = score,
+                Threshold = request.Threshold,
+                Engine = EngineName,
+                AudioQualityWarnings = warnings,
+                TimestampUtc = DateTime.UtcNow,
+                CandidateWindowPath = request.KeepCandidateWindow ? request.WavPath : null
+            };
+        }
+        catch (Exception ex)
+        {
+            var warnings = request.AudioQualityWarnings
+                .Concat(new[] { $"openWakeWord detection failed: {ex.Message}" })
+                .ToArray();
+
+            return new WakeWordDetectionResult
+            {
+                Detected = false,
+                Score = 0,
+                Threshold = request.Threshold,
+                Engine = EngineName,
+                AudioQualityWarnings = warnings,
+                TimestampUtc = DateTime.UtcNow,
+                CandidateWindowPath = request.KeepCandidateWindow ? request.WavPath : null
+            };
+        }
+    }
+
+    private static bool TryFindBundledPythonWithOpenWakeWord(string bundledPythonPath, out string pythonCommand, out string[] prefixArgs, out string warning)
+    {
+        if (File.Exists(bundledPythonPath))
+        {
+            try
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = bundledPythonPath,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+                startInfo.ArgumentList.Add("-c");
+                startInfo.ArgumentList.Add("import pathlib, openwakeword, onnxruntime, numpy; root=pathlib.Path(openwakeword.__file__).parent/'resources'/'models'; missing=[name for name in ['melspectrogram.onnx','embedding_model.onnx'] if not (root/name).exists()]; raise SystemExit(1 if missing else 0)");
+
+                using var process = Process.Start(startInfo);
+                if (process == null)
+                    throw new InvalidOperationException("Bundled openWakeWord Python runtime could not be started.");
+
+                if (process.WaitForExit(5000) && process.ExitCode == 0)
+                {
+                    pythonCommand = bundledPythonPath;
+                    prefixArgs = [];
+                    warning = string.Empty;
+                    return true;
+                }
+            }
+            catch
+            {
+                // Use the failure path below to surface a repair hint.
+            }
+        }
+
+        pythonCommand = string.Empty;
+        prefixArgs = [];
+        warning = "openWakeWord wake detection is required, but the installed Python runtime or openWakeWord feature models were not ready. Use Repair Wakeword to restore the local environment.";
+        return false;
+    }
+
+    private static string EnsureDetectorScript()
+    {
+        var scriptDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Callsign",
+            "Runtime",
+            "openwakeword");
+        Directory.CreateDirectory(scriptDir);
+        var scriptPath = Path.Combine(scriptDir, "openwakeword_detect.py");
+        File.WriteAllText(scriptPath, OpenWakeWordDetectorScript);
+        return scriptPath;
+    }
+
+    private sealed record OpenWakeWordPrediction(double Score, string? Label);
+
+    private const string OpenWakeWordDetectorScript = """
+import json
+import sys
+
+from openwakeword.model import Model
+
+wav_path = sys.argv[1]
+model_path = sys.argv[2]
+
+model = Model(wakeword_models=[model_path], inference_framework="onnx")
+predictions = model.predict_clip(wav_path)
+
+
+def iter_scores(value):
+    if value is None:
+        return
+
+    if isinstance(value, dict):
+        for label, nested in value.items():
+            for score in iter_scores(nested):
+                yield label, score
+        return
+
+    if isinstance(value, (list, tuple)):
+        for nested in value:
+            for label, score in iter_scores(nested):
+                yield label, score
+        return
+
+    if hasattr(value, "tolist"):
+        for label, score in iter_scores(value.tolist()):
+            yield label, score
+        return
+
+    try:
+        yield None, float(value)
+    except Exception:
+        return
+
+
+best_label = None
+best_score = 0.0
+for label, score in iter_scores(predictions):
+    if score > best_score:
+        best_score = score
+        best_label = label
+
+print(json.dumps({"Score": best_score, "Label": best_label}))
+""";
+}
+
+internal sealed class OpenWakeWordUnavailableWakeWordDetector : IWakeWordDetector
+{
+    private readonly string _reason;
+
+    public OpenWakeWordUnavailableWakeWordDetector(string reason)
+    {
+        _reason = string.IsNullOrWhiteSpace(reason)
+            ? "openWakeWord wake detection is unavailable."
+            : reason;
+    }
+
+    public string EngineName => "openWakeWord unavailable";
+
+    public Task<WakeWordDetectionResult> DetectAsync(WakeWordDetectionRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var warnings = request.AudioQualityWarnings
+            .Concat(new[] { _reason })
+            .ToArray();
+
+        return Task.FromResult(new WakeWordDetectionResult
+        {
+            Detected = false,
+            Score = 0,
+            Threshold = request.Threshold,
+            Engine = EngineName,
+            AudioQualityWarnings = warnings,
+            TimestampUtc = DateTime.UtcNow,
+            CandidateWindowPath = request.KeepCandidateWindow ? request.WavPath : null
+        });
+    }
+}
+
 internal sealed class WhisperCommandTranscriber : ICommandTranscriber, IAsyncDisposable
 {
     private readonly string _modelPath;
@@ -512,6 +1016,24 @@ internal sealed class WhisperCommandTranscriber : ICommandTranscriber, IAsyncDis
     {
         await EnsureModelAsync(cancellationToken).ConfigureAwait(false);
         var sw = Stopwatch.StartNew();
+        try
+        {
+            return await TranscribeOnceAsync(wavPath, cancellationToken, sw).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (IsModelLoadFailure(ex))
+        {
+            _appendWarning("Local Whisper model could not be used cleanly. Re-downloading a fresh copy and retrying once.");
+            ResetFactoryAndModel();
+            await EnsureModelAsync(cancellationToken).ConfigureAwait(false);
+            return await TranscribeOnceAsync(wavPath, cancellationToken, sw).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<VoiceRecognitionResult> TranscribeOnceAsync(
+        string wavPath,
+        CancellationToken cancellationToken,
+        Stopwatch sw)
+    {
         using var fileStream = File.OpenRead(wavPath);
         using var processor = _factory!.CreateBuilder()
             .WithLanguage(_languageCode)
@@ -560,7 +1082,7 @@ internal sealed class WhisperCommandTranscriber : ICommandTranscriber, IAsyncDis
             {
                 if (!File.Exists(_modelPath))
                 {
-                    _appendWarning("Local Whisper model is missing. Downloading the base model now.");
+                    _appendWarning($"Local Whisper model is missing at '{_modelPath}'. Downloading the base model now.");
                     await DownloadModelAsync(cancellationToken).ConfigureAwait(false);
                 }
 
@@ -570,11 +1092,18 @@ internal sealed class WhisperCommandTranscriber : ICommandTranscriber, IAsyncDis
             catch (Exception) when (!repairedModel)
             {
                 repairedModel = true;
-                _appendWarning("Local Whisper model could not be loaded cleanly. Re-downloading a fresh copy.");
+                _appendWarning($"Local Whisper model could not be loaded cleanly from '{_modelPath}'. Re-downloading a fresh copy.");
                 TryDeleteFile(_modelPath);
                 TryDeleteFile(_modelPath + ".download");
             }
         }
+    }
+
+    private void ResetFactoryAndModel()
+    {
+        _factory?.Dispose();
+        _factory = null;
+        TryDeleteFile(_modelPath);
     }
 
     private async Task DownloadModelAsync(CancellationToken cancellationToken)
@@ -603,6 +1132,14 @@ internal sealed class WhisperCommandTranscriber : ICommandTranscriber, IAsyncDis
         catch
         {
         }
+    }
+
+    private static bool IsModelLoadFailure(Exception ex)
+    {
+        var message = ex.Message ?? string.Empty;
+        return message.Contains("Failed to load the whisper model", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Failed to load native whisper library", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Cannot load the library on this platform", StringComparison.OrdinalIgnoreCase);
     }
 }
 
@@ -672,10 +1209,21 @@ internal sealed class SystemSpeechCommandTranscriber : ICommandTranscriber
     }
 }
 
-public sealed class VoiceTranscriptEventArgs(string text, float confidence) : EventArgs
+public sealed class VoiceTranscriptEventArgs(
+    string text,
+    float confidence,
+    string? capturedAudioPath = null,
+    IReadOnlyList<string>? audioQualityWarnings = null) : EventArgs
 {
     public string Text { get; } = text;
     public float Confidence { get; } = confidence;
+    public string? CapturedAudioPath { get; } = capturedAudioPath;
+    public IReadOnlyList<string> AudioQualityWarnings { get; } = audioQualityWarnings ?? Array.Empty<string>();
+}
+
+public sealed class WakeWordDetectedEventArgs(WakeWordDetectionResult result) : EventArgs
+{
+    public WakeWordDetectionResult Result { get; } = result;
 }
 
 public sealed class VoiceRecognitionErrorEventArgs(string message) : EventArgs

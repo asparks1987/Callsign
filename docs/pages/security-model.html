@@ -45,7 +45,7 @@
     <article class="doc-content">
       <h1>Security Model</h1>
 <h2>Summary</h2>
-<p>Callsign operates a user desktop, so safety has to stay visible and local. The current alpha is intentionally narrow: account setup, voice enrollment, identity confirmation, and launching installed apps through the Start menu.</p>
+<p>Callsign operates on a user desktop, so safety has to stay visible and local. The current alpha is intentionally narrow: account setup, voice enrollment, identity confirmation, and launching installed apps through the Start menu.</p>
 <h2>Security goals</h2>
 <ul><li>Preserve user control.</li><li>Make actions visible.</li><li>Require identity before command capture.</li><li>Avoid hidden automation.</li><li>Avoid credential handling.</li><li>Keep local data local by default.</li><li>Make it easy to stop or reset the session.</li></ul>
 <h2>V1 identity controls</h2>
@@ -67,16 +67,14 @@
 <h2>Visibility and stop rules</h2>
 <p>The alpha must provide:</p>
 <ul><li>A clear cancel path.</li><li>A clear reset path.</li><li>Obvious status text.</li><li>No silent completion of external side effects.</li></ul>
-<h2>Tier safety model</h2>
-<p>Free, Pro, and Advanced must all preserve the local-first safety model.</p>
-<ul><li>Free is limited to voice/callsign identity and visible Start menu app launch.</li><li>Pro can add full Windows, WSL, and Linux control only with policy checks, visible approval prompts, and audit logging.</li><li>Advanced can add specialized commands and recipes only if dangerous, external, secret, or destructive actions are blocked or explicitly approved.</li></ul>
-<p>Paid tiers must not require hidden data collection for the core experience. Cloud transcription, telemetry, licensing checks, and paid services must be disclosed and opt-in where they affect user data.</p>
+<h2>Future safety model</h2>
+<p>Later browser, file, WSL, Linux, and system control features will need stronger approvals, policy checks, and audit trails than v1.0 app launch.</p>
 <h2>Closed-source boundary</h2>
 <p>Private paid-tier material belongs in <code>/closed-source/</code>, which is ignored by git. Public security docs should describe the safety model, but proprietary implementation details should not be tracked in the open-source repo.</p>
 <h2>Callsign canon alignment</h2>
 <p>The Alpha v1 line aims for Windows Voice Access parity, but v1.0 remains intentionally narrow: wake, identity verification, animated overlay with live readout, and Start menu app launch.</p>
 <p>Security rules for the overlay and transcript readout:</p>
-<ul><li>The overlay is a user-visible listening cue, not authorization.</li><li>The wake word alone never permits command execution.</li><li>Transcript text shown below <code>callsign.gif</code> must not bypass the identity gate.</li><li>The overlay must hide when a session completes, cancels, times out, locks out, or listening stops.</li><li>Future browser, file, WSL, Linux, and system control features require stronger approvals, policy checks, and audit trails than v1.0 app launch.</li></ul>
+<ul><li>The overlay is a user-visible listening cue, not authorization.</li><li>The wake word alone never permits command execution.</li><li>Transcript text shown below <code>callsign.gif</code> must not bypass the identity gate.</li><li>The overlay must hide when a session completes, cancels, times out, locks out, or listening stops.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

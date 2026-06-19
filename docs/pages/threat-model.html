@@ -45,9 +45,9 @@
     <article class="doc-content">
       <h1>Threat Model</h1>
 <h2>Scope</h2>
-<p>This threat model covers the current Callsign alpha and the planned Free, Pro, and Advanced tier direction: local profile storage, voice enrollment, identity confirmation, visible app launch, future background voice service, broader desktop control, and advanced command packs.</p>
+<p>This threat model covers the current Callsign alpha: local profile storage, voice enrollment, identity confirmation, visible app launch, and the background service that owns wake and session orchestration.</p>
 <h2>Assets</h2>
-<ul><li>User control over the desktop.</li><li>Local profile data.</li><li>Voice enrollment state.</li><li>Launch history.</li><li>UI status and session state.</li><li>Any future audit logs or recipe data.</li></ul>
+<ul><li>User control over the desktop.</li><li>Local profile data.</li><li>Voice enrollment state.</li><li>Launch history.</li><li>UI status and session state.</li></ul>
 <h2>Actors</h2>
 <h3>Benign user</h3>
 <p>Wants the assistant to open apps and help with routine desktop work.</p>
@@ -57,10 +57,6 @@
 <p>May try to tamper with profiles, spoof identity, or interfere with the visible session.</p>
 <h3>Malicious webpage or document</h3>
 <p>May try to influence future automation features through prompt injection.</p>
-<h3>Compromised model or service</h3>
-<p>May produce unsafe suggestions if the assistant grows beyond the current alpha.</p>
-<h3>Paid-tier boundary mistake</h3>
-<p>May expose proprietary commands, licensing experiments, or private automation assets in the public repo if closed-source material is not kept separate.</p>
 <h2>Trust boundaries</h2>
 <pre><code class="language-text">User speech -&gt; identity check -&gt; session state machine -&gt; visible launch action -&gt; local profile storage</code></pre>
 <p>The most important boundary is between user identity and command capture. No launch should occur until the enrolled callsign is matched.</p>
@@ -80,18 +76,12 @@
 <h3>Threat: future prompt injection</h3>
 <p>Mitigation:</p>
 <ul><li>Treat observed content as data.</li><li>Keep policy outside the model.</li><li>Add safety rules before broader automation lands.</li></ul>
-<h3>Threat: unsafe Pro or Advanced command</h3>
-<p>Mitigation:</p>
-<ul><li>Gate Pro and Advanced actions through policy, approvals, and audit logs.</li><li>Require clear user-visible intent before state-changing actions.</li><li>Block dangerous, secret, destructive, and external actions unless a future approved design explicitly permits them.</li></ul>
-<h3>Threat: closed-source material leakage</h3>
-<p>Mitigation:</p>
-<ul><li>Keep proprietary paid-tier material in <code>/closed-source/</code>.</li><li>Ignore <code>/closed-source/</code> in git.</li><li>Keep public docs high-level when describing paid capabilities.</li></ul>
 <h2>Residual risks</h2>
-<ul><li>Voice recognition can mishear.</li><li>A nearby person can still speak a similar callsign.</li><li>A user may approve a bad action if the product grows beyond the current alpha.</li><li>Future cloud features may add privacy risk unless they stay opt-in.</li><li>Pro and Advanced increase blast radius unless policy, approvals, and audits are complete first.</li></ul>
+<ul><li>Voice recognition can mishear.</li><li>A nearby person can still speak a similar callsign.</li><li>A user may approve a bad action if the product grows beyond the current alpha.</li><li>Future cloud features may add privacy risk unless they stay opt-in.</li></ul>
 <h2>Callsign canon alignment</h2>
 <p>The Alpha v1 line is intended to compete with Windows Voice Access-level functionality, but Callsign&#x27;s threat model is stricter because it adds wake plus identity verification before command execution.</p>
 <p>Threat considerations added by the wake overlay and live readout:</p>
-<ul><li>False wake must not trigger action; it may only show the overlay and request identity.</li><li>Misheard identity must not be treated as a command.</li><li>The text readout is diagnostic feedback and must not become an alternate authorization path.</li><li>A stuck overlay or stale transcript could confuse the user, so terminal session states must hide the overlay and clear active readout.</li><li>v1.3 system control and file search expand local context exposure and require policy, visibility, and audit controls beyond v1.0 launch.</li></ul>
+<ul><li>False wake must not trigger action; it may only show the overlay and request identity.</li><li>Misheard identity must not be treated as a command.</li><li>The text readout is diagnostic feedback and must not become an alternate authorization path.</li><li>A stuck overlay or stale transcript could confuse the user, so terminal session states must hide the overlay and clear active readout.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

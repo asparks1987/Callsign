@@ -54,26 +54,22 @@
 <p>This app is intentionally not the final execution owner.</p>
 <h2>Runtime</h2>
 <p><code>src/Callsign.Service</code> provides:</p>
-<ul><li>microphone capture and wake detection</li><li>session state machine (<code>wake -&gt; identity -&gt; command</code>)</li><li>identity/biometric gate integration</li><li>Start menu launch execution</li><li>runtime snapshot writes for UI synchronization</li><li>overlay readout serialization for visible feedback</li></ul>
+<ul><li>microphone capture and wake detection</li><li>session state machine (<code>wake -&gt; identity -&gt; command</code>)</li><li>identity gate integration</li><li>Start menu launch execution</li><li>runtime snapshot writes for UI synchronization</li><li>overlay readout serialization for visible feedback</li></ul>
 <p>Transcript text is treated as a command channel only after a dedicated wake event and identity confirmation.</p>
 <h2>Overlay and status</h2>
 <p><code>callsign.gif</code> is a UI-only cue, driven by runtime session state.</p>
 <p>Behavior:</p>
-<ul><li>appears on wake transition</li><li>stays on-screen through identity + command capture</li><li>hides on completion, cancel, timeout, lockout, or explicit stop</li></ul>
+<ul><li>appears on wake transition</li><li>stays on-screen through identity and command capture</li><li>hides on completion, cancel, timeout, lockout, or explicit stop</li></ul>
 <h2>v1.0 scope</h2>
-<p>v1.0 only launches installed apps by visible Start menu path. No arbitrary shell execution exists in alpha core.</p>
-<h2>v1.1, v1.2, v1.3 direction</h2>
-<ul><li>v1.1 adds dictation.</li><li>v1.2 adds visible browser flows.</li><li>v1.3 expands to system and filesystem control with stronger policy rules.</li></ul>
+<p>v1.0 only launches installed apps by visible Start menu path. No arbitrary shell execution exists in the alpha core.</p>
+<h2>Future scope</h2>
+<p>Later features such as dictation, browser control, system control, and file search should be documented separately and should not be treated as current alpha scope.</p>
 <h2>Safety and platform direction</h2>
-<p>The architecture is intentionally local-first, open-source core:</p>
-<ul><li>user-visible actions and stop controls</li><li>no hidden background side effects</li><li>no paywall in Alpha v1</li><li>Pro/Advanced expansion happens after the alpha parity core is stable</li></ul>
-<p>The Free tier should remain the stable, inspectable core that matches the public promise. Pro and Advanced should be able to grow continuously above that core with new commands, workflows, and deeper control paths, without forcing the open-source experience to become dependent on private logic.</p>
-<h2>Tier architecture</h2>
+<p>The architecture is intentionally local-first and open-source:</p>
+<ul><li>user-visible actions and stop controls</li><li>no hidden background side effects</li><li>no paywall in Alpha v1</li><li>the public core stays stable while future work is planned separately</li></ul>
+<h2>Core contract</h2>
 <p>The Free runtime, policy engine, session state, overlay, command registry contracts, and everyday command set belong in the MIT-licensed repo.</p>
-<p>The paid layers should plug into the same runtime through signed command packs:</p>
-<ul><li>Free commands ship with the open-source app.</li><li>Pro command packs unlock deeper Windows, WSL, Linux, browser, workflow, and system control.</li><li>Advanced command packs unlock specialized recipes, diagnostics, admin/dev workflows, and power-user automation.</li></ul>
-<p>All commands, free or paid, must still pass the same identity, policy, visibility, and audit pipeline.</p>
-<p>The detailed installer, entitlement, update, and command-pack boundary is defined in <code>docs/reference/TIER_ARCHITECTURE.md</code>.</p>
+<p>All commands must still pass the same identity, policy, visibility, and audit pipeline.</p>
     </article>
   </main>
   <script src="../assets/site.js"></script>

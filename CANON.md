@@ -2,9 +2,9 @@
 
 ## Mission
 
-Callsign is the open-source Windows voice-control killer.
+Callsign is the open-source, Windows-first voice assistant for the current alpha.
 
-It should feel as approachable as Apple Voice Control, grow toward more power than Talon, and stay visibly safer because every session follows the same identity-first structure:
+It should feel as approachable as Apple Voice Control and stay visibly safer because every session follows the same identity-first structure:
 
 `Callsign -> identity verification -> command -> visible action`
 
@@ -22,7 +22,7 @@ The enrolled callsign unlocks command capture.
 The command only becomes action when the product can show the path visibly.
 
 The open-source Free tier is the public foundation of Callsign.
-It is the part that should most directly compete with and often surpass built-in Windows voice control for everyday use:
+It is the part that should most directly compete with built-in Windows voice control for everyday use:
 
 - wake with `Callsign`
 - see what was heard
@@ -30,25 +30,16 @@ It is the part that should most directly compete with and often surpass built-in
 - launch visible desktop apps
 - stop the session at any time
 
-The paid tiers exist to keep the platform growing:
-
-- Pro should extend into deeper Windows, WSL, and Linux control.
-- Advanced should remain the fast-moving tier for new commands, recipes, diagnostics, and specialized power-user workflows.
-- The paid tiers should be structured so new capabilities can be added continuously without disturbing the stable open-source core.
+Future paid tiers are outside the current alpha scope and should not shape the public promise yet.
 
 ## Tier architecture canon
 
-The Free product is the MIT-licensed open-source core. It must be downloadable from GitHub or the public website, install with minimal effort, and remain useful without a paid account.
+The Free product is the MIT-licensed open-source core.
+It must be downloadable from GitHub or the public website, install with minimal effort, and remain useful without a paid account.
 
-Free is the Windows Voice Access parity layer: the part of Callsign that should cover everyday voice control better, more visibly, and more safely than the built-in tool.
+Free is the Windows Voice Access parity layer for the current alpha: the part of Callsign that should cover everyday voice control better, more visibly, and more safely than the built-in tool.
 
-Pro is the upgrade layer. It should unlock signed private command packs, deeper automation adapters, and a continuously updated command library without changing the Free core into a thin demo.
-
-Advanced is the specialist layer. It should carry the fastest-moving catalog of power-user commands, diagnostics, recipes, admin/dev workflows, and specialized automation packs.
-
-Entitlement decides whether a paid command pack may load. Policy still decides whether a command may run. A paid license must never bypass identity, approval, visibility, or audit rules.
-
-The canonical implementation plan for this boundary lives in `docs/reference/TIER_ARCHITECTURE.md`.
+The current public repo should stay focused on the Free core until later tier plans are separately scoped.
 
 ## Why this exists
 
@@ -71,12 +62,9 @@ Callsign is the opposite:
 All Alpha v1 features are free and remain free until at least beta.
 
 - `v1.0 alpha`: background service wake detection, identity verification, `callsign.gif` overlay, live text readout, and visible Start menu app launch.
-- `v1.1 alpha`: dictation with visible review.
-- `v1.2 alpha`: browser control with safe external-action boundaries.
-- `v1.3 alpha`: Windows, WSL, and Linux system control, including Explorer-backed file search.
 
 Free is the open-source release line the public can use and trust on day one.
-Pro and Advanced are the future paid expansion line.
+Later features are tracked separately and should not be treated as current scope.
 
 ## Windows Voice Access parity line
 
@@ -88,17 +76,16 @@ The target is:
 - practical daily usefulness,
 - readable state changes,
 - visible control surfaces,
-- and a much stronger trust model than the default platform tools.
+- and a stronger trust model than the default platform tools.
 
 The Free tier should be the Windows Voice Access alternative the project is known for.
-The paid tiers should provide the deeper, ever-expanding ceiling.
 
 ## UX bar
 
 The experience should feel:
 
 - as polished and calm as Apple Voice Control,
-- as powerful and extensible as Talon,
+- as trustworthy as a visible local tool,
 - and more trustworthy because identity is required before action.
 
 ## Required interaction model
@@ -158,13 +145,10 @@ No action can skip identity.
 - Transcript-only wake is ignored.
 - Misheard identity is treated as a repeat request or rejection.
 - Session termination states must remain visible.
-- Closed-source features stay out of alpha canon and out of the public repo.
 
 ## Platform direction
 
 Windows is the practical alpha launch platform.
-
-WSL and Linux are part of the same product story and should be documented early, but they expand from the same visible, identity-first session model rather than replacing it.
 
 ## Public site canon
 
@@ -173,7 +157,7 @@ The public website should sell the open-source core clearly and simply:
 - the app is visible,
 - the workflow is identity-first,
 - the alpha is free,
-- and the product is meant to be a credible Windows Voice Control alternative that grows into deeper power.
+- and the product is meant to be a credible Windows voice assistant for the current release.
 
 Internal plumbing stays in contributor docs.
 Public pages stay focused on the user story.
@@ -183,4 +167,8 @@ Public pages stay focused on the user story.
 - arbitrary shell execution,
 - hidden actions or silent completion paths,
 - full command parity in the first public MVP,
+- browser control,
+- dictation,
+- system control,
 - paid-feature requirements in Alpha v1.
+

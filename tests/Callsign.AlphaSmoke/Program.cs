@@ -62,6 +62,8 @@ var checks = new List<(string Name, Action Check)>
     ("wake detector uses streaming frame predictions", WakeDetectorUsesStreamingFramePredictions),
     ("wake frame is evaluated before segment gating", WakeFrameIsEvaluatedBeforeSegmentGating),
     ("wake event forces the overlay immediately", WakeEventForcesOverlayImmediately),
+    ("wake overlay is preloaded before first wake", WakeOverlayIsPreloadedBeforeFirstWake),
+    ("wake detector is warmed up before live listening", WakeDetectorIsWarmedUpBeforeLiveListening),
     ("packaged wake test helper uses streaming frames", PackagedWakeTestHelperUsesStreamingFrames),
     ("wake calibration helper scores enrolled samples", WakeCalibrationHelperScoresEnrolledSamples),
     ("wake calibration persists metadata", WakeCalibrationPersistsMetadata),
@@ -228,14 +230,14 @@ static void VoiceActivationRequired()
 
 static void WakeThresholdSensitivityMapping()
 {
-    Require(Math.Abs(VoiceCommandService.ResolveWakeThreshold(null, "Balanced") - 0.20) < 0.0001, "Balanced wake threshold should resolve to 0.20.");
-    Require(Math.Abs(VoiceCommandService.ResolveWakeThreshold(null, "More responsive") - 0.10) < 0.0001, "More responsive wake threshold should resolve to 0.10.");
-    Require(Math.Abs(VoiceCommandService.ResolveWakeThreshold(null, "Fewer false wakes") - 0.32) < 0.0001, "Fewer false wakes threshold should resolve to 0.32.");
+    Require(Math.Abs(VoiceCommandService.ResolveWakeThreshold(null, "Balanced") - 0.02) < 0.0001, "Balanced wake threshold should resolve to 0.02.");
+    Require(Math.Abs(VoiceCommandService.ResolveWakeThreshold(null, "More responsive") - 0.01) < 0.0001, "More responsive wake threshold should resolve to 0.01.");
+    Require(Math.Abs(VoiceCommandService.ResolveWakeThreshold(null, "Fewer false wakes") - 0.04) < 0.0001, "Fewer false wakes threshold should resolve to 0.04.");
 }
 
 static void WakeThresholdDefaultsToRecallBiasedFallback()
 {
-    Require(Math.Abs(VoiceCommandService.ResolveWakeThreshold(null, null) - 0.12) < 0.0001, "Default wake threshold should bias toward recall at 0.12.");
+    Require(Math.Abs(VoiceCommandService.ResolveWakeThreshold(null, null) - 0.01) < 0.0001, "Default wake threshold should bias toward recall at 0.01.");
 }
 
 static void WakeDefaultsFavorMoreResponsive()
@@ -1463,7 +1465,8 @@ static void WakeDetectorUsesStreamingFramePredictions()
     Require(source.Contains("np.frombuffer(raw_frame, dtype=np.int16)", StringComparison.OrdinalIgnoreCase), "Wake detector should convert streamed bytes into 16 kHz int16 frames.");
     Require(source.Contains("model.predict(frame)", StringComparison.OrdinalIgnoreCase), "Wake detector should score streaming frames instead of a single clip call.");
     Require(!source.Contains("predict_clip", StringComparison.OrdinalIgnoreCase), "Wake detector should not rely on clip-level prediction anymore.");
-    Require(source.Contains("hop_milliseconds = 40", StringComparison.OrdinalIgnoreCase), "Wake detector should use overlapping frame hops for better recall.");
+    Require(source.Contains("hop_milliseconds = 20", StringComparison.OrdinalIgnoreCase), "Wake detector should use overlapping frame hops for better recall.");
+    Require(source.Contains("WakeWindowMilliseconds", StringComparison.OrdinalIgnoreCase), "Wake detector should keep a longer rolling context for recall.");
     Require(source.Contains("ConvertToWakePcm16", StringComparison.OrdinalIgnoreCase), "Wake service should build the live wake window from raw converted PCM.");
 }
 
@@ -1479,7 +1482,8 @@ static void WakeFrameIsEvaluatedBeforeSegmentGating()
     Require(wakeLine >= 0, "Wake service should capture raw PCM for wake evaluation.");
     Require(gateLine >= 0, "Wake service should still guard segment-only processing.");
     Require(wakeLine < gateLine, "Wake evaluation should begin before the segment gate can return early.");
-    Require(source.Contains("wakeWindowSnapshot.Length < wakeWindowBytes / 5", StringComparison.OrdinalIgnoreCase), "Wake evaluation should not wait for half a window before scoring.");
+    Require(source.Contains("wakeWindowSnapshot.Length < wakeWindowBytes / 16", StringComparison.OrdinalIgnoreCase), "Wake evaluation should start on a smaller live window before scoring.");
+    Require(source.Contains("if (_wakeWindowBytes < maxBytes / 8)", StringComparison.OrdinalIgnoreCase), "Wake window should fill less before the first score is attempted.");
 }
 
 static void WakeEventForcesOverlayImmediately()
@@ -1508,6 +1512,32 @@ static void WakeEventForcesOverlayImmediately()
     Require(workerOverlay >= 0, "Runtime worker wake handler should update the overlay readout.");
 }
 
+static void WakeOverlayIsPreloadedBeforeFirstWake()
+{
+    var repoRoot = FindRepositoryRoot();
+    var uiPath = Path.Combine(repoRoot, "src", "Callsign.UI", "MainForm.cs");
+    Require(File.Exists(uiPath), $"Could not find UI source at {uiPath}.");
+
+    var uiSource = File.ReadAllText(uiPath);
+    var constructorStart = uiSource.IndexOf("public MainForm()", StringComparison.OrdinalIgnoreCase);
+    Require(constructorStart >= 0, "Main form constructor should exist.");
+    var constructorSource = uiSource[constructorStart..];
+    Require(constructorSource.Contains("PreloadWakeOverlay();", StringComparison.OrdinalIgnoreCase), "Main form should preload the wake overlay before listener startup.");
+    Require(uiSource.Contains("private void PreloadWakeOverlay()", StringComparison.OrdinalIgnoreCase), "Main form should have a preload helper for the wake overlay.");
+}
+
+static void WakeDetectorIsWarmedUpBeforeLiveListening()
+{
+    var repoRoot = FindRepositoryRoot();
+    var servicePath = Path.Combine(repoRoot, "src", "Callsign.UI", "Services", "VoiceCommandService.cs");
+    Require(File.Exists(servicePath), $"Could not find voice service source at {servicePath}.");
+
+    var source = File.ReadAllText(servicePath);
+    Require(source.Contains("WarmUpWakeWordDetectorAsync", StringComparison.OrdinalIgnoreCase), "Wake service should warm up the detector before live listening.");
+    Require(source.Contains("wake-warmup", StringComparison.OrdinalIgnoreCase), "Wake warmup should write a silent fixture before the first live wake.");
+    Require(source.Contains("Task.Run(() => WarmUpWakeWordDetectorAsync", StringComparison.OrdinalIgnoreCase), "Wake service should kick warmup off during listener startup.");
+}
+
 static void PackagedWakeTestHelperUsesStreamingFrames()
 {
     var repoRoot = FindRepositoryRoot();
@@ -1515,7 +1545,7 @@ static void PackagedWakeTestHelperUsesStreamingFrames()
     Require(File.Exists(helperPath), $"Could not find packaged wake test helper at {helperPath}.");
 
     var source = File.ReadAllText(helperPath);
-    Require(source.Contains("hop_milliseconds = 40", StringComparison.OrdinalIgnoreCase), "Packaged wake test helper should use overlapping frame hops.");
+    Require(source.Contains("hop_milliseconds = 20", StringComparison.OrdinalIgnoreCase), "Packaged wake test helper should use overlapping frame hops.");
     Require(source.Contains("model.predict(frame)", StringComparison.OrdinalIgnoreCase), "Packaged wake test helper should score streaming frames.");
     Require(!source.Contains("predict_clip", StringComparison.OrdinalIgnoreCase), "Packaged wake test helper should not rely on clip-level prediction.");
 }
@@ -1533,10 +1563,13 @@ static void WakeCalibrationHelperScoresEnrolledSamples()
     Require(serviceSource.Contains("ComputeCalibratedWakeThreshold", StringComparison.OrdinalIgnoreCase), "Wake service should expose a calibrated-threshold helper.");
     Require(serviceSource.Contains("ApplyWakeCalibration", StringComparison.OrdinalIgnoreCase), "Wake service should expose a calibration helper that persists metadata.");
     Require(serviceSource.Contains("score < 0.05", StringComparison.OrdinalIgnoreCase), "Wake calibration should ignore uselessly tiny scores.");
+    Require(serviceSource.Contains("VoiceWakeCalibrationVersion", StringComparison.OrdinalIgnoreCase), "Wake calibration should persist provenance.");
 
     var formSource = File.ReadAllText(formPath);
     Require(formSource.Contains("TryScoreWakeWordSampleAsync", StringComparison.OrdinalIgnoreCase), "Activation should score enrolled wake samples.");
     Require(formSource.Contains("ApplyWakeCalibration", StringComparison.OrdinalIgnoreCase), "Activation should persist the wake threshold from enrolled samples.");
+    Require(formSource.Contains("GetWakeCalibrationSamplePaths", StringComparison.OrdinalIgnoreCase), "Activation should prefer dedicated wake samples.");
+    Require(formSource.Contains("wake-samples", StringComparison.OrdinalIgnoreCase), "Wake calibration should look for dedicated wake samples on disk.");
 }
 
 static void WakeCalibrationPersistsMetadata()
@@ -1568,8 +1601,10 @@ static void WakeTrainingFormExposesWakeCalibration()
 
     var source = File.ReadAllText(formPath);
     Require(source.Contains("Calibrate Wakeword", StringComparison.OrdinalIgnoreCase), "Voice training form should expose a wake calibration button.");
+    Require(source.Contains("REC Wake Sample", StringComparison.OrdinalIgnoreCase), "Voice training form should expose a wake sample capture button.");
     Require(source.Contains("TryScoreWakeWordSampleAsync", StringComparison.OrdinalIgnoreCase), "Voice training form should call the wake scoring helper.");
     Require(source.Contains("ApplyWakeCalibration", StringComparison.OrdinalIgnoreCase), "Voice training form should apply a profile-specific wake threshold.");
+    Require(source.Contains("GetRecordedWakeSamplePaths", StringComparison.OrdinalIgnoreCase), "Voice training form should maintain dedicated wake samples.");
 }
 
 static void WakeServiceEvaluatesRollingWindow()

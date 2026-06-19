@@ -22,7 +22,7 @@ Required checks:
 - `callsign.gif` appears and session readout updates while active
 - identity success and mismatch handling
 - visible Start menu launch path
-- safe stop/cancel/timeout/lockout handling
+- safe stop, cancel, timeout, and lockout handling
 - runtime snapshot includes session state, transcript, overlay readout, and microphone telemetry
 
 ## Manual Alpha v1 smoke walkthrough
@@ -35,23 +35,6 @@ Required checks:
 6. Confirm Start menu action is visible.
 7. Validate wrong identity and no-mic cases do not launch.
 
-## Follow-up alpha checks
-
-### v1.1
-
-- dictation review path
-- clear stop/abort behavior
-
-### v1.2
-
-- visible browser control
-- external action boundaries
-
-### v1.3
-
-- system control by explicit voice commands
-- file search results open in Explorer
-
 ## Release gate
 
 No `v1.0 alpha` release until:
@@ -60,3 +43,4 @@ No `v1.0 alpha` release until:
 - service/session fields are readable in runtime state
 - overlay is visible at wake and hidden in terminal states
 - identity failures remain safe and visible
+

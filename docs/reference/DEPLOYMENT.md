@@ -60,9 +60,4 @@ Future app packaging can add:
 - A real background service.
 - A tray helper.
 - Better update handling.
-- An in-app Pro upgrade path.
-- Signed Pro and Advanced command packs that update independently of the Free core.
-
-## Linux and WSL
-
-Linux packaging is part of the MVP direction, with WSL as the bridge for development and runtime workflows from Windows.
+- Future tier packaging if the product grows beyond v1.0.

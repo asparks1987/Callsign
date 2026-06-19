@@ -2,7 +2,7 @@
 
 ## Scope
 
-This threat model covers the current Callsign alpha and the planned Free, Pro, and Advanced tier direction: local profile storage, voice enrollment, identity confirmation, visible app launch, future background voice service, broader desktop control, and advanced command packs.
+This threat model covers the current Callsign alpha: local profile storage, voice enrollment, identity confirmation, visible app launch, and the background service that owns wake and session orchestration.
 
 ## Assets
 
@@ -11,7 +11,6 @@ This threat model covers the current Callsign alpha and the planned Free, Pro, a
 - Voice enrollment state.
 - Launch history.
 - UI status and session state.
-- Any future audit logs or recipe data.
 
 ## Actors
 
@@ -30,14 +29,6 @@ May try to tamper with profiles, spoof identity, or interfere with the visible s
 ### Malicious webpage or document
 
 May try to influence future automation features through prompt injection.
-
-### Compromised model or service
-
-May produce unsafe suggestions if the assistant grows beyond the current alpha.
-
-### Paid-tier boundary mistake
-
-May expose proprietary commands, licensing experiments, or private automation assets in the public repo if closed-source material is not kept separate.
 
 ## Trust boundaries
 
@@ -89,29 +80,12 @@ Mitigation:
 - Keep policy outside the model.
 - Add safety rules before broader automation lands.
 
-### Threat: unsafe Pro or Advanced command
-
-Mitigation:
-
-- Gate Pro and Advanced actions through policy, approvals, and audit logs.
-- Require clear user-visible intent before state-changing actions.
-- Block dangerous, secret, destructive, and external actions unless a future approved design explicitly permits them.
-
-### Threat: closed-source material leakage
-
-Mitigation:
-
-- Keep proprietary paid-tier material in `/closed-source/`.
-- Ignore `/closed-source/` in git.
-- Keep public docs high-level when describing paid capabilities.
-
 ## Residual risks
 
 - Voice recognition can mishear.
 - A nearby person can still speak a similar callsign.
 - A user may approve a bad action if the product grows beyond the current alpha.
 - Future cloud features may add privacy risk unless they stay opt-in.
-- Pro and Advanced increase blast radius unless policy, approvals, and audits are complete first.
 
 ## Callsign canon alignment
 
@@ -123,4 +97,4 @@ Threat considerations added by the wake overlay and live readout:
 - Misheard identity must not be treated as a command.
 - The text readout is diagnostic feedback and must not become an alternate authorization path.
 - A stuck overlay or stale transcript could confuse the user, so terminal session states must hide the overlay and clear active readout.
-- v1.3 system control and file search expand local context exposure and require policy, visibility, and audit controls beyond v1.0 launch.
+

@@ -4,7 +4,7 @@ The `/docs` folder is the public-facing Callsign site plus generated contributor
 
 ## Public landing page
 
-`docs/index.html` is the marketing page for open-source users.
+`docs/index.html` is the public page for open-source users.
 
 It must:
 
@@ -12,9 +12,9 @@ It must:
 - reinforce the `Callsign -> identity verification -> command` flow,
 - show the overlay-first UX and live transcript concept,
 - state that all Alpha v1 capabilities are free until at least beta,
-- make clear that the Free/open-source core is the public Windows Voice Access alternative,
-- and frame Pro and Advanced as the paid layers where new commands can keep being added over time,
-- link to the tier architecture plan for the Free installer, Pro upgrade path, and command-library model,
+- make clear that the Free/open-source core is the public Windows voice assistant,
+- keep the public page focused on the current v1.0 release line,
+- link to the tier architecture plan for the current Free-core boundary,
 - and guide users to the release ladder.
 
 ## Reference docs
@@ -33,4 +33,4 @@ Run:
 python scripts/build_site.py
 ```
 
-and confirm the site pages reflect the same canonical alpha ladder and free-through-alpha canon as `README.md`, `CANON.md`, and `burndown.md`.
+and confirm the site pages reflect the same current v1.0 canon as `README.md`, `CANON.md`, and `burndown.md`.

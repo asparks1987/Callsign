@@ -43,7 +43,7 @@
 <a href="github-pages.html">GitHub Pages</a>
     </aside>
     <article class="doc-content">
-      <p>﻿# Windows Automation Strategy</p>
+      <h1>Windows Automation Strategy</h1>
 <h2>Goal</h2>
 <p>For <code>v1.0 alpha</code>, Callsign should launch installed Windows apps in a visible, understandable way from the background service.</p>
 <p>The v1.0 path is:</p>
@@ -53,15 +53,9 @@
 <p>Visible automation is easier to trust and easier to stop.</p>
 <p>Callsign should not hide the fact that it is interacting with the desktop.</p>
 <h2>v1.0 strategy</h2>
-<ul><li>Use the Start menu search experience for app launching.</li><li>Open common shell destinations such as Settings, File Explorer, This PC, Recycle Bin, and user folders through visible shell-backed launches.</li><li>Keep the app launch target obvious in the UI/service status.</li><li>Keep the user able to cancel or reset the session.</li><li>Avoid arbitrary shell execution.</li><li>Reject paths, URLs, shell text, secrets, and non-launch automation.</li></ul>
-<h2>v1.3 system control strategy</h2>
-<p>Richer desktop automation belongs in <code>v1.3 alpha</code>. It comes after the first launch release, dictation, and browser control are reliable.</p>
-<p>Future layers may include:</p>
-<ul><li>UI automation for app controls.</li><li>Safe text entry helpers.</li><li>Safe system actions such as volume up, volume down, mute, and show desktop.</li><li>WSL/Linux workflow commands.</li><li>File and folder search.</li><li>More precise app adapters.</li></ul>
-<h2>File search in v1.3</h2>
-<p>File search is part of system control because it reveals local filesystem context.</p>
-<p>Required behavior:</p>
-<ul><li>Search approved local scopes only.</li><li>Prefer packaged <code>fzf.exe</code> for ranked filename/folder matching, with a visible built-in fallback warning if fzf is unavailable.</li><li>Show matching results visibly.</li><li>Open selected or best-match results through Windows Explorer.</li><li>Do not read, upload, summarize, modify, delete, or submit file contents without a later explicit feature and policy approval.</li></ul>
+<ul><li>Use the Start menu search experience for app launching.</li><li>Open common shell destinations such as Settings, File Explorer, This PC, Recycle Bin, and user folders through visible shell-backed launches.</li><li>Keep the app launch target obvious in the UI and service status.</li><li>Keep the user able to cancel or reset the session.</li><li>Avoid arbitrary shell execution.</li><li>Reject paths, URLs, shell text, secrets, and non-launch automation.</li></ul>
+<h2>Future automation</h2>
+<p>Browser control, dictation helpers, system control, and file search are future work and should not be treated as current alpha scope.</p>
 <h2>Safety rules</h2>
 <ul><li>Do not rely on hidden windows.</li><li>Do not use background-only automation for the v1.0 launch path.</li><li>Do not use raw coordinates when a visible, semantic path is available.</li><li>Do not bypass the wake word, callsign identity, policy, or audit model.</li></ul>
     </article>

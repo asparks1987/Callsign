@@ -2,7 +2,7 @@
 
 ## Summary
 
-Callsign operates a user desktop, so safety has to stay visible and local. The current alpha is intentionally narrow: account setup, voice enrollment, identity confirmation, and launching installed apps through the Start menu.
+Callsign operates on a user desktop, so safety has to stay visible and local. The current alpha is intentionally narrow: account setup, voice enrollment, identity confirmation, and launching installed apps through the Start menu.
 
 ## Security goals
 
@@ -75,15 +75,9 @@ The alpha must provide:
 - Obvious status text.
 - No silent completion of external side effects.
 
-## Tier safety model
+## Future safety model
 
-Free, Pro, and Advanced must all preserve the local-first safety model.
-
-- Free is limited to voice/callsign identity and visible Start menu app launch.
-- Pro can add full Windows, WSL, and Linux control only with policy checks, visible approval prompts, and audit logging.
-- Advanced can add specialized commands and recipes only if dangerous, external, secret, or destructive actions are blocked or explicitly approved.
-
-Paid tiers must not require hidden data collection for the core experience. Cloud transcription, telemetry, licensing checks, and paid services must be disclosed and opt-in where they affect user data.
+Later browser, file, WSL, Linux, and system control features will need stronger approvals, policy checks, and audit trails than v1.0 app launch.
 
 ## Closed-source boundary
 
@@ -99,4 +93,4 @@ Security rules for the overlay and transcript readout:
 - The wake word alone never permits command execution.
 - Transcript text shown below `callsign.gif` must not bypass the identity gate.
 - The overlay must hide when a session completes, cancels, times out, locks out, or listening stops.
-- Future browser, file, WSL, Linux, and system control features require stronger approvals, policy checks, and audit trails than v1.0 app launch.
+

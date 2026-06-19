@@ -275,6 +275,7 @@ public sealed class MainForm : Form
         Font = new Font("Segoe UI", 10);
 
         BuildForm();
+        PreloadWakeOverlay();
 
         _voiceCommandService.TranscriptReceived += VoiceTranscriptReceived;
         _voiceCommandService.WakeWordDetected += VoiceWakeWordDetected;
@@ -2925,8 +2926,10 @@ public sealed class MainForm : Form
             settings.VoiceEnrollmentStatus = "Activated";
             settings.VoiceEnrolledUtc = DateTime.UtcNow;
             settings.VoiceSamplesRecorded = samplePaths.Count;
+            var wakeCalibrationPaths = GetWakeCalibrationSamplePaths(profile);
+            var wakeScoreSource = wakeCalibrationPaths.Count > 0 ? wakeCalibrationPaths : samplePaths;
             var wakeScores = new List<(string Path, double Score)>();
-            foreach (var samplePath in samplePaths)
+            foreach (var samplePath in wakeScoreSource)
             {
                 var score = await _voiceCommandService.TryScoreWakeWordSampleAsync(samplePath, CancellationToken.None);
                 if (score.HasValue)
@@ -4736,6 +4739,17 @@ public sealed class MainForm : Form
         UpdateStatus("Session reset to idle.");
     }
 
+    private IReadOnlyList<string> GetWakeCalibrationSamplePaths(UserProfile profile)
+    {
+        var wakeFolder = Path.Combine(_profileStore.ResolveCallsSignFolder(profile.Callsign), "wake-samples");
+        if (!Directory.Exists(wakeFolder))
+            return Array.Empty<string>();
+
+        return Directory.EnumerateFiles(wakeFolder, "wake-*.wav", SearchOption.TopDirectoryOnly)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
     private void OpenProfileFolder()
     {
         if (_activeProfile == null || string.IsNullOrWhiteSpace(_activeProfile.Callsign))
@@ -5668,6 +5682,31 @@ public sealed class MainForm : Form
         }
 
         _wakeOverlay.ShowOverlay(readout, phase, transcriptHistory, activityLevel, activityText, speechActive, captionText, wakeStatusText, authorityText);
+    }
+
+    private void PreloadWakeOverlay()
+    {
+        if (_wakeOverlay != null || _wakeOverlayMissingLogged)
+            return;
+
+        try
+        {
+            _wakeOverlay = new WakeOverlayForm();
+            if (!_wakeOverlay.IsReady)
+            {
+                _wakeOverlayMissingLogged = true;
+                UpdateStatus("Wake overlay asset callsign.gif was not found. Voice flow continues without the overlay.");
+                _wakeOverlay.Dispose();
+                _wakeOverlay = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            _wakeOverlayMissingLogged = true;
+            UpdateStatus($"Wake overlay could not be preloaded: {ex.Message}");
+            _wakeOverlay?.Dispose();
+            _wakeOverlay = null;
+        }
     }
 
     private IReadOnlyList<string> GetLocalTranscriptHistory()

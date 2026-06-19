@@ -3,7 +3,7 @@ param(
     [string]$WavPath,
     [string]$ModelPath = "$env:LOCALAPPDATA\Callsign\Models\callsign.onnx",
     [string]$PythonPath = "$env:LOCALAPPDATA\Callsign\Runtime\openwakeword\venv\Scripts\python.exe",
-    [double]$Threshold = 0.12,
+    [double]$Threshold = 0.55,
     [string]$PythonCommand,
     [string[]]$PythonArgs = @()
 )
@@ -65,28 +65,15 @@ if ($null -eq $python) {
 
 $script = @'
 import json
-import wave
 import sys
 
-import numpy as np
 from openwakeword.model import Model
 
 wav_path = sys.argv[1]
 model_path = sys.argv[2]
-threshold = float(sys.argv[3])
 
-model = Model(
-    wakeword_models=[model_path],
-    inference_framework="onnx",
-    vad_threshold=0.0,
-    enable_speex_noise_suppression=False,
-)
-frame_milliseconds = 80
-hop_milliseconds = 40
-frame_size = int(16000 * frame_milliseconds / 1000)
-hop_size = int(16000 * hop_milliseconds / 1000)
-best_label = None
-best_score = 0.0
+model = Model(wakeword_models=[model_path], inference_framework="onnx")
+predictions = model.predict_clip(wav_path)
 
 
 def iter_scores(value, label=None):
@@ -117,48 +104,12 @@ def iter_scores(value, label=None):
         return
 
 
-with wave.open(wav_path, "rb") as wav_file:
-    total_frames = wav_file.getnframes()
-    remaining_frames = total_frames
-    sample_width = wav_file.getsampwidth()
-    channel_count = wav_file.getnchannels()
-    target_bytes = frame_size * sample_width * channel_count
-    hop_bytes = hop_size * sample_width * channel_count
-    buffer = bytearray()
-
-    while remaining_frames > 0:
-        raw_frame = wav_file.readframes(min(hop_size, remaining_frames))
-        remaining_frames -= min(hop_size, remaining_frames)
-
-        if not raw_frame:
-            break
-
-        buffer.extend(raw_frame)
-
-        while len(buffer) >= target_bytes:
-            raw_frame = bytes(buffer[:target_bytes])
-            del buffer[:hop_bytes]
-
-            frame = np.frombuffer(raw_frame, dtype=np.int16)
-            predictions = model.predict(frame)
-            for label, score in iter_scores(predictions):
-                if score > best_score:
-                    best_score = score
-                    best_label = label
-
-        if best_score >= threshold:
-            break
-
-    if buffer and best_score < threshold:
-        if len(buffer) < target_bytes:
-            buffer.extend(b"\0" * (target_bytes - len(buffer)))
-
-        frame = np.frombuffer(bytes(buffer[:target_bytes]), dtype=np.int16)
-        predictions = model.predict(frame)
-        for label, score in iter_scores(predictions):
-            if score > best_score:
-                best_score = score
-                best_label = label
+best_label = None
+best_score = 0.0
+for label, score in iter_scores(predictions):
+    if score > best_score:
+        best_score = score
+        best_label = label
 
 print(json.dumps({"Score": best_score, "Label": best_label}))
 '@
@@ -167,7 +118,7 @@ $tempScript = Join-Path ([System.IO.Path]::GetTempPath()) "callsign-openwakeword
 Set-Content -LiteralPath $tempScript -Value $script -Encoding UTF8
 
 try {
-    $output = & $python.Command @($python.Args + @($tempScript, $WavPath, $ModelPath, $Threshold.ToString([System.Globalization.CultureInfo]::InvariantCulture)))
+    $output = & $python.Command @($python.Args + @($tempScript, $WavPath, $ModelPath))
     if ($LASTEXITCODE -ne 0) {
         throw "openWakeWord scoring failed with exit code $LASTEXITCODE"
     }

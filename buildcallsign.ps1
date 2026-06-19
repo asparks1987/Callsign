@@ -82,10 +82,12 @@ $setupPayloadIcon = Join-Path $setupPayloadDir "callsign.ico"
 $setupPayloadOpenWakeWordSetup = Join-Path $setupPayloadDir "setupopenwakeword.ps1"
 $setupPayloadOpenWakeWordTest = Join-Path $setupPayloadDir "testopenwakeword.ps1"
 $setupPayloadOpenWakeWordResources = Join-Path $setupPayloadDir "openwakeword-resources.zip"
+$setupPayloadOpenWakeWordRuntime = Join-Path $setupPayloadDir "openwakeword-runtime.zip"
 $setupPayloadPythonRuntime = Join-Path $setupPayloadDir "python-runtime-win-x64.zip"
 $setupPayloadOpenWakeWordWheelhouse = Join-Path $setupPayloadDir "openwakeword-wheelhouse.zip"
 $setupPayloadPyannoteSetup = Join-Path $setupPayloadDir "setuppyannote.ps1"
 $setupPayloadPyannoteTest = Join-Path $setupPayloadDir "testpyannote.ps1"
+$setupPayloadPyannoteRuntime = Join-Path $setupPayloadDir "pyannote-runtime.zip"
 $setupPayloadPyannoteWheelhouse = Join-Path $setupPayloadDir "pyannote-wheelhouse.zip"
 $setupPayloadPyannoteModelCache = Join-Path $setupPayloadDir "pyannote-model-cache.zip"
 $setupPayloadPyannoteSource = Join-Path $setupPayloadDir "pyannote_audio-4.0.4.tar.gz"
@@ -122,6 +124,9 @@ $pyannoteModelCacheCandidates = @(
     (Join-Path $root "closed-source\pyannote\hub"),
     (Join-Path $root "closed-source\pyannote-cache")
 )
+$runtimeSnapshotDir = Join-Path $buildDir "runtime-snapshots"
+$openWakeWordRuntimeSnapshotDir = Join-Path $runtimeSnapshotDir "openwakeword"
+$pyannoteRuntimeSnapshotDir = Join-Path $runtimeSnapshotDir "pyannote"
 $wakeModelCandidates = @()
 if (-not [string]::IsNullOrWhiteSpace($WakeModelPath)) {
     $wakeModelCandidates += $WakeModelPath
@@ -290,7 +295,14 @@ function Get-FileFingerprint {
         return Get-DirectoryFingerprint -Path $Path -ExcludePatterns $ExcludePatterns
     }
 
-    return "file:$Path|$($item.Length)|$($item.LastWriteTimeUtc.ToString('o'))|$((Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash)"
+    try {
+        $hash = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
+    }
+    catch {
+        $hash = "locked:$($item.Length):$($item.LastWriteTimeUtc.ToString('o'))"
+    }
+
+    return "file:$Path|$($item.Length)|$($item.LastWriteTimeUtc.ToString('o'))|$hash"
 }
 
 function Get-DirectoryFingerprint {
@@ -410,7 +422,10 @@ function Invoke-CachedStage {
     $outputsReady = Test-OutputsExist -Outputs $Outputs
     $outputFingerprint = if ($outputsReady) { Get-OutputsFingerprint -Outputs $Outputs } else { $null }
 
-    $cacheHit = -not $Force -and $existingStage -and $outputsReady -and $existingStage.inputFingerprint -eq $inputFingerprint -and $existingStage.outputFingerprint -eq $outputFingerprint
+    $cacheHit = -not $Force -and $existingStage -and $outputsReady -and $existingStage.inputFingerprint -eq $inputFingerprint -and (
+        $existingStage.outputFingerprint -eq $outputFingerprint -or
+        ($outputFingerprint -is [string] -and $outputFingerprint.StartsWith('locked:', [System.StringComparison]::Ordinal))
+    )
 
     if ($cacheHit) {
         Write-Host "cache hit: $StageName reused"
@@ -504,6 +519,179 @@ function Invoke-CachedArchiveStage {
         Compress-Archive -Path (Join-Path $SourceDirectory "*") -DestinationPath $DestinationArchive -Force
     }.GetNewClosure()
     return Invoke-CachedStage -StageName $StageName -GetInputs { $sourceFingerprint } -Build $buildAction -Outputs @($DestinationArchive) -Force:$Force
+}
+
+function Expand-ArchiveToDirectory {
+    param(
+        [Parameter(Mandatory = $true)][string]$ArchivePath,
+        [Parameter(Mandatory = $true)][string]$DestinationDirectory
+    )
+
+    if (Test-Path -LiteralPath $DestinationDirectory) {
+        Remove-Item -LiteralPath $DestinationDirectory -Recurse -Force
+    }
+
+    New-Item -ItemType Directory -Path $DestinationDirectory -Force | Out-Null
+    Expand-Archive -LiteralPath $ArchivePath -DestinationPath $DestinationDirectory -Force
+}
+
+function Find-PythonExeInDirectory {
+    param([Parameter(Mandatory = $true)][string]$RootDirectory)
+
+    $candidates = @(
+        (Join-Path $RootDirectory "python.exe"),
+        (Join-Path $RootDirectory "python310\python.exe"),
+        (Join-Path $RootDirectory "venv\Scripts\python.exe"),
+        (Join-Path $RootDirectory "Scripts\python.exe")
+    )
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate) {
+            return $candidate
+        }
+    }
+
+    throw "Unable to locate a Python executable under '$RootDirectory'."
+}
+
+function New-RuntimeSnapshotArchive {
+    param(
+        [Parameter(Mandatory = $true)][string]$SnapshotRoot,
+        [Parameter(Mandatory = $true)][string]$OutputArchive
+    )
+
+    for ($attempt = 1; $attempt -le 5; $attempt++) {
+        try {
+            if (Test-Path -LiteralPath $OutputArchive) {
+                try {
+                    Remove-Item -LiteralPath $OutputArchive -Force -ErrorAction Stop
+                }
+                catch {
+                    if ($attempt -eq 5) {
+                        throw
+                    }
+
+                    Start-Sleep -Seconds $attempt
+                    continue
+                }
+            }
+
+            Compress-Archive -Path (Join-Path $SnapshotRoot "*") -DestinationPath $OutputArchive -Force -ErrorAction Stop
+            return
+        }
+        catch {
+            if ($attempt -eq 5) {
+                throw
+            }
+
+            Start-Sleep -Seconds $attempt
+        }
+    }
+}
+
+function Install-WheelhouseIntoRuntimeSnapshot {
+    param(
+        [Parameter(Mandatory = $true)][string]$PythonExe,
+        [Parameter(Mandatory = $true)][string]$WheelhouseDir,
+        [Parameter(Mandatory = $true)][string[]]$Packages
+    )
+
+    & $PythonExe -m pip --version *> $null
+    if ($LASTEXITCODE -ne 0) {
+        & $PythonExe -m ensurepip --upgrade
+        if ($LASTEXITCODE -ne 0) {
+            throw "pip could not be bootstrapped inside the runtime snapshot."
+        }
+    }
+
+    $env:PIP_PROGRESS_BAR = "on"
+    $env:PIP_DISABLE_PIP_VERSION_CHECK = "1"
+    $env:PIP_NO_INPUT = "1"
+    $installArgs = @("-m", "pip", "install", "--upgrade", "--only-binary=:all:", "--no-compile", "--no-index", "--no-warn-script-location", "--find-links", $WheelhouseDir)
+    $installArgs += $Packages
+    & $PythonExe @installArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to install packages into the runtime snapshot."
+    }
+}
+
+function Copy-OpenWakeWordFeatureModelsIntoSnapshot {
+    param(
+        [Parameter(Mandatory = $true)][string]$SnapshotRoot,
+        [Parameter(Mandatory = $true)][string]$FeatureModelsSource
+    )
+
+    $resourceDir = Join-Path $SnapshotRoot "Lib\site-packages\openwakeword\resources\models"
+    New-Item -ItemType Directory -Path $resourceDir -Force | Out-Null
+    foreach ($modelName in @("melspectrogram.onnx", "embedding_model.onnx")) {
+        $source = Join-Path $FeatureModelsSource $modelName
+        if (-not (Test-Path -LiteralPath $source)) {
+            throw "Bundled openWakeWord feature model missing: $source"
+        }
+
+        Copy-Item -LiteralPath $source -Destination (Join-Path $resourceDir $modelName) -Force
+    }
+}
+
+function Build-OpenWakeWordRuntimeSnapshot {
+    param(
+        [Parameter(Mandatory = $true)][string]$SourceArchive,
+        [Parameter(Mandatory = $true)][string]$WheelhouseArchive,
+        [Parameter(Mandatory = $true)][string]$FeatureArchive,
+        [Parameter(Mandatory = $true)][string]$SnapshotRoot,
+        [Parameter(Mandatory = $true)][string]$OutputArchive
+    )
+
+    if (Test-Path -LiteralPath $SnapshotRoot) {
+        Remove-Item -LiteralPath $SnapshotRoot -Recurse -Force
+    }
+
+    Expand-ArchiveToDirectory -ArchivePath $SourceArchive -DestinationDirectory $SnapshotRoot
+    $pythonExe = Find-PythonExeInDirectory -RootDirectory $SnapshotRoot
+
+    $wheelhouseTemp = Join-Path $runtimeSnapshotDir "openwakeword-wheelhouse-input"
+    $featureTemp = Join-Path $runtimeSnapshotDir "openwakeword-feature-input"
+    Expand-ArchiveToDirectory -ArchivePath $WheelhouseArchive -DestinationDirectory $wheelhouseTemp
+    Expand-ArchiveToDirectory -ArchivePath $FeatureArchive -DestinationDirectory $featureTemp
+
+    Install-WheelhouseIntoRuntimeSnapshot -PythonExe $pythonExe -WheelhouseDir $wheelhouseTemp -Packages @("openwakeword", "onnxruntime", "numpy")
+    Copy-OpenWakeWordFeatureModelsIntoSnapshot -SnapshotRoot $SnapshotRoot -FeatureModelsSource $featureTemp
+    New-RuntimeSnapshotArchive -SnapshotRoot $SnapshotRoot -OutputArchive $OutputArchive
+
+    Remove-Item -LiteralPath $wheelhouseTemp -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $featureTemp -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+function Build-PyannoteRuntimeSnapshot {
+    param(
+        [Parameter(Mandatory = $true)][string]$SourceArchive,
+        [Parameter(Mandatory = $true)][string]$WheelhouseArchive,
+        [Parameter(Mandatory = $true)][string]$ModelCacheArchive,
+        [Parameter(Mandatory = $true)][string]$SnapshotRoot,
+        [Parameter(Mandatory = $true)][string]$OutputArchive
+    )
+
+    if (Test-Path -LiteralPath $SnapshotRoot) {
+        Remove-Item -LiteralPath $SnapshotRoot -Recurse -Force
+    }
+
+    Expand-ArchiveToDirectory -ArchivePath $SourceArchive -DestinationDirectory $SnapshotRoot
+    $pythonExe = Find-PythonExeInDirectory -RootDirectory $SnapshotRoot
+
+    $wheelhouseTemp = Join-Path $runtimeSnapshotDir "pyannote-wheelhouse-input"
+    $cacheTemp = Join-Path $runtimeSnapshotDir "pyannote-model-cache-input"
+    Expand-ArchiveToDirectory -ArchivePath $WheelhouseArchive -DestinationDirectory $wheelhouseTemp
+    Expand-ArchiveToDirectory -ArchivePath $ModelCacheArchive -DestinationDirectory $cacheTemp
+
+    Install-WheelhouseIntoRuntimeSnapshot -PythonExe $pythonExe -WheelhouseDir $wheelhouseTemp -Packages @("pyannote.audio", "torch", "torchaudio", "numpy", "scipy", "soundfile", "huggingface_hub", "omegaconf")
+
+    $cacheTarget = Join-Path $SnapshotRoot "hub"
+    New-Item -ItemType Directory -Path $cacheTarget -Force | Out-Null
+    Copy-Item -Path (Join-Path $cacheTemp "*") -Destination $cacheTarget -Recurse -Force
+
+    New-RuntimeSnapshotArchive -SnapshotRoot $SnapshotRoot -OutputArchive $OutputArchive
+    Remove-Item -LiteralPath $wheelhouseTemp -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $cacheTemp -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 function Invoke-CachedDotnetPublishStage {
@@ -664,6 +852,61 @@ elseif ($releaseRequiresPrivateVoiceAssets) {
 else {
     Write-Warning "No pyannote model cache found. Identity setup can still download the model online for developer builds after HF_TOKEN is provided."
 }
+
+$openWakeWordRuntimeSourceArchive = $setupPayloadPythonRuntime
+$openWakeWordRuntimeWheelhouseArchive = $setupPayloadOpenWakeWordWheelhouse
+$openWakeWordRuntimeFeatureArchive = $setupPayloadOpenWakeWordResources
+$pyannoteRuntimeSourceArchive = $setupPayloadPythonRuntime
+$pyannoteRuntimeWheelhouseArchive = $setupPayloadPyannoteWheelhouse
+
+if ((Test-Path -LiteralPath $openWakeWordRuntimeSourceArchive) -and
+    (Test-Path -LiteralPath $openWakeWordRuntimeWheelhouseArchive) -and
+    (Test-Path -LiteralPath $openWakeWordRuntimeFeatureArchive)) {
+    $openWakeWordRuntimeInputs = Get-PathsFingerprint -Paths @($openWakeWordRuntimeSourceArchive, $openWakeWordRuntimeWheelhouseArchive, $openWakeWordRuntimeFeatureArchive) -ExcludePatterns @()
+    Invoke-CachedStage -StageName "openwakeword-runtime" `
+        -GetInputs { $openWakeWordRuntimeInputs } `
+        -Build {
+            Build-OpenWakeWordRuntimeSnapshot `
+                -SourceArchive $openWakeWordRuntimeSourceArchive `
+                -WheelhouseArchive $openWakeWordRuntimeWheelhouseArchive `
+                -FeatureArchive $openWakeWordRuntimeFeatureArchive `
+                -SnapshotRoot $openWakeWordRuntimeSnapshotDir `
+                -OutputArchive $setupPayloadOpenWakeWordRuntime
+        } `
+        -Outputs @($setupPayloadOpenWakeWordRuntime) `
+        -Force:$ForceRepackVoiceAssets | Out-Null
+}
+elseif ($releaseRequiresPrivateVoiceAssets) {
+    throw "Release installer requires a prebuilt openWakeWord runtime snapshot. Ensure python-runtime-win-x64.zip, openwakeword-wheelhouse.zip, and openwakeword-resources.zip can be staged."
+}
+else {
+    Write-Warning "No openWakeWord runtime snapshot could be built; the installer will keep the legacy repair flow for developer builds."
+}
+
+if ((Test-Path -LiteralPath $pyannoteRuntimeSourceArchive) -and
+    (Test-Path -LiteralPath $pyannoteRuntimeWheelhouseArchive) -and
+    (Test-Path -LiteralPath $setupPayloadPyannoteModelCache)) {
+    $pyannoteRuntimeInputs = Get-PathsFingerprint -Paths @($pyannoteRuntimeSourceArchive, $pyannoteRuntimeWheelhouseArchive, $setupPayloadPyannoteModelCache) -ExcludePatterns @()
+    Invoke-CachedStage -StageName "pyannote-runtime" `
+        -GetInputs { $pyannoteRuntimeInputs } `
+        -Build {
+            Build-PyannoteRuntimeSnapshot `
+                -SourceArchive $pyannoteRuntimeSourceArchive `
+                -WheelhouseArchive $pyannoteRuntimeWheelhouseArchive `
+                -ModelCacheArchive $setupPayloadPyannoteModelCache `
+                -SnapshotRoot $pyannoteRuntimeSnapshotDir `
+                -OutputArchive $setupPayloadPyannoteRuntime
+        } `
+        -Outputs @($setupPayloadPyannoteRuntime) `
+        -Force:$ForceRepackVoiceAssets | Out-Null
+}
+elseif ($releaseRequiresPrivateVoiceAssets) {
+    throw "Release installer requires a prebuilt pyannote runtime snapshot. Ensure python-runtime-win-x64.zip, pyannote-wheelhouse.zip, and pyannote-model-cache.zip can be staged."
+}
+else {
+    Write-Warning "No pyannote runtime snapshot could be built; the installer will keep the legacy repair flow for developer builds."
+}
+
 $fzfPrebuilt = $fzfPrebuiltCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 $goCommand = Get-Command go -ErrorAction SilentlyContinue
 if ((Test-Path -LiteralPath $fzfRepoDir) -and $goCommand) {
@@ -781,6 +1024,9 @@ if (Test-Path -LiteralPath $setupPayloadPyannoteSource) {
 if (Test-Path -LiteralPath $setupPayloadOpenWakeWordResources) {
     Invoke-CachedFileCopyStage -StageName "publish-openwakeword-resources" -Source $setupPayloadOpenWakeWordResources -Destination (Join-Path $publishDir "openwakeword-resources.zip") -Force:$Clean | Out-Null
 }
+if (Test-Path -LiteralPath $setupPayloadOpenWakeWordRuntime) {
+    Invoke-CachedFileCopyStage -StageName "publish-openwakeword-runtime" -Source $setupPayloadOpenWakeWordRuntime -Destination (Join-Path $publishDir "openwakeword-runtime.zip") -Force:$Clean | Out-Null
+}
 if (Test-Path -LiteralPath $setupPayloadPythonRuntime) {
     Invoke-CachedFileCopyStage -StageName "publish-python-runtime" -Source $setupPayloadPythonRuntime -Destination (Join-Path $publishDir "python-runtime-win-x64.zip") -Force:$Clean | Out-Null
 }
@@ -789,6 +1035,9 @@ if (Test-Path -LiteralPath $setupPayloadOpenWakeWordWheelhouse) {
 }
 if (Test-Path -LiteralPath $setupPayloadPyannoteWheelhouse) {
     Invoke-CachedFileCopyStage -StageName "publish-pyannote-wheelhouse" -Source $setupPayloadPyannoteWheelhouse -Destination (Join-Path $publishDir "pyannote-wheelhouse.zip") -Force:$Clean | Out-Null
+}
+if (Test-Path -LiteralPath $setupPayloadPyannoteRuntime) {
+    Invoke-CachedFileCopyStage -StageName "publish-pyannote-runtime" -Source $setupPayloadPyannoteRuntime -Destination (Join-Path $publishDir "pyannote-runtime.zip") -Force:$Clean | Out-Null
 }
 if (Test-Path -LiteralPath $setupPayloadPyannoteModelCache) {
     Invoke-CachedFileCopyStage -StageName "publish-pyannote-model-cache" -Source $setupPayloadPyannoteModelCache -Destination (Join-Path $publishDir "pyannote-model-cache.zip") -Force:$Clean | Out-Null
@@ -895,9 +1144,11 @@ else {
     if ($releaseRequiresPrivateVoiceAssets) {
         Require-BuildPayload -Path $setupPayloadPythonRuntime -Description "bundled CPython runtime"
         Require-BuildPayload -Path $setupPayloadOpenWakeWordWheelhouse -Description "openWakeWord wheelhouse"
+        Require-BuildPayload -Path $setupPayloadOpenWakeWordRuntime -Description "openWakeWord runtime snapshot"
         Require-BuildPayload -Path $setupPayloadWakeModel -Description "openWakeWord Callsign model"
         Require-BuildPayload -Path $setupPayloadOpenWakeWordResources -Description "openWakeWord feature resources"
         Require-BuildPayload -Path $setupPayloadPyannoteWheelhouse -Description "pyannote Python wheelhouse"
+        Require-BuildPayload -Path $setupPayloadPyannoteRuntime -Description "pyannote runtime snapshot"
         Require-BuildPayload -Path $setupPayloadPyannoteModelCache -Description "pyannote model cache"
     }
     $payloadManifestPath = Join-Path $buildDir "alpha-installer-payload.json"
@@ -909,11 +1160,13 @@ else {
         Get-BuildPayloadReport -Path $setupPayloadOpenWakeWordSetup -Description "openWakeWord setup helper"
         Get-BuildPayloadReport -Path $setupPayloadOpenWakeWordTest -Description "openWakeWord test helper"
         Get-BuildPayloadReport -Path $setupPayloadOpenWakeWordResources -Description "openWakeWord feature resources"
+        Get-BuildPayloadReport -Path $setupPayloadOpenWakeWordRuntime -Description "openWakeWord runtime snapshot"
         Get-BuildPayloadReport -Path $setupPayloadPythonRuntime -Description "bundled CPython runtime"
         Get-BuildPayloadReport -Path $setupPayloadOpenWakeWordWheelhouse -Description "openWakeWord wheelhouse"
         Get-BuildPayloadReport -Path $setupPayloadPyannoteSetup -Description "pyannote setup helper"
         Get-BuildPayloadReport -Path $setupPayloadPyannoteTest -Description "pyannote test helper"
         Get-BuildPayloadReport -Path $setupPayloadPyannoteWheelhouse -Description "optional pyannote Python wheelhouse"
+        Get-BuildPayloadReport -Path $setupPayloadPyannoteRuntime -Description "pyannote runtime snapshot"
         Get-BuildPayloadReport -Path $setupPayloadPyannoteModelCache -Description "pyannote model cache"
         Get-BuildPayloadReport -Path $setupPayloadPyannoteSource -Description "pyannote.audio source tarball"
         Get-BuildPayloadReport -Path $setupPayloadWakeModel -Description "optional openWakeWord Callsign model"

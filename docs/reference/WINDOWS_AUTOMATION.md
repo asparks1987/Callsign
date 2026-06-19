@@ -1,4 +1,4 @@
-﻿# Windows Automation Strategy
+# Windows Automation Strategy
 
 ## Goal
 
@@ -25,35 +25,14 @@ Callsign should not hide the fact that it is interacting with the desktop.
 
 - Use the Start menu search experience for app launching.
 - Open common shell destinations such as Settings, File Explorer, This PC, Recycle Bin, and user folders through visible shell-backed launches.
-- Keep the app launch target obvious in the UI/service status.
+- Keep the app launch target obvious in the UI and service status.
 - Keep the user able to cancel or reset the session.
 - Avoid arbitrary shell execution.
 - Reject paths, URLs, shell text, secrets, and non-launch automation.
 
-## v1.3 system control strategy
+## Future automation
 
-Richer desktop automation belongs in `v1.3 alpha`. It comes after the first launch release, dictation, and browser control are reliable.
-
-Future layers may include:
-
-- UI automation for app controls.
-- Safe text entry helpers.
-- Safe system actions such as volume up, volume down, mute, and show desktop.
-- WSL/Linux workflow commands.
-- File and folder search.
-- More precise app adapters.
-
-## File search in v1.3
-
-File search is part of system control because it reveals local filesystem context.
-
-Required behavior:
-
-- Search approved local scopes only.
-- Prefer packaged `fzf.exe` for ranked filename/folder matching, with a visible built-in fallback warning if fzf is unavailable.
-- Show matching results visibly.
-- Open selected or best-match results through Windows Explorer.
-- Do not read, upload, summarize, modify, delete, or submit file contents without a later explicit feature and policy approval.
+Browser control, dictation helpers, system control, and file search are future work and should not be treated as current alpha scope.
 
 ## Safety rules
 

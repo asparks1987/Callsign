@@ -147,14 +147,18 @@ internal sealed class InstallerWorkflow
         var fzfExe = Path.Combine(_installDir, "fzf.exe");
         var iconPath = Path.Combine(_installDir, "callsign.ico");
         var pythonRuntimeDir = Path.Combine(_installRoot, "Runtime", "python310");
+        var openWakeWordRuntimeDir = Path.Combine(_installRoot, "Runtime", "openwakeword");
+        var pyannoteRuntimeDir = Path.Combine(_installRoot, "Runtime", "pyannote");
         var openWakeWordSetupScript = Path.Combine(_installDir, "setupopenwakeword.ps1");
         var openWakeWordTestScript = Path.Combine(_installDir, "testopenwakeword.ps1");
         var openWakeWordResourcesDir = Path.Combine(_installDir, "openwakeword-resources");
         var openWakeWordWheelhouseDir = Path.Combine(_installDir, "openwakeword-wheelhouse");
+        var openWakeWordRuntimeZip = Path.Combine(_installDir, "openwakeword-runtime.zip");
         var pyannoteSetupScript = Path.Combine(_installDir, "setuppyannote.ps1");
         var pyannoteTestScript = Path.Combine(_installDir, "testpyannote.ps1");
         var pyannoteWheelhouseDir = Path.Combine(_installDir, "pyannote-wheelhouse");
-        var pyannoteModelCacheDir = Path.Combine(_installRoot, "Runtime", "pyannote", "hub");
+        var pyannoteModelCacheDir = Path.Combine(pyannoteRuntimeDir, "hub");
+        var pyannoteRuntimeZip = Path.Combine(_installDir, "pyannote-runtime.zip");
         var pyannoteAudioTarball = Path.Combine(_installDir, "pyannote_audio-4.0.4.tar.gz");
         var thirdPartySources = Path.Combine(_installDir, "THIRD_PARTY_SOURCES.md");
         var callsignWakeModel = Path.Combine(_modelDir, "callsign.onnx");
@@ -168,10 +172,12 @@ internal sealed class InstallerWorkflow
         TryExtractResource("testopenwakeword.ps1", openWakeWordTestScript, progress, 38, "Installed openWakeWord test helper", cancellationToken, "testopenwakeword.manifest.json");
         TryExtractEmbeddedZip("openwakeword-resources.zip", openWakeWordResourcesDir, progress, 40, "openWakeWord feature resources extracted.", cancellationToken, "openwakeword-resources.manifest.json", new[] { "melspectrogram.onnx", "embedding_model.onnx" });
         TryExtractEmbeddedZip("openwakeword-wheelhouse.zip", openWakeWordWheelhouseDir, progress, 42, "openWakeWord wheelhouse extracted.", cancellationToken, "openwakeword-wheelhouse.manifest.json", new[] { "openwakeword*.whl", "onnxruntime*.whl", "numpy*.whl" });
+        TryExtractEmbeddedZip("openwakeword-runtime.zip", openWakeWordRuntimeDir, progress, 44, "openWakeWord runtime snapshot extracted.", cancellationToken, "openwakeword-runtime.manifest.json", new[] { "python.exe", "Lib\\site-packages\\openwakeword", "Lib\\site-packages\\onnxruntime" });
         TryExtractResource("setuppyannote.ps1", pyannoteSetupScript, progress, 44, "Installed pyannote setup helper", cancellationToken, "setuppyannote.manifest.json");
         TryExtractResource("testpyannote.ps1", pyannoteTestScript, progress, 46, "Installed pyannote test helper", cancellationToken, "testpyannote.manifest.json");
         TryExtractEmbeddedZip("pyannote-wheelhouse.zip", pyannoteWheelhouseDir, progress, 52, "pyannote wheelhouse extracted.", cancellationToken, "pyannote-wheelhouse.manifest.json", new[] { "pyannote_audio*.whl", "torch*.whl", "torchaudio*.whl", "numpy*.whl", "scipy*.whl", "soundfile*.whl", "huggingface_hub*.whl", "omegaconf*.whl" });
         TryExtractEmbeddedZip("pyannote-model-cache.zip", pyannoteModelCacheDir, progress, 54, "pyannote model cache extracted.", cancellationToken, "pyannote-model-cache.manifest.json", new[] { "models--pyannote--embedding", "config.yaml", "pytorch_model.bin", "model.safetensors" });
+        TryExtractEmbeddedZip("pyannote-runtime.zip", pyannoteRuntimeDir, progress, 56, "pyannote runtime snapshot extracted.", cancellationToken, "pyannote-runtime.manifest.json", new[] { "python.exe", "Lib\\site-packages\\pyannote", "hub" });
         TryExtractResource("pyannote_audio-4.0.4.tar.gz", pyannoteAudioTarball, progress, 56, "Installed pyannote.audio source tarball", cancellationToken, "pyannote_audio-4.0.4.manifest.json");
         TryExtractResource("THIRD_PARTY_SOURCES.md", thirdPartySources, progress, 58, "Installed third-party source notice", cancellationToken, "THIRD_PARTY_SOURCES.manifest.json");
         TryExtractResource("callsign.onnx", callsignWakeModel, progress, 60, "Installed openWakeWord Callsign model", cancellationToken, "callsign.onnx.manifest.json");
@@ -214,8 +220,8 @@ internal sealed class InstallerWorkflow
             serviceInstalled = InstallService(serviceExe, progress, cancellationToken);
         }
 
-        RunOpenWakeWordSetup(openWakeWordSetupScript, progress, cancellationToken);
-        RunPyannoteSetup(pyannoteSetupScript, progress, cancellationToken);
+        VerifyRuntimeSnapshot(Path.Combine(openWakeWordRuntimeDir, "python.exe"), "import openwakeword, onnxruntime, numpy", progress, 86, "Verifying openWakeWord runtime", cancellationToken);
+        VerifyRuntimeSnapshot(Path.Combine(pyannoteRuntimeDir, "python.exe"), "import pyannote.audio, torch, torchaudio, numpy, scipy, soundfile, huggingface_hub, omegaconf", progress, 90, "Verifying pyannote runtime", cancellationToken, new[] { "-W", "ignore" });
         StartUserRuntime(serviceExe, _installDir, serviceInstalled, progress, cancellationToken);
 
         progress.Report(new InstallerProgressEvent(100, action == InstallerAction.Install ? "Install complete" : "Repair complete", "Callsign is installed and ready."));
@@ -548,6 +554,52 @@ internal sealed class InstallerWorkflow
 
         process.WaitForExit();
         return process.ExitCode;
+    }
+
+    private void VerifyRuntimeSnapshot(string pythonExe, string importStatement, IProgress<InstallerProgressEvent> progress, int percent, string stage, CancellationToken cancellationToken, string[]? pythonArguments = null)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!File.Exists(pythonExe))
+            throw new FileNotFoundException($"Bundled runtime python.exe was not found at '{pythonExe}'.", pythonExe);
+
+        var arguments = new List<string>();
+        if (pythonArguments is { Length: > 0 })
+            arguments.AddRange(pythonArguments);
+        arguments.Add("-c");
+        arguments.Add(importStatement);
+
+        var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = pythonExe,
+                WorkingDirectory = Path.GetDirectoryName(pythonExe) ?? Environment.CurrentDirectory,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            }
+        };
+
+        foreach (var argument in arguments)
+        {
+            process.StartInfo.ArgumentList.Add(argument);
+        }
+
+        Report(progress, percent, stage, $"Verifying {Path.GetFileName(pythonExe)} imports.");
+        if (!process.Start())
+            throw new InvalidOperationException($"Unable to start verification for '{pythonExe}'.");
+
+        if (!process.WaitForExit(60000))
+        {
+            TryKillProcessTree(process);
+            throw new TimeoutException($"{stage} timed out while verifying '{pythonExe}'.");
+        }
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException($"{stage} failed with exit code {process.ExitCode}.");
+
+        Report(progress, percent + 1, stage, $"{stage} completed successfully.");
     }
 
     private static void TryKillProcessTree(Process process)

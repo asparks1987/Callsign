@@ -18,10 +18,12 @@
     <EmbeddedResource Include="Payload\setupopenwakeword.ps1" LogicalName="setupopenwakeword.ps1" Condition="Exists('Payload\setupopenwakeword.ps1')" />
     <EmbeddedResource Include="Payload\testopenwakeword.ps1" LogicalName="testopenwakeword.ps1" Condition="Exists('Payload\testopenwakeword.ps1')" />
     <EmbeddedResource Include="Payload\openwakeword-resources.zip" LogicalName="openwakeword-resources.zip" Condition="Exists('Payload\openwakeword-resources.zip')" />
+    <EmbeddedResource Include="Payload\openwakeword-runtime.zip" LogicalName="openwakeword-runtime.zip" Condition="Exists('Payload\openwakeword-runtime.zip')" />
     <EmbeddedResource Include="Payload\python-runtime-win-x64.zip" LogicalName="python-runtime-win-x64.zip" Condition="Exists('Payload\python-runtime-win-x64.zip')" />
     <EmbeddedResource Include="Payload\openwakeword-wheelhouse.zip" LogicalName="openwakeword-wheelhouse.zip" Condition="Exists('Payload\openwakeword-wheelhouse.zip')" />
     <EmbeddedResource Include="Payload\setuppyannote.ps1" LogicalName="setuppyannote.ps1" Condition="Exists('Payload\setuppyannote.ps1')" />
     <EmbeddedResource Include="Payload\testpyannote.ps1" LogicalName="testpyannote.ps1" Condition="Exists('Payload\testpyannote.ps1')" />
+    <EmbeddedResource Include="Payload\pyannote-runtime.zip" LogicalName="pyannote-runtime.zip" Condition="Exists('Payload\pyannote-runtime.zip')" />
     <EmbeddedResource Include="Payload\pyannote-wheelhouse.zip" LogicalName="pyannote-wheelhouse.zip" Condition="Exists('Payload\pyannote-wheelhouse.zip')" />
     <EmbeddedResource Include="Payload\pyannote-model-cache.zip" LogicalName="pyannote-model-cache.zip" Condition="Exists('Payload\pyannote-model-cache.zip')" />
     <EmbeddedResource Include="Payload\pyannote_audio-4.0.4.tar.gz" LogicalName="pyannote_audio-4.0.4.tar.gz" Condition="Exists('Payload\pyannote_audio-4.0.4.tar.gz')" />

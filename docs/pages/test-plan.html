@@ -51,16 +51,9 @@
 <p>Default smoke command:</p>
 <pre><code class="language-powershell">dotnet run --project tests/Callsign.AlphaSmoke/Callsign.AlphaSmoke.csproj</code></pre>
 <p>Required checks:</p>
-<ul><li>fresh install and service start</li><li>wake-only speech does not launch</li><li>wake word detection and identity gate works for <code>Callsign</code> / <code>call sign</code></li><li><code>callsign.gif</code> appears and session readout updates while active</li><li>identity success and mismatch handling</li><li>visible Start menu launch path</li><li>safe stop/cancel/timeout/lockout handling</li><li>runtime snapshot includes session state, transcript, overlay readout, and microphone telemetry</li></ul>
+<ul><li>fresh install and service start</li><li>wake-only speech does not launch</li><li>wake word detection and identity gate works for <code>Callsign</code> / <code>call sign</code></li><li><code>callsign.gif</code> appears and session readout updates while active</li><li>identity success and mismatch handling</li><li>visible Start menu launch path</li><li>safe stop, cancel, timeout, and lockout handling</li><li>runtime snapshot includes session state, transcript, overlay readout, and microphone telemetry</li></ul>
 <h2>Manual Alpha v1 smoke walkthrough</h2>
 <p>1. Build and install from clean state. 2. Create profile and train identity. 3. Speak wake phrase and confirm overlay + live text. 4. Speak callsign. 5. Speak launch command. 6. Confirm Start menu action is visible. 7. Validate wrong identity and no-mic cases do not launch.</p>
-<h2>Follow-up alpha checks</h2>
-<h3>v1.1</h3>
-<ul><li>dictation review path</li><li>clear stop/abort behavior</li></ul>
-<h3>v1.2</h3>
-<ul><li>visible browser control</li><li>external action boundaries</li></ul>
-<h3>v1.3</h3>
-<ul><li>system control by explicit voice commands</li><li>file search results open in Explorer</li></ul>
 <h2>Release gate</h2>
 <p>No <code>v1.0 alpha</code> release until:</p>
 <ul><li>build site and installer are reproducible</li><li>service/session fields are readable in runtime state</li><li>overlay is visible at wake and hidden in terminal states</li><li>identity failures remain safe and visible</li></ul>

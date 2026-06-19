@@ -47,40 +47,31 @@
 <h2>Product name</h2>
 <p>Callsign</p>
 <h2>One-line description</h2>
-<p>Callsign is an open-source, service-first voice-control layer for Windows voice workflows: say <code>Callsign</code>, verify the caller, then execute visible desktop actions.</p>
+<p>Callsign is an open-source, service-first voice assistant for Windows voice workflows: say <code>Callsign</code>, verify the caller, then execute visible desktop actions.</p>
 <h2>Mission</h2>
 <p>Be the practical Windows Voice Access-level control layer with:</p>
 <ul><li>Apple-level usability polish</li><li>Strong identity safety</li><li>Visible overlay and command feedback</li><li>Open-source core for trust and inspectability</li></ul>
-<p>The open-source Free tier is the public product. It should be the piece that most directly rivals built-in Windows voice controls for day-to-day use. Pro and Advanced are the paid expansion tiers that let Callsign keep growing without turning the core into a paywalled toy.</p>
+<p>The open-source Free tier is the public product. It should be the piece that most directly rivals built-in Windows voice controls for day-to-day use.</p>
+<p>Later paid tiers are not part of the current alpha scope and should not change the public promise today.</p>
 <h2>Canon flow</h2>
 <pre><code class="language-text">Callsign -&gt; identity verification -&gt; command -&gt; visible action</code></pre>
 <p>Transcript text alone must never bypass wake and identity gate.</p>
 <h2>Alpha v1 release line</h2>
 <p>All Alpha v1 capabilities are free and remain free until at least beta.</p>
 <p>The open-source Free tier is the public face of Callsign and should be the part users compare to Windows Voice Access first. It is the layer that should be polished, approachable, and good enough for real work on its own.</p>
-<p>Pro and Advanced should be treated as paid growth tiers:</p>
-<ul><li>Pro extends the platform into deeper Windows, WSL, and Linux control.</li><li>Advanced stays flexible for rapidly added power-user commands, recipes, and specialized workflows.</li></ul>
 <p>The Alpha v1 line remains service-first and visible:</p>
-<table><thead><tr><th>Release</th><th>Scope</th></tr></thead><tbody><tr><td>v1.0 alpha</td><td>Service wake, callsign verification, overlay + live readout, and visible Start menu app launch.</td></tr><tr><td>v1.1 alpha</td><td>Dictation with visible review and explicit insertion/copy controls.</td></tr><tr><td>v1.2 alpha</td><td>Browser open/search/navigation with safe external boundaries.</td></tr><tr><td>v1.3 alpha</td><td>Windows, WSL, and Linux system workflows; file search opened through Explorer.</td></tr><tr><td>Beta or later</td><td>Paid packaging and continuously expanding Pro/Advanced feature growth.</td></tr></tbody></table>
+<table><thead><tr><th>Release</th><th>Scope</th></tr></thead><tbody><tr><td>v1.0 alpha</td><td>Service wake, callsign verification, overlay + live readout, and visible Start menu app launch.</td></tr></tbody></table>
+<p>Everything beyond v1.0 stays in future planning until the current scope is complete and stable.</p>
 <h2>v1.0 alpha interaction</h2>
 <p>The v1.0 alpha MVP is intentionally narrow:</p>
 <p>1. User creates account and callsign. 2. User records and reviews samples. 3. User activates voice identity. 4. Service runs as background listener. 5. User says <code>Callsign</code> or <code>call sign</code>. 6. <code>callsign.gif</code> overlay appears above other windows. 7. Overlay shows live readout of wake, identity, command, and launch phases. 8. User says enrolled callsign. 9. Identity verification succeeds. 10. User says install command (app launch intent). 11. App launches through visible Start menu flow. 12. Session exits safely or returns on cancel/timeout/lockout.</p>
 <h2>v1.0 scope rules</h2>
 <ul><li>Open-source source and local profile storage for identity state.</li><li>Wake is detected by openWakeWord (audio path) and never transcript-only text.</li><li>Identity must pass before command capture.</li><li>Command scope stays to app launch targets that are clearly installed app names.</li><li>No arbitrary shell execution in alpha.</li><li>Startup/installer/service/smoke behavior remains part of v1.0 pass criteria.</li></ul>
-<h2>Follow-up alpha releases</h2>
-<h3>v1.1 dictation</h3>
-<p>Visible dictated text first, with explicit user confirmation before insertion or copy.</p>
-<h3>v1.2 browser control</h3>
-<p>Open a browser target, search web content, and navigate visible pages. Submission actions remain constrained in alpha policy.</p>
-<h3>v1.3 system control and file search</h3>
-<p>Safe Windows/WSL/Linux control and Explorer-based file search results. File search is visible and action-transparent; no content reading/uploading by default.</p>
 <h2>Pricing canon during alpha</h2>
-<ul><li>All Alpha v1 features are free.</li><li>No alpha feature is retroactively paywalled.</li><li>Beta or later may split Free/Pro/Advanced packaging.</li><li>The paid tiers should be designed so new commands and capabilities can be added continuously as the product evolves.</li></ul>
+<ul><li>All Alpha v1 features are free.</li><li>No alpha feature is retroactively paywalled.</li><li>Future packaging may change later.</li><li>The current scope should not shape the v1.0 public promise.</li></ul>
 <h2>Tier and upgrade architecture</h2>
-<p>The tier source of truth is <code>docs/reference/TIER_ARCHITECTURE.md</code>.</p>
-<p>The product is split by capability layer:</p>
-<ul><li>Free is the MIT-licensed open-source parity layer for everyday Windows voice control.</li><li>Pro is the paid upgrade layer for deeper Windows, WSL, Linux, browser, workflow, and system control.</li><li>Advanced is the paid specialist layer for the fastest-moving command library, recipes, diagnostics, and power-user packs.</li></ul>
-<p>The app should install Free first, prove the user can create a profile and run visible commands, then offer an in-app Pro upgrade that loads signed private command packs. Free must not require private code, and Pro entitlement must not bypass policy.</p>
+<p>The current product is the Free tier. The app should install Free first, prove the user can create a profile and run visible commands, and keep the public repo focused on that experience.</p>
+<p>Future tier planning lives in <code>docs/reference/TIER_ARCHITECTURE.md</code>, but it is not part of the v1.0 delivery scope.</p>
 <h2>Non-goals for v1.0 alpha</h2>
 <ul><li>Full command parity in one release.</li><li>Silent command execution.</li><li>Hidden background automation.</li><li>Closed-source logic in the open-source core.</li></ul>
     </article>

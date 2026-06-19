@@ -1,8 +1,9 @@
-﻿# Voice UX
+# Voice UX
 
 ## Goal
 
-Callsign should feel calm, premium, direct, and visible. The v1.0 alpha voice experience is deliberately narrow:
+Callsign should feel calm, premium, direct, and visible.
+The v1.0 alpha voice experience is deliberately narrow:
 
 1. Say `Callsign` or `call sign`.
 2. See `callsign.gif` appear above the desktop.
@@ -13,9 +14,8 @@ Callsign should feel calm, premium, direct, and visible. The v1.0 alpha voice ex
 
 All Alpha v1 features are free and remain free until at least beta.
 
-The Free tier is the part that should most closely reach parity with built-in Windows voice tools while feeling better organized, more visible, and more trustworthy.
-It is the public open-source core.
-Pro and Advanced should be framed as the paid expansion path where new commands and workflows can keep arriving through signed command packs.
+The Free tier is the public open-source core.
+It is the part that should most closely reach parity with built-in Windows voice tools while feeling better organized, more visible, and more trustworthy.
 
 The tier architecture and upgrade model are defined in `TIER_ARCHITECTURE.md`.
 
@@ -30,24 +30,22 @@ Examples:
 - `Callsign`
 - `Call sign`
 
-Transcription mistakes such as `paul sign` or `wall sign` can be shown as diagnostics after audio capture, but they do not wake the service by themselves.
+Transcription mistakes can be shown as diagnostics after audio capture, but they do not wake the service by themselves.
 
 ### Overlay mode
 
 When wake is detected, Callsign shows the animated overlay and readout.
-If speech is currently arriving but no final transcript has landed yet, the overlay should show an animated live hearing cue such as `Hearing your callsign...` or `Hearing your command...` instead of staying blank.
-While that hearing cue is active, the overlay should also have a subtle pulse or glow so the user can see that Callsign is actively listening, a small live badge such as `LIVE` should switch on so the state is obvious at a glance, and a compact mic activity meter should reflect incoming audio instead of leaving the user guessing whether the microphone is alive.
-The overlay should also show a compact caption strip for the last heard transcript beneath the readout, with confidence when available. After a command completes, the overlay may also append the most recent system action so the user can see what actually ran without leaving the voice session.
-The overlay should also show an authority line that makes it obvious whether the authoritative user runtime is hearing audio or whether the app is only in preview/listener mode.
-When wake detection is uncertain, the overlay should also show a wake-candidate line with score and threshold when available, so the user can tell whether Callsign heard speech but did not clear wake.
+If speech is currently arriving but no final transcript has landed yet, the overlay should show a live hearing cue such as `Hearing your callsign...` or `Hearing your command...` instead of staying blank.
+The overlay should also keep a subtle pulse or glow while audio is active, show a compact `LIVE` badge, and mirror the current runtime state so the user can see that Callsign is actively listening.
 
-It should also show a compact recent speech history beneath that caption, and the Session tab should keep the same recent history plus a dedicated speech cue line that mirrors whether Callsign is hearing speech or waiting for the next turn, and shows transcript confidence when a transcript is present, so the user can review what Callsign heard without hunting through logs. The Session tab should also keep a live `Last heard` row and command row synchronized with the runtime snapshot, and the visible-controls overlay should follow the same fresh runtime cue when the service is active.
-The Session tab should also show the same wake-candidate line so wake misses are visible in both the live overlay and the control surface.
+The overlay must show:
 
-The Dictation tab should mirror that same speech cue pattern so the user can see when dictation is hearing speech versus waiting for the next turn, without making them look at the Session tab to know what is happening.
-The Browser tab should also mirror the live voice cue and last-heard row so browser control feels like part of the same visible voice session, not a separate silent panel. The System tab should also show which action is selected and the last action that actually ran so the user can see the current system target before it runs and confirm what finished. The System and Files tabs should stay equally live and visible while Callsign is listening. The Files tab should also show the selected result immediately so the user can see which file or folder is ready to open in Explorer.
-
-The visible-controls overlay should also include the live voice cue line so numbered targets and active listening state stay visible together when the user is navigating by voice.
+- the wake phase
+- the identity phase
+- the command phase
+- the last heard transcript when available
+- the current launch or stop result
+- an authority line that makes it obvious whether the runtime is hearing audio or only previewing
 
 Required readout examples:
 
@@ -57,7 +55,6 @@ Required readout examples:
 - `Hearing your command...`
 - `Command: open Notepad`
 - `Launching Notepad...`
-- `Wake candidate: heard 'call sign' (23% / 35%) but it stayed below threshold.`
 
 The overlay must never steal focus, block input, or prevent the user from stopping the session.
 
@@ -73,11 +70,6 @@ Examples:
 - `click display name`
 - `click repair wakeword`
 - `click train voice identity`
-- `click browser target`
-- `click browser back`
-- `click search results`
-- `click system volume up`
-- `click volume up`
 - `show numbers`
 - `show visible controls`
 - `hide visible controls`
@@ -85,10 +77,7 @@ Examples:
 - `click 2`
 - `click 3`
 
-This is part of the broader Windows Voice Access parity target: the user should be able to name the thing they can see and have Callsign move to it or activate it visibly.
-The overlay should follow focus as the user navigates so the highlighted number stays in sync with the active control.
-The visible-controls overlay should also name the currently focused control at the top so the user can hear and see which target is active.
-The visible-controls overlay should keep the same live voice cue language used by the Session tab so the user can tell at a glance that Callsign is still listening while they choose a target.
+This is part of the current Windows voice-control parity target: the user should be able to name the thing they can see and have Callsign move to it or activate it visibly.
 
 ### Identity mode
 
@@ -117,15 +106,6 @@ Examples:
 - `open Documents`
 
 For `v1.0 alpha`, Start menu app launch is the only required voice action.
-
-## Follow-up voice modes
-
-- `v1.1 alpha`: dictation mode for visible text capture, with safe text actions like copy, paste, cut, undo, redo, go to start, go to end, go to line start, go to line end, go to paragraph start, go to paragraph end, select to start, select to end, select to line start, select to line end, select to paragraph start, select to paragraph end, delete to start, delete to end, delete to line start, delete to line end, delete to paragraph start, delete to paragraph end, select previous word, select next word, select previous sentence, select next sentence, delete previous word, delete previous sentence, replace previous word, replace previous sentence, replace previous paragraph, replace all, new line, new paragraph, delete word, punctuation, clear, and select-all.
-- `v1.2 alpha`: browser control mode for visible navigation and search, including back, forward, refresh, new tab, close tab, focus address bar, find in page, find next, find previous, zoom in, zoom out, zoom reset, scroll up, scroll down, scroll to top, scroll to bottom, and visible URL/search entry.
-- `v1.3 alpha`: system control mode, including safe desktop controls such as volume up, volume down, mute, show desktop, and file search results opened through Windows Explorer.
-
-The full Alpha v1 line is the path to Windows Voice Access parity.
-The Free tier should be the public proof that Callsign can match and often beat the built-in Windows voice experience on everyday control.
 
 ## Recovery mode
 
@@ -176,3 +156,8 @@ Required behavior:
 - Show live text readout while the user is speaking.
 - Show a short recent speech history in the Session tab.
 - Allow voice enrollment to be retried.
+
+## Future voice modes
+
+Dictation, browser control, and system control are future work and should stay out of the current v1.0 promise.
+

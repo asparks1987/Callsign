@@ -6,7 +6,7 @@ Callsign
 
 ## One-line description
 
-Callsign is an open-source, service-first voice-control layer for Windows voice workflows: say `Callsign`, verify the caller, then execute visible desktop actions.
+Callsign is an open-source, service-first voice assistant for Windows voice workflows: say `Callsign`, verify the caller, then execute visible desktop actions.
 
 ## Mission
 
@@ -19,7 +19,8 @@ Be the practical Windows Voice Access-level control layer with:
 
 The open-source Free tier is the public product.
 It should be the piece that most directly rivals built-in Windows voice controls for day-to-day use.
-Pro and Advanced are the paid expansion tiers that let Callsign keep growing without turning the core into a paywalled toy.
+
+Later paid tiers are not part of the current alpha scope and should not change the public promise today.
 
 ## Canon flow
 
@@ -36,20 +37,13 @@ All Alpha v1 capabilities are free and remain free until at least beta.
 The open-source Free tier is the public face of Callsign and should be the part users compare to Windows Voice Access first.
 It is the layer that should be polished, approachable, and good enough for real work on its own.
 
-Pro and Advanced should be treated as paid growth tiers:
-
-- Pro extends the platform into deeper Windows, WSL, and Linux control.
-- Advanced stays flexible for rapidly added power-user commands, recipes, and specialized workflows.
-
 The Alpha v1 line remains service-first and visible:
 
 | Release | Scope |
 |---|---|
 | v1.0 alpha | Service wake, callsign verification, overlay + live readout, and visible Start menu app launch. |
-| v1.1 alpha | Dictation with visible review and explicit insertion/copy controls. |
-| v1.2 alpha | Browser open/search/navigation with safe external boundaries. |
-| v1.3 alpha | Windows, WSL, and Linux system workflows; file search opened through Explorer. |
-| Beta or later | Paid packaging and continuously expanding Pro/Advanced feature growth. |
+
+Everything beyond v1.0 stays in future planning until the current scope is complete and stable.
 
 ## v1.0 alpha interaction
 
@@ -77,40 +71,19 @@ The v1.0 alpha MVP is intentionally narrow:
 - No arbitrary shell execution in alpha.
 - Startup/installer/service/smoke behavior remains part of v1.0 pass criteria.
 
-## Follow-up alpha releases
-
-### v1.1 dictation
-
-Visible dictated text first, with explicit user confirmation before insertion or copy.
-
-### v1.2 browser control
-
-Open a browser target, search web content, and navigate visible pages.
-Submission actions remain constrained in alpha policy.
-
-### v1.3 system control and file search
-
-Safe Windows/WSL/Linux control and Explorer-based file search results.
-File search is visible and action-transparent; no content reading/uploading by default.
-
 ## Pricing canon during alpha
 
 - All Alpha v1 features are free.
 - No alpha feature is retroactively paywalled.
-- Beta or later may split Free/Pro/Advanced packaging.
-- The paid tiers should be designed so new commands and capabilities can be added continuously as the product evolves.
+- Future packaging may change later.
+- The current scope should not shape the v1.0 public promise.
 
 ## Tier and upgrade architecture
 
-The tier source of truth is `docs/reference/TIER_ARCHITECTURE.md`.
+The current product is the Free tier.
+The app should install Free first, prove the user can create a profile and run visible commands, and keep the public repo focused on that experience.
 
-The product is split by capability layer:
-
-- Free is the MIT-licensed open-source parity layer for everyday Windows voice control.
-- Pro is the paid upgrade layer for deeper Windows, WSL, Linux, browser, workflow, and system control.
-- Advanced is the paid specialist layer for the fastest-moving command library, recipes, diagnostics, and power-user packs.
-
-The app should install Free first, prove the user can create a profile and run visible commands, then offer an in-app Pro upgrade that loads signed private command packs. Free must not require private code, and Pro entitlement must not bypass policy.
+Future tier planning lives in `docs/reference/TIER_ARCHITECTURE.md`, but it is not part of the v1.0 delivery scope.
 
 ## Non-goals for v1.0 alpha
 

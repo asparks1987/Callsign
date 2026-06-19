@@ -245,6 +245,47 @@ public sealed class VoiceIdentityTrainingForm : Form
         StopRecording(commit: true);
     }
 
+    private void RecordWakeButtonMouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left || _sampleCapture.IsRecording)
+            return;
+
+        var nextSamplePath = GetNextWakeSamplePath();
+        if (string.IsNullOrWhiteSpace(nextSamplePath))
+        {
+            _statusLabel.Text = "Collect 3 wake samples or clear wake calibration before recording more.";
+            return;
+        }
+
+        try
+        {
+            _currentSamplePath = nextSamplePath;
+            _recordingWakeSample = true;
+            _sampleCapture.Start(nextSamplePath, MicrophoneAudioSettings.From(_profile.Settings));
+            _recordWakeButton.Capture = true;
+            _recordWakeButton.Text = "Recording Wake - release to stop";
+            _recordWakeButton.BackColor = Color.DarkGreen;
+            _statusLabel.Text = "Recording a wake sample. Say Callsign clearly.";
+            _qualityLabel.Text = "Wake sample recording in progress.";
+            _levelTimer.Start();
+        }
+        catch (Exception ex)
+        {
+            _recordWakeButton.Capture = false;
+            _currentSamplePath = null;
+            _recordingWakeSample = false;
+            _statusLabel.Text = $"Microphone error: {ex.Message}";
+        }
+    }
+
+    private void RecordWakeButtonMouseUp(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left)
+            return;
+
+        StopRecording(commit: true);
+    }
+
     private void StopRecording(bool commit)
     {
         if (!_sampleCapture.IsRecording)
@@ -260,12 +301,16 @@ public sealed class VoiceIdentityTrainingForm : Form
             _recordButton.Capture = false;
             _recordButton.Text = "REC Hold to Record";
             _recordButton.BackColor = Color.Firebrick;
+            _recordWakeButton.Capture = false;
+            _recordWakeButton.Text = "REC Wake Sample";
+            _recordWakeButton.BackColor = Color.DarkOliveGreen;
             _levelTimer.Stop();
         }
 
         if (!commit)
         {
             _currentSamplePath = null;
+            _recordingWakeSample = false;
             return;
         }
 
@@ -276,11 +321,14 @@ public sealed class VoiceIdentityTrainingForm : Form
             TryDelete(samplePath);
             _statusLabel.Text = "Sample rejected. Record again with a clear microphone signal.";
             _currentSamplePath = null;
+            _recordingWakeSample = false;
             RefreshState();
             return;
         }
 
         CopySampleToLatest(samplePath);
+        if (_recordingWakeSample)
+            CopyWakeSampleToLatest(samplePath);
         _profile.Settings.VoiceSamplesRequired = Math.Max(3, _profile.Settings.VoiceSamplesRequired);
         _profile.Settings.VoiceSamplesRecorded = GetRecordedSampleCount();
         _profile.Settings.VoiceEnrollmentStatus = _profile.Settings.VoiceSamplesRecorded >= _profile.Settings.VoiceSamplesRequired
@@ -288,8 +336,11 @@ public sealed class VoiceIdentityTrainingForm : Form
             : $"Collecting sample {_profile.Settings.VoiceSamplesRecorded} of {_profile.Settings.VoiceSamplesRequired}";
         _profile.Settings.VoiceEnrolledUtc = null;
         _profileStore.Save(_profile);
-        _statusLabel.Text = "Sample saved. Play it back or record another sample.";
+        _statusLabel.Text = _recordingWakeSample
+            ? "Wake sample saved. Record another wake sample or calibrate the wakeword."
+            : "Sample saved. Play it back or record another sample.";
         _currentSamplePath = null;
+        _recordingWakeSample = false;
         RefreshState();
     }
 
@@ -358,17 +409,28 @@ public sealed class VoiceIdentityTrainingForm : Form
         if (_busy)
             return;
 
-        var samplePaths = GetRecordedSamplePaths().ToList();
+        var samplePaths = GetRecordedWakeSamplePaths().ToList();
         if (samplePaths.Count == 0)
         {
-            var samplePath = GetLatestSamplePath();
+            var samplePath = GetLatestWakeSamplePath();
             if (!File.Exists(samplePath))
             {
-                _statusLabel.Text = "Record a Callsign sample first, then calibrate the wakeword.";
-                return;
+                samplePath = GetLatestSamplePath();
+                if (!File.Exists(samplePath))
+                {
+                    _statusLabel.Text = "Record a Callsign or wake sample first, then calibrate the wakeword.";
+                    return;
+                }
             }
 
-            samplePaths.Add(samplePath);
+            if (File.Exists(samplePath))
+                samplePaths.Add(samplePath);
+        }
+
+        if (samplePaths.Count == 0)
+        {
+            _statusLabel.Text = "Record a Callsign or wake sample first, then calibrate the wakeword.";
+            return;
         }
 
         SetBusy(true, "Scoring the wakeword samples and tuning the profile threshold...");
@@ -395,7 +457,7 @@ public sealed class VoiceIdentityTrainingForm : Form
                 wakeScores.Count,
                 Path.GetFileName(bestWakeSample.Path));
             _profileStore.Save(_profile);
-            _qualityLabel.Text = $"Wake calibration used {wakeScores.Count} sample(s); best score {bestWakeSample.Score:0.000}. Threshold now {_profile.Settings.VoiceWakeThreshold:0.000}.";
+            _qualityLabel.Text = $"Wake calibration used {wakeScores.Count} wake sample(s); best score {bestWakeSample.Score:0.000}. Threshold now {_profile.Settings.VoiceWakeThreshold:0.000}.";
             _statusLabel.Text = $"Wakeword calibrated from {Path.GetFileName(bestWakeSample.Path)}.";
             RefreshState();
         }
@@ -511,7 +573,10 @@ public sealed class VoiceIdentityTrainingForm : Form
         _playButton.Enabled = _playButton.Enabled && !_busy;
         _repairRuntimeButton.Enabled = !_busy;
         _calibrateButton.Enabled = !_busy && File.Exists(GetLatestSamplePath());
-        _wakeCalibrateButton.Enabled = !_busy && (File.Exists(GetLatestSamplePath()) || GetRecordedSamplePaths().Count > 0);
+        _wakeCalibrateButton.Enabled = !_busy && (GetRecordedWakeSamplePaths().Count > 0 || File.Exists(GetLatestWakeSamplePath()) || File.Exists(GetLatestSamplePath()) || GetRecordedSamplePaths().Count > 0);
+        _wakeSampleLabel.Text = GetRecordedWakeSampleCount() == 0
+            ? "No wake samples recorded yet. Use REC Wake Sample to collect Callsign-only examples."
+            : $"{GetRecordedWakeSampleCount()} wake sample(s) recorded. Calibrate against these first.";
         _closeButton.Enabled = true;
     }
 
@@ -527,7 +592,8 @@ public sealed class VoiceIdentityTrainingForm : Form
         _playButton.Enabled = !busy && (File.Exists(GetLatestSamplePath()) || GetRecordedSamplePaths().Count > 0);
         _enrollButton.Enabled = !busy && _profile.Settings.VoiceSamplesRecorded >= Math.Max(3, _profile.Settings.VoiceSamplesRequired);
         _calibrateButton.Enabled = !busy && File.Exists(GetLatestSamplePath());
-        _wakeCalibrateButton.Enabled = !busy && (File.Exists(GetLatestSamplePath()) || GetRecordedSamplePaths().Count > 0);
+        _wakeCalibrateButton.Enabled = !busy && (GetRecordedWakeSamplePaths().Count > 0 || File.Exists(GetLatestWakeSamplePath()) || File.Exists(GetLatestSamplePath()) || GetRecordedSamplePaths().Count > 0);
+        _recordWakeButton.Enabled = !busy;
         _repairRuntimeButton.Enabled = !busy;
         _closeButton.Enabled = !busy;
         Cursor = busy ? Cursors.WaitCursor : Cursors.Default;
@@ -576,6 +642,9 @@ public sealed class VoiceIdentityTrainingForm : Form
     private int GetRecordedSampleCount() =>
         GetRecordedSamplePaths().Count;
 
+    private int GetRecordedWakeSampleCount() =>
+        GetRecordedWakeSamplePaths().Count;
+
     private IReadOnlyList<string> GetRecordedSamplePaths()
     {
         var folder = VoiceBiometricVerificationService.GetEnrollmentSampleFolder(_profileStore, _profile);
@@ -583,6 +652,17 @@ public sealed class VoiceIdentityTrainingForm : Form
             return Array.Empty<string>();
 
         return Directory.EnumerateFiles(folder, "sample-*.wav", SearchOption.TopDirectoryOnly)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private IReadOnlyList<string> GetRecordedWakeSamplePaths()
+    {
+        var folder = GetWakeSampleFolder();
+        if (!Directory.Exists(folder))
+            return Array.Empty<string>();
+
+        return Directory.EnumerateFiles(folder, "wake-*.wav", SearchOption.TopDirectoryOnly)
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
@@ -599,6 +679,9 @@ public sealed class VoiceIdentityTrainingForm : Form
     private string GetSamplePath(int sampleNumber) =>
         VoiceBiometricVerificationService.GetEnrollmentSamplePath(_profileStore, _profile, sampleNumber);
 
+    private string GetWakeSamplePath(int sampleNumber) =>
+        Path.Combine(GetWakeSampleFolder(), $"wake-{sampleNumber:000}.wav");
+
     private void CopySampleToLatest(string samplePath)
     {
         try
@@ -614,11 +697,49 @@ public sealed class VoiceIdentityTrainingForm : Form
         }
     }
 
+    private void CopyWakeSampleToLatest(string samplePath)
+    {
+        try
+        {
+            var latestPath = GetLatestWakeSamplePath();
+            Directory.CreateDirectory(Path.GetDirectoryName(latestPath)!);
+            if (!string.Equals(Path.GetFullPath(samplePath), Path.GetFullPath(latestPath), StringComparison.OrdinalIgnoreCase))
+                File.Copy(samplePath, latestPath, overwrite: true);
+        }
+        catch
+        {
+            // Best-effort convenience copy only.
+        }
+    }
+
     private string GetLatestSamplePath()
     {
         var folder = Path.Combine(_profileStore.ResolveCallsSignFolder(_profile.Callsign), "voice-samples");
         Directory.CreateDirectory(folder);
         return Path.Combine(folder, "latest.wav");
+    }
+
+    private string GetLatestWakeSamplePath()
+    {
+        var folder = GetWakeSampleFolder();
+        Directory.CreateDirectory(folder);
+        return Path.Combine(folder, "latest-wake.wav");
+    }
+
+    private string GetWakeSampleFolder()
+    {
+        var folder = Path.Combine(_profileStore.ResolveCallsSignFolder(_profile.Callsign), "wake-samples");
+        Directory.CreateDirectory(folder);
+        return folder;
+    }
+
+    private string? GetNextWakeSamplePath()
+    {
+        var count = GetRecordedWakeSampleCount();
+        if (count >= 3)
+            return null;
+
+        return GetWakeSamplePath(count + 1);
     }
 
     private static SampleQuality AnalyzeSample(string samplePath)

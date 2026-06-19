@@ -18,7 +18,7 @@ public sealed class VoiceCommandService : IDisposable
     private const int BitsPerSample = 16;
     private const int MinimumSegmentMilliseconds = 200;
     private const int DefaultSegmentSilenceMilliseconds = 200;
-    private const double DefaultWakeDetectionThreshold = 0.12;
+    private const double DefaultWakeDetectionThreshold = 0.01;
 
     private readonly object _gate = new();
     private readonly SemaphoreSlim _segmentSignal = new(0);
@@ -72,8 +72,8 @@ public sealed class VoiceCommandService : IDisposable
     private int _wakeEvaluationInFlight;
     private DateTime _lastWakeEvaluationUtc = DateTime.MinValue;
     private DateTime _lastWakeWordDetectedUtc = DateTime.MinValue;
-    private const int WakeWindowMilliseconds = 960;
-    private static readonly TimeSpan WakeEvaluationCooldown = TimeSpan.FromMilliseconds(150);
+    private const int WakeWindowMilliseconds = 1920;
+    private static readonly TimeSpan WakeEvaluationCooldown = TimeSpan.FromMilliseconds(50);
     private static readonly TimeSpan WakeWordRepeatCooldown = TimeSpan.FromSeconds(2);
 
     public VoiceCommandService()
@@ -163,6 +163,7 @@ public sealed class VoiceCommandService : IDisposable
             IsListening = true;
             UpdateCurrentModeDescription();
             ListeningStateChanged?.Invoke(this, EventArgs.Empty);
+            _ = Task.Run(() => WarmUpWakeWordDetectorAsync(_cts.Token));
             _ = Task.Run(() => InitializeTranscriberAsync(_cts.Token));
         }
         catch (Exception ex)
@@ -447,6 +448,66 @@ public sealed class VoiceCommandService : IDisposable
         return false;
     }
 
+    private async Task WarmUpWakeWordDetectorAsync(CancellationToken cancellationToken)
+    {
+        if (!TryEnsureWakeWordDetector() || _wakeWordDetector is not OpenWakeWordPythonWakeWordDetector)
+            return;
+
+        try
+        {
+            var warmupPath = await WriteWakeWarmupSampleAsync(cancellationToken).ConfigureAwait(false);
+            if (warmupPath == null)
+                return;
+
+            try
+            {
+                await _wakeWordDetector.DetectAsync(
+                    new WakeWordDetectionRequest(
+                        warmupPath,
+                        _wakeWord,
+                        _languageCode,
+                        1.0,
+                        BuildWakePhrases(_wakeWord),
+                        Array.Empty<string>(),
+                        KeepCandidateWindow: false),
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Warmup is best-effort only.
+            }
+            finally
+            {
+                TryDeleteSegmentFile(warmupPath);
+            }
+        }
+        catch
+        {
+            // Warmup is best-effort only.
+        }
+    }
+
+    private static async Task<string?> WriteWakeWarmupSampleAsync(CancellationToken cancellationToken)
+    {
+        var directory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Callsign",
+            "Runtime",
+            "wake-warmup");
+        Directory.CreateDirectory(directory);
+
+        var path = Path.Combine(directory, $"wake-warmup-{Guid.NewGuid():N}.wav");
+        var bytesPerSecond = MicrophoneAudioProcessor.OutputWaveFormat.AverageBytesPerSecond;
+        var warmupBytes = Math.Max(1, (int)(bytesPerSecond * 0.24));
+        var buffer = new byte[warmupBytes];
+        await using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read, 81920, useAsync: true);
+        using var writer = new WaveFileWriter(stream, MicrophoneAudioProcessor.OutputWaveFormat);
+        writer.Write(buffer, 0, buffer.Length);
+        writer.Flush();
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        return path;
+    }
+
     private void EvaluateWakeWindowAsync(byte[] wakeWindowSnapshot, CancellationToken cancellationToken)
     {
         if (wakeWindowSnapshot.Length == 0)
@@ -506,7 +567,7 @@ public sealed class VoiceCommandService : IDisposable
     private static async Task<string?> WriteWakeWindowSnapshotAsync(byte[] wakeWindowSnapshot, CancellationToken cancellationToken)
     {
         var wakeWindowBytes = Math.Max(1, WakeWindowMilliseconds * MicrophoneAudioProcessor.OutputWaveFormat.AverageBytesPerSecond / 1000);
-        if (wakeWindowSnapshot.Length < wakeWindowBytes / 5)
+        if (wakeWindowSnapshot.Length < wakeWindowBytes / 16)
             return null;
 
         var directory = Path.Combine(
@@ -545,7 +606,7 @@ public sealed class VoiceCommandService : IDisposable
             _wakeWindowBytes -= removed.Length;
         }
 
-        if (_wakeWindowBytes < maxBytes / 2)
+        if (_wakeWindowBytes < maxBytes / 8)
             return null;
 
         var snapshot = new byte[_wakeWindowBytes];
@@ -718,9 +779,9 @@ public sealed class VoiceCommandService : IDisposable
     {
         var sensitivityThreshold = wakeSensitivity?.Trim().ToLowerInvariant() switch
         {
-            "more responsive" => 0.10,
-            "balanced" => 0.20,
-            "fewer false wakes" => 0.32,
+            "more responsive" => 0.01,
+            "balanced" => 0.02,
+            "fewer false wakes" => 0.04,
             _ => DefaultWakeDetectionThreshold
         };
 
@@ -732,7 +793,7 @@ public sealed class VoiceCommandService : IDisposable
             || Math.Abs(value - 0.42) < 0.0001)
             value = sensitivityThreshold;
 
-        return Math.Clamp(value, 0.10, 0.95);
+        return Math.Clamp(value, 0.01, 0.95);
     }
 
     public static double? ComputeCalibratedWakeThreshold(double score)
@@ -740,7 +801,7 @@ public sealed class VoiceCommandService : IDisposable
         if (double.IsNaN(score) || double.IsInfinity(score) || score < 0.05)
             return null;
 
-        return Math.Clamp(score * 0.60, 0.08, 0.18);
+        return Math.Clamp(score * 0.30, 0.01, 0.06);
     }
 
     public static void ApplyWakeCalibration(UserSettings settings, double score, int sampleCount, string? sourceSampleName = null)
@@ -1153,7 +1214,7 @@ model = Model(
     enable_speex_noise_suppression=False,
 )
 frame_milliseconds = 80
-hop_milliseconds = 40
+hop_milliseconds = 20
 frame_size = int(16000 * frame_milliseconds / 1000)
 hop_size = int(16000 * hop_milliseconds / 1000)
 buffer = bytearray()

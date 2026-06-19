@@ -2925,22 +2925,22 @@ public sealed class MainForm : Form
             settings.VoiceEnrollmentStatus = "Activated";
             settings.VoiceEnrolledUtc = DateTime.UtcNow;
             settings.VoiceSamplesRecorded = samplePaths.Count;
-            var wakeScores = new List<double>();
+            var wakeScores = new List<(string Path, double Score)>();
             foreach (var samplePath in samplePaths)
             {
                 var score = await _voiceCommandService.TryScoreWakeWordSampleAsync(samplePath, CancellationToken.None);
                 if (score.HasValue)
-                    wakeScores.Add(score.Value);
+                    wakeScores.Add((samplePath, score.Value));
             }
 
             if (wakeScores.Count > 0)
             {
-                var calibratedThreshold = VoiceCommandService.ComputeCalibratedWakeThreshold(wakeScores.Max());
-                if (calibratedThreshold.HasValue)
-                {
-                    settings.VoiceWakeThreshold = calibratedThreshold.Value;
-                    settings.VoiceWakeSensitivity = "More responsive";
-                }
+                var bestWakeSample = wakeScores.OrderByDescending(entry => entry.Score).First();
+                VoiceCommandService.ApplyWakeCalibration(
+                    settings,
+                    bestWakeSample.Score,
+                    wakeScores.Count,
+                    Path.GetFileName(bestWakeSample.Path));
             }
 
             SaveVoiceState(profile);

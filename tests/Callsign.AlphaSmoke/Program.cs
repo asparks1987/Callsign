@@ -64,6 +64,7 @@ var checks = new List<(string Name, Action Check)>
     ("wake event forces the overlay immediately", WakeEventForcesOverlayImmediately),
     ("packaged wake test helper uses streaming frames", PackagedWakeTestHelperUsesStreamingFrames),
     ("wake calibration helper scores enrolled samples", WakeCalibrationHelperScoresEnrolledSamples),
+    ("wake calibration persists metadata", WakeCalibrationPersistsMetadata),
     ("wake training form exposes calibration", WakeTrainingFormExposesWakeCalibration),
     ("wake service evaluates a live rolling window", WakeServiceEvaluatesRollingWindow),
     ("runtime state writes are atomic", RuntimeStateWritesAreAtomic)
@@ -1530,11 +1531,33 @@ static void WakeCalibrationHelperScoresEnrolledSamples()
     var serviceSource = File.ReadAllText(servicePath);
     Require(serviceSource.Contains("TryScoreWakeWordSampleAsync", StringComparison.OrdinalIgnoreCase), "Wake service should expose a sample scoring helper.");
     Require(serviceSource.Contains("ComputeCalibratedWakeThreshold", StringComparison.OrdinalIgnoreCase), "Wake service should expose a calibrated-threshold helper.");
+    Require(serviceSource.Contains("ApplyWakeCalibration", StringComparison.OrdinalIgnoreCase), "Wake service should expose a calibration helper that persists metadata.");
     Require(serviceSource.Contains("score < 0.05", StringComparison.OrdinalIgnoreCase), "Wake calibration should ignore uselessly tiny scores.");
 
     var formSource = File.ReadAllText(formPath);
     Require(formSource.Contains("TryScoreWakeWordSampleAsync", StringComparison.OrdinalIgnoreCase), "Activation should score enrolled wake samples.");
-    Require(formSource.Contains("ComputeCalibratedWakeThreshold", StringComparison.OrdinalIgnoreCase), "Activation should derive a wake threshold from enrolled samples.");
+    Require(formSource.Contains("ApplyWakeCalibration", StringComparison.OrdinalIgnoreCase), "Activation should persist the wake threshold from enrolled samples.");
+}
+
+static void WakeCalibrationPersistsMetadata()
+{
+    var repoRoot = FindRepositoryRoot();
+    var servicePath = Path.Combine(repoRoot, "src", "Callsign.UI", "Services", "VoiceCommandService.cs");
+    var profilePath = Path.Combine(repoRoot, "src", "Callsign.UI", "Models", "UserProfile.cs");
+    Require(File.Exists(servicePath), $"Could not find voice service source at {servicePath}.");
+    Require(File.Exists(profilePath), $"Could not find user settings source at {profilePath}.");
+
+    var serviceSource = File.ReadAllText(servicePath);
+    Require(serviceSource.Contains("VoiceWakeCalibrationVersion", StringComparison.OrdinalIgnoreCase), "Wake calibration should record a configuration version.");
+    Require(serviceSource.Contains("VoiceWakeCalibrationSampleCount", StringComparison.OrdinalIgnoreCase), "Wake calibration should record how many samples were used.");
+    Require(serviceSource.Contains("VoiceWakeCalibratedUtc", StringComparison.OrdinalIgnoreCase), "Wake calibration should record when the threshold was tuned.");
+    Require(serviceSource.Contains("VoiceWakeCalibrationSource", StringComparison.OrdinalIgnoreCase), "Wake calibration should record which sample informed the threshold.");
+
+    var profileSource = File.ReadAllText(profilePath);
+    Require(profileSource.Contains("VoiceWakeCalibrationVersion", StringComparison.OrdinalIgnoreCase), "User settings should carry wake calibration metadata.");
+    Require(profileSource.Contains("VoiceWakeCalibrationSampleCount", StringComparison.OrdinalIgnoreCase), "User settings should persist wake calibration sample count.");
+    Require(profileSource.Contains("VoiceWakeCalibratedUtc", StringComparison.OrdinalIgnoreCase), "User settings should persist wake calibration timestamp.");
+    Require(profileSource.Contains("VoiceWakeCalibrationSource", StringComparison.OrdinalIgnoreCase), "User settings should persist wake calibration source.");
 }
 
 static void WakeTrainingFormExposesWakeCalibration()
@@ -1546,7 +1569,7 @@ static void WakeTrainingFormExposesWakeCalibration()
     var source = File.ReadAllText(formPath);
     Require(source.Contains("Calibrate Wakeword", StringComparison.OrdinalIgnoreCase), "Voice training form should expose a wake calibration button.");
     Require(source.Contains("TryScoreWakeWordSampleAsync", StringComparison.OrdinalIgnoreCase), "Voice training form should call the wake scoring helper.");
-    Require(source.Contains("ComputeCalibratedWakeThreshold", StringComparison.OrdinalIgnoreCase), "Voice training form should compute a profile-specific wake threshold.");
+    Require(source.Contains("ApplyWakeCalibration", StringComparison.OrdinalIgnoreCase), "Voice training form should apply a profile-specific wake threshold.");
 }
 
 static void WakeServiceEvaluatesRollingWindow()

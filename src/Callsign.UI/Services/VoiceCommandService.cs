@@ -743,6 +743,20 @@ public sealed class VoiceCommandService : IDisposable
         return Math.Clamp(score * 0.60, 0.08, 0.18);
     }
 
+    public static void ApplyWakeCalibration(UserSettings settings, double score, int sampleCount, string? sourceSampleName = null)
+    {
+        var calibratedThreshold = ComputeCalibratedWakeThreshold(score);
+        if (!calibratedThreshold.HasValue)
+            throw new ArgumentException("Wake calibration score is too small to trust.", nameof(score));
+
+        settings.VoiceWakeThreshold = calibratedThreshold.Value;
+        settings.VoiceWakeSensitivity = "More responsive";
+        settings.VoiceWakeCalibrationVersion = "streaming-frame-v1";
+        settings.VoiceWakeCalibrationSampleCount = Math.Max(1, sampleCount);
+        settings.VoiceWakeCalibratedUtc = DateTime.UtcNow;
+        settings.VoiceWakeCalibrationSource = string.IsNullOrWhiteSpace(sourceSampleName) ? null : sourceSampleName;
+    }
+
     private static IReadOnlyList<string> BuildWakePhrases(string wakeWord)
     {
         var phrases = new[]

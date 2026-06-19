@@ -18,10 +18,12 @@ public sealed class VoiceIdentityTrainingForm : Form
 
     private readonly Label _statusLabel;
     private readonly Label _sampleLabel;
+    private readonly Label _wakeSampleLabel;
     private readonly Label _qualityLabel;
     private readonly Label[] _sampleStatusLabels = new Label[3];
     private readonly ProgressBar _progress;
     private readonly Button _recordButton;
+    private readonly Button _recordWakeButton;
     private readonly Button _playButton;
     private readonly Button _enrollButton;
     private readonly Button _calibrateButton;
@@ -31,6 +33,7 @@ public sealed class VoiceIdentityTrainingForm : Form
     private readonly System.Windows.Forms.Timer _levelTimer = new() { Interval = 100 };
     private bool _busy;
     private string? _currentSamplePath;
+    private bool _recordingWakeSample;
 
     public VoiceIdentityTrainingForm(ProfileStore profileStore, UserProfile profile, VoiceCommandService voiceCommandService)
     {
@@ -49,7 +52,7 @@ public sealed class VoiceIdentityTrainingForm : Form
             Dock = DockStyle.Fill,
             Padding = new Padding(16),
             ColumnCount = 2,
-            RowCount = 11
+            RowCount = 12
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -106,13 +109,17 @@ public sealed class VoiceIdentityTrainingForm : Form
         layout.Controls.Add(new Label { AutoSize = true, Text = "Voice samples" }, 0, 4);
         layout.Controls.Add(sampleRows, 1, 4);
 
+        _wakeSampleLabel = new Label { AutoSize = true, MaximumSize = new Size(540, 0), Text = "No wake samples recorded yet." };
+        layout.Controls.Add(new Label { AutoSize = true, Text = "Wake samples" }, 0, 5);
+        layout.Controls.Add(_wakeSampleLabel, 1, 5);
+
         _qualityLabel = new Label { AutoSize = true, MaximumSize = new Size(540, 0), Text = "No sample analyzed yet." };
-        layout.Controls.Add(new Label { AutoSize = true, Text = "Audio quality" }, 0, 5);
-        layout.Controls.Add(_qualityLabel, 1, 5);
+        layout.Controls.Add(new Label { AutoSize = true, Text = "Audio quality" }, 0, 6);
+        layout.Controls.Add(_qualityLabel, 1, 6);
 
         _statusLabel = new Label { AutoSize = true, MaximumSize = new Size(540, 0), Text = "Ready to record." };
-        layout.Controls.Add(new Label { AutoSize = true, Text = "Status" }, 0, 6);
-        layout.Controls.Add(_statusLabel, 1, 6);
+        layout.Controls.Add(new Label { AutoSize = true, Text = "Status" }, 0, 7);
+        layout.Controls.Add(_statusLabel, 1, 7);
 
         _recordButton = new Button
         {
@@ -134,6 +141,26 @@ public sealed class VoiceIdentityTrainingForm : Form
                 _recordButton.Capture = true;
         };
 
+        _recordWakeButton = new Button
+        {
+            Text = "REC Wake Sample",
+            Width = 160,
+            Height = 44,
+            BackColor = Color.DarkOliveGreen,
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font(Font, FontStyle.Bold),
+            Cursor = Cursors.Hand
+        };
+        _recordWakeButton.FlatAppearance.BorderSize = 0;
+        _recordWakeButton.MouseDown += RecordWakeButtonMouseDown;
+        _recordWakeButton.MouseUp += RecordWakeButtonMouseUp;
+        _recordWakeButton.MouseLeave += (_, _) =>
+        {
+            if (_sampleCapture.IsRecording)
+                _recordWakeButton.Capture = true;
+        };
+
         _playButton = new Button { Text = "Play Sample", Width = 120, Height = 44 };
         _playButton.Click += (_, _) => PlayLatestSample();
 
@@ -151,16 +178,17 @@ public sealed class VoiceIdentityTrainingForm : Form
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
         buttons.Controls.Add(_recordButton);
+        buttons.Controls.Add(_recordWakeButton);
         buttons.Controls.Add(_playButton);
         buttons.Controls.Add(_enrollButton);
         buttons.Controls.Add(_calibrateButton);
         buttons.Controls.Add(_wakeCalibrateButton);
         buttons.Controls.Add(_repairRuntimeButton);
-        layout.Controls.Add(buttons, 1, 7);
+        layout.Controls.Add(buttons, 1, 8);
 
         _closeButton = new Button { Text = "Close", Width = 100 };
         _closeButton.Click += (_, _) => Close();
-        layout.Controls.Add(_closeButton, 1, 8);
+        layout.Controls.Add(_closeButton, 1, 9);
 
         Controls.Add(layout);
         _levelTimer.Tick += (_, _) => RefreshLiveLevel();
@@ -330,41 +358,45 @@ public sealed class VoiceIdentityTrainingForm : Form
         if (_busy)
             return;
 
-        var samplePath = GetLatestSamplePath();
-        if (!File.Exists(samplePath))
+        var samplePaths = GetRecordedSamplePaths().ToList();
+        if (samplePaths.Count == 0)
         {
-            var recordedSamples = GetRecordedSamplePaths();
-            if (recordedSamples.Count == 0)
+            var samplePath = GetLatestSamplePath();
+            if (!File.Exists(samplePath))
             {
-                _statusLabel.Text = "Record a sample first, then calibrate the wakeword.";
+                _statusLabel.Text = "Record a Callsign sample first, then calibrate the wakeword.";
                 return;
             }
 
-            samplePath = recordedSamples[^1];
+            samplePaths.Add(samplePath);
         }
 
-        SetBusy(true, "Scoring the wakeword sample and tuning the profile threshold...");
+        SetBusy(true, "Scoring the wakeword samples and tuning the profile threshold...");
         try
         {
-            var score = await _voiceCommandService.TryScoreWakeWordSampleAsync(samplePath, CancellationToken.None);
-            if (!score.HasValue)
+            var wakeScores = new List<(string Path, double Score)>();
+            foreach (var samplePath in samplePaths)
             {
-                _statusLabel.Text = "Wake calibration could not score the sample. Repair Wakeword or record a clearer Callsign sample.";
+                var score = await _voiceCommandService.TryScoreWakeWordSampleAsync(samplePath, CancellationToken.None);
+                if (score.HasValue)
+                    wakeScores.Add((samplePath, score.Value));
+            }
+
+            if (wakeScores.Count == 0)
+            {
+                _statusLabel.Text = "Wake calibration could not score the sample set. Repair Wakeword or record a clearer Callsign sample.";
                 return;
             }
 
-            var calibratedThreshold = VoiceCommandService.ComputeCalibratedWakeThreshold(score.Value);
-            if (!calibratedThreshold.HasValue)
-            {
-                _statusLabel.Text = $"Wake calibration score {score.Value:0.000} was too small to trust. Record a clearer Callsign sample.";
-                return;
-            }
-
-            _profile.Settings.VoiceWakeThreshold = calibratedThreshold.Value;
-            _profile.Settings.VoiceWakeSensitivity = "More responsive";
+            var bestWakeSample = wakeScores.OrderByDescending(entry => entry.Score).First();
+            VoiceCommandService.ApplyWakeCalibration(
+                _profile.Settings,
+                bestWakeSample.Score,
+                wakeScores.Count,
+                Path.GetFileName(bestWakeSample.Path));
             _profileStore.Save(_profile);
-            _qualityLabel.Text = $"Wake calibration used score {score.Value:0.000}; threshold now {calibratedThreshold.Value:0.000}.";
-            _statusLabel.Text = $"Wakeword calibrated from {Path.GetFileName(samplePath)}.";
+            _qualityLabel.Text = $"Wake calibration used {wakeScores.Count} sample(s); best score {bestWakeSample.Score:0.000}. Threshold now {_profile.Settings.VoiceWakeThreshold:0.000}.";
+            _statusLabel.Text = $"Wakeword calibrated from {Path.GetFileName(bestWakeSample.Path)}.";
             RefreshState();
         }
         catch (Exception ex)

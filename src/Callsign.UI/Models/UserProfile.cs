@@ -28,6 +28,10 @@ public sealed class UserSettings
     public string? VoiceModelPath { get; set; }
     public double VoiceWakeThreshold { get; set; } = 0;
     public string VoiceWakeSensitivity { get; set; } = "More responsive";
+    public string? VoiceWakeCalibrationVersion { get; set; }
+    public int VoiceWakeCalibrationSampleCount { get; set; }
+    public DateTime? VoiceWakeCalibratedUtc { get; set; }
+    public string? VoiceWakeCalibrationSource { get; set; }
     public bool VoiceWakeDiagnosticsEnabled { get; set; }
     public int VoiceSilenceMilliseconds { get; set; } = 200;
     public double VoiceCommandConfidenceThreshold { get; set; } = 0.65;

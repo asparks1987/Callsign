@@ -451,6 +451,14 @@ public sealed class VoiceIdentityTrainingForm : Form
             }
 
             var bestWakeSample = wakeScores.OrderByDescending(entry => entry.Score).First();
+            var calibratedThreshold = VoiceCommandService.ComputeCalibratedWakeThreshold(bestWakeSample.Score);
+            if (!calibratedThreshold.HasValue)
+            {
+                _qualityLabel.Text = $"Wake calibration scored {wakeScores.Count} wake sample(s); best score {bestWakeSample.Score:0.000}, which is below the trusted calibration floor.";
+                _statusLabel.Text = "Wake samples are too weak to calibrate yet. Record a clearer Callsign wake sample close to the mic, then calibrate again.";
+                return;
+            }
+
             VoiceCommandService.ApplyWakeCalibration(
                 _profile.Settings,
                 bestWakeSample.Score,

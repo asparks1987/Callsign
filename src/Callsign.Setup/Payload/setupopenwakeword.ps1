@@ -305,6 +305,19 @@ function Write-SetupLog {
     }
 }
 
+function Write-Manifest {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Data
+    )
+
+    New-Item -ItemType Directory -Path $runtimeManifestDir -Force | Out-Null
+    $Data.updatedUtc = (Get-Date).ToUniversalTime().ToString("o")
+    $Data | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $Path -Encoding UTF8
+}
+
 Write-SetupLog "openWakeWord setup helper started. ModelPath='$ModelPath' InstallPythonPackages=$InstallPythonPackages CheckOnly=$CheckOnly RestartCallsign=$RestartCallsign PythonCommand='$PythonCommand'"
 Ensure-BundledRuntimeDirectory
 Write-Host "Callsign openWakeWord repair/setup started." -ForegroundColor Cyan
@@ -315,9 +328,23 @@ Write-Host "Bundled openWakeWord resources: $bundledResourceDir"
 if ($InstallPythonPackages) {
     Install-BundledPythonPackages
     Write-SetupLog "Python packages installed or updated."
+    if (Test-Path -LiteralPath $venvPython) {
+        Write-Manifest -Path $pythonRuntimeManifest -Data @{
+            kind = "python-runtime"
+            path = $venvPython
+            source = "setupopenwakeword.ps1"
+        }
+    }
 }
 else {
     Repair-OpenWakeWordFeatureModels
+    if (Test-Path -LiteralPath $bundledResourceDir) {
+        Write-Manifest -Path $openWakeWordResourcesManifest -Data @{
+            kind = "openwakeword-resources"
+            path = $bundledResourceDir
+            source = "setupopenwakeword.ps1"
+        }
+    }
 }
 
 if ([string]::IsNullOrWhiteSpace($ModelPath)) {
@@ -340,9 +367,17 @@ if (-not [string]::IsNullOrWhiteSpace($ModelPath)) {
         Write-SetupLog "Using bundled model at '$targetModel'."
     }
 }
-elseif (-not (Test-Path $targetModel)) {
+    elseif (-not (Test-Path $targetModel)) {
     Write-Host "No Callsign openWakeWord model was found in the bundled install location. Reinstall Callsign or repair the installer payload." -ForegroundColor Yellow
     Write-SetupLog "No model available at '$targetModel' and no default source model was found."
+}
+
+if (Test-Path -LiteralPath $targetModel) {
+    Write-Manifest -Path $wakeModelManifest -Data @{
+        kind = "callsign-model"
+        path = $targetModel
+        source = "setupopenwakeword.ps1"
+    }
 }
 
 $python = Test-BundledPythonRuntime
@@ -379,6 +414,30 @@ if ($CheckOnly -and (-not $modelPresent -or -not $runtimeReady -or -not $bundleR
 
 if ($modelPresent -and $runtimeReady -and $bundleReady) {
     Write-Host "openWakeWord is ready for Callsign." -ForegroundColor Green
+    if (Test-Path -LiteralPath $venvPython) {
+        Write-Manifest -Path $pythonRuntimeManifest -Data @{
+            kind = "python-runtime"
+            path = $venvPython
+            source = "setupopenwakeword.ps1"
+        }
+    }
+    if (Test-Path -LiteralPath $bundledResourceDir) {
+        Write-Manifest -Path $openWakeWordResourcesManifest -Data @{
+            kind = "openwakeword-resources"
+            path = $bundledResourceDir
+            source = "setupopenwakeword.ps1"
+        }
+    }
+    Write-Manifest -Path $openWakeWordWheelhouseManifest -Data @{
+        kind = "openwakeword-wheelhouse"
+        path = $scriptDir
+        source = "setupopenwakeword.ps1"
+    }
+    Write-Manifest -Path $wakeModelManifest -Data @{
+        kind = "callsign-model"
+        path = $targetModel
+        source = "setupopenwakeword.ps1"
+    }
     Write-SetupLog "openWakeWord readiness passed."
 }
 else {

@@ -286,7 +286,7 @@ public sealed class MainForm : Form
             UpdateVoiceCueRefreshRate();
             UpdateLiveSpeechCueFromActivity();
             RefreshSessionPanel();
-            if (_voiceCommandService.IsListening || _dictationActive || IsWakeOverlaySessionActive(_session.State))
+            if (_dictationActive || IsWakeOverlaySessionActive(_session.State))
             {
                 var phase = _dictationActive
                     ? "Dictation"
@@ -311,6 +311,8 @@ public sealed class MainForm : Form
             UpdateListeningPanel();
             RefreshVoicePanel();
             RefreshSessionPanel();
+            if (!_voiceCommandService.IsListening)
+                HideWakeOverlay();
         });
 
         _sessionTimer.Tick += (_, _) => OnSessionTick();
@@ -1692,7 +1694,9 @@ public sealed class MainForm : Form
             _listeningStateLabel.Text = runtimeSnapshot.IsListening && !runtimeIsStale
                 ? runtimeSnapshot.CanHearAudio == true
                     ? $"Background service is running, authoritative, and hearing audio from {runtimeSnapshot.ActiveMicrophoneDeviceName ?? "the active microphone"}. {runtimeSnapshot.ModeDescription}"
-                    : "Runtime running but no microphone audio is arriving."
+                    : HasRecentAudioPacket(runtimeSnapshot)
+                        ? "Runtime is receiving microphone packets, but speech is below the active threshold."
+                        : "Runtime running but no microphone audio packets are arriving."
                 : runtimeIsStale
                     ? $"Background service status is stale. Last update was {Math.Ceiling(runtimeAge.TotalSeconds):0} seconds ago."
                     : "Background service listener is stopped.";
@@ -1714,7 +1718,7 @@ public sealed class MainForm : Form
             _micDetailLabel.Text = FormatMicDetails(runtimeSnapshot);
             wakeOverlayShouldBeVisible = !runtimeIsStale
                 && runtimeSnapshot.IsListening
-                && (IsWakeOverlaySessionActive(runtimeSnapshot.SessionState) || runtimeSnapshot.IsSpeechActive == true);
+                && IsWakeOverlaySessionActive(runtimeSnapshot.SessionState);
             wakeOverlayReadout = BuildRuntimeOverlayReadout(runtimeSnapshot);
             wakeOverlayPhase = FormatOverlayPhase(runtimeSnapshot.SessionState);
         }
@@ -1746,8 +1750,7 @@ public sealed class MainForm : Form
             _micDetailLabel.Text = _voiceCommandService.CurrentAudioTelemetry == null
                 ? "No microphone telemetry yet."
                 : $"Raw RMS {_voiceCommandService.CurrentAudioTelemetry.RawRms:0.000}, peak {_voiceCommandService.CurrentAudioTelemetry.RawPeak:0.00}, gain {_voiceCommandService.CurrentAudioTelemetry.AppliedGainDb:0.0} dB, noise floor {_voiceCommandService.CurrentAudioTelemetry.NoiseFloorRms:0.000}, threshold {_voiceCommandService.CurrentAudioTelemetry.SpeechThresholdRms:0.000}.";
-            wakeOverlayShouldBeVisible = _voiceCommandService.IsListening
-                && (_voiceCommandService.IsSpeechActive || IsWakeOverlaySessionActive(_session.State));
+            wakeOverlayShouldBeVisible = IsWakeOverlaySessionActive(_session.State);
             wakeOverlayReadout = BuildLocalOverlayReadout();
             wakeOverlayPhase = FormatOverlayPhase(_session.State.ToString());
             if (_sessionTranscriptHistoryList.Items.Count == 0)
@@ -2748,7 +2751,7 @@ public sealed class MainForm : Form
         UpdateLiveSpeechCueFromActivity();
         RefreshSessionPanel();
         RefreshDictationPanel();
-        if (_voiceCommandService.IsListening || _dictationActive || IsWakeOverlaySessionActive(_session.State))
+        if (_dictationActive || IsWakeOverlaySessionActive(_session.State))
         {
             var phase = _dictationActive
                 ? "Dictation"
@@ -2939,11 +2942,14 @@ public sealed class MainForm : Form
             if (wakeScores.Count > 0)
             {
                 var bestWakeSample = wakeScores.OrderByDescending(entry => entry.Score).First();
-                VoiceCommandService.ApplyWakeCalibration(
-                    settings,
-                    bestWakeSample.Score,
-                    wakeScores.Count,
-                    Path.GetFileName(bestWakeSample.Path));
+                if (VoiceCommandService.ComputeCalibratedWakeThreshold(bestWakeSample.Score).HasValue)
+                {
+                    VoiceCommandService.ApplyWakeCalibration(
+                        settings,
+                        bestWakeSample.Score,
+                        wakeScores.Count,
+                        Path.GetFileName(bestWakeSample.Path));
+                }
             }
 
             SaveVoiceState(profile);
@@ -3444,6 +3450,9 @@ public sealed class MainForm : Form
 
         RunOnUiThread(() =>
         {
+            HideWakeOverlay();
+            if (_voiceCommandService.IsListening)
+                StopVoiceListening();
             UpdateListeningPanel();
             UpdateStatus(e.Message);
         });
@@ -3451,11 +3460,42 @@ public sealed class MainForm : Form
 
     private void HandleVoiceTranscript(string displayTranscript, string transcript, float confidence)
     {
+        if (IsIgnorableSpeechTranscript(transcript))
+            return;
+
+        var acceptsTranscript = _dictationActive || IsWakeOverlaySessionActive(_session.State);
+
+        if (!acceptsTranscript)
+        {
+            if (IsStopListeningCommand(transcript))
+            {
+                StopVoiceListening();
+                return;
+            }
+
+            if (IsCancelCommand(transcript))
+            {
+                CancelSession();
+                return;
+            }
+
+            if (EnsureActiveProfile(out var idleProfile))
+            {
+                var idleWakeWord = string.IsNullOrWhiteSpace(idleProfile.Settings.WakeWord)
+                    ? "Callsign"
+                    : idleProfile.Settings.WakeWord;
+                if (ContainsWakeWord(transcript, idleWakeWord))
+                    UpdateStatus("Wake-like transcript heard, but Callsign waits for the wake detector before opening a session.");
+            }
+
+            return;
+        }
+
         AppendSessionTranscriptHistory($"[{DateTime.Now:t}] {displayTranscript} ({confidence:P0})");
         _lastHeardTranscriptText = displayTranscript;
         _lastHeardTranscriptConfidence = confidence;
         _lastHeardLabel.Text = FormatLastHeardLabel(displayTranscript, confidence);
-        if (_voiceCommandService.IsListening || _dictationActive || IsWakeOverlaySessionActive(_session.State))
+        if (_dictationActive || IsWakeOverlaySessionActive(_session.State))
         {
             var phase = _dictationActive
                 ? "Dictation"
@@ -3598,6 +3638,16 @@ public sealed class MainForm : Form
             _sessionResultLabel.Text = $"Action intent: launch '{_appNameText.Text.Trim()}' through Start menu search.";
             LaunchAppFromStartMenu();
         }
+    }
+
+    private static bool IsIgnorableSpeechTranscript(string? transcript)
+    {
+        if (string.IsNullOrWhiteSpace(transcript))
+            return true;
+
+        var trimmed = transcript.Trim();
+        return trimmed.Equals("[BLANK_AUDIO]", StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals("BLANK_AUDIO", StringComparison.OrdinalIgnoreCase);
     }
 
     private void AppendSessionTranscriptHistory(string entry)
@@ -5196,6 +5246,9 @@ public sealed class MainForm : Form
 
         if (score.HasValue && threshold.HasValue)
         {
+            if (score.Value < threshold.Value)
+                return "Wake candidate: listening for Callsign.";
+
             return score.Value >= threshold.Value
                 ? $"Wake candidate: heard '{candidate}' ({score.Value:P0} / {threshold.Value:P0}) and it cleared threshold."
                 : $"Wake candidate: heard '{candidate}' ({score.Value:P0} / {threshold.Value:P0}) but it stayed below threshold.";
@@ -5753,7 +5806,9 @@ public sealed class MainForm : Form
                                 ? $"Background user runtime is listening, hearing audio, and a wake candidate passed threshold. {runtimeSnapshot.ModeDescription}"
                                 : $"Background user runtime is listening and hearing audio, but the latest wake candidate stayed below threshold. {runtimeSnapshot.ModeDescription}"
                             : $"Background user runtime is listening and hearing audio. {runtimeSnapshot.ModeDescription}"
-                        : "Background user runtime is running but not hearing microphone audio."
+                        : HasRecentAudioPacket(runtimeSnapshot!)
+                            ? "Background user runtime is receiving microphone packets, but the speech level is too quiet."
+                            : "Background user runtime is running but no microphone audio packets are arriving."
                 : "Microphone listener is stopped.";
         _startListeningButton.Enabled = !anyListenerRunning && !stopRequestPending;
         _stopListeningButton.Enabled = anyListenerRunning && !stopRequestPending;
@@ -5762,13 +5817,19 @@ public sealed class MainForm : Form
             HideVisibleControlsOverlay();
     }
 
+    private static bool HasRecentAudioPacket(RuntimeStateSnapshot snapshot) =>
+        snapshot.SecondsSinceLastAudioPacket.HasValue
+            && snapshot.SecondsSinceLastAudioPacket.Value <= 2.5;
+
     private static string FormatMicLevel(RuntimeStateSnapshot snapshot)
     {
         if (snapshot.LastMicrophoneLevelState == null)
             return "Microphone telemetry unavailable.";
 
         if (snapshot.CanHearAudio == false && snapshot.IsListening)
-            return "Runtime running but no microphone audio is arriving.";
+            return HasRecentAudioPacket(snapshot)
+                ? "Runtime is receiving microphone packets, but speech is below the active threshold."
+                : "Runtime running but no microphone audio packets are arriving.";
 
         if (snapshot.CanHearAudio == true && string.Equals(snapshot.RuntimeAuthorityStatus, "authoritative-user-runtime", StringComparison.OrdinalIgnoreCase))
             return $"Microphone level: {snapshot.LastMicrophoneLevelState}. Authoritative runtime is hearing audio.";

@@ -7,6 +7,7 @@ public sealed class WakeOverlayForm : Form
     private const int WsExTransparent = 0x20;
     private const int WsExToolWindow = 0x80;
     private const int WsExNoActivate = 0x08000000;
+    private static readonly Color OverlayTransparencyColor = Color.Magenta;
 
     private readonly Label _titleLabel;
     private readonly TableLayoutPanel _layout;
@@ -46,9 +47,9 @@ public sealed class WakeOverlayForm : Form
         ShowInTaskbar = false;
         TopMost = true;
         StartPosition = FormStartPosition.Manual;
-        BackColor = Color.FromArgb(12, 16, 20);
+        BackColor = OverlayTransparencyColor;
+        TransparencyKey = OverlayTransparencyColor;
         ForeColor = Color.White;
-        Opacity = 0.96;
         Width = 430;
         Height = 600;
         MinimumSize = new Size(340, 420);
@@ -89,10 +90,9 @@ public sealed class WakeOverlayForm : Form
         _messagePanel = new Panel
         {
             Dock = DockStyle.Fill,
-            BackColor = Color.FromArgb(168, 0, 0, 0),
+            BackColor = Color.Transparent,
             Padding = new Padding(16, 12, 16, 10)
         };
-        _messagePanel.Paint += MessagePanelPaint;
 
         _headerPanel = new Panel
         {
@@ -117,7 +117,7 @@ public sealed class WakeOverlayForm : Form
         {
             Dock = DockStyle.Right,
             Width = 72,
-            BackColor = Color.FromArgb(24, 36, 38),
+            BackColor = Color.Transparent,
             ForeColor = Color.FromArgb(105, 245, 214),
             TextAlign = ContentAlignment.MiddleCenter,
             Font = new Font(FontFamily.GenericSansSerif, 8.5f, FontStyle.Bold),
@@ -161,7 +161,7 @@ public sealed class WakeOverlayForm : Form
             Dock = DockStyle.Top,
             AutoSize = false,
             Height = 52,
-            BackColor = Color.FromArgb(56, 0, 0, 0),
+            BackColor = Color.Transparent,
             ForeColor = Color.FromArgb(232, 255, 248),
             TextAlign = ContentAlignment.MiddleCenter,
             Font = new Font(FontFamily.GenericSansSerif, 9.4f, FontStyle.Bold),
@@ -218,7 +218,7 @@ public sealed class WakeOverlayForm : Form
         {
             Dock = DockStyle.Top,
             Height = 12,
-            BackColor = Color.FromArgb(28, 38, 42),
+            BackColor = Color.Transparent,
             Margin = new Padding(0, 3, 0, 4)
         };
         _activityTrack.Resize += (_, _) => UpdateActivityMeter();
@@ -312,7 +312,6 @@ public sealed class WakeOverlayForm : Form
 
             _animationTimer.Stop();
             _animationTimer.Dispose();
-            _messagePanel.Paint -= MessagePanelPaint;
             _pictureBox.Image = null;
             _overlayImage?.Dispose();
             _assetStream?.Dispose();
@@ -598,21 +597,6 @@ public sealed class WakeOverlayForm : Form
 
         var baseText = _baseReadout.TrimEnd('.');
         return baseText + new string('.', _animatedDots + 1);
-    }
-
-    private void MessagePanelPaint(object? sender, PaintEventArgs e)
-    {
-        var pulse = _animateReadout ? 0.25 + (_pulsePhase / 11.0) * 0.45 : 0.18;
-        var alpha = (int)(255 * pulse);
-        using var borderPen = new Pen(Color.FromArgb(alpha, _accentColor), 2.5f);
-        using var fillBrush = new SolidBrush(Color.FromArgb((int)(alpha * 0.24), _accentSoftColor));
-
-        var rect = _messagePanel.ClientRectangle;
-        rect.Width -= 1;
-        rect.Height -= 1;
-        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-        e.Graphics.FillRectangle(fillBrush, rect);
-        e.Graphics.DrawRectangle(borderPen, rect);
     }
 
     private void ApplyPhaseStyle(string phase)

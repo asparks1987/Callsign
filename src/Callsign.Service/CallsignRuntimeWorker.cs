@@ -258,21 +258,8 @@ public sealed class CallsignRuntimeWorker : BackgroundService
             if (profile == null)
                 return;
 
-            _lastTranscriptText = e.Text;
-            _lastTranscriptConfidence = Math.Clamp(e.Confidence, 0f, 1f);
-            _lastTranscriptUpdatedUtc = DateTime.UtcNow;
-            AppendTranscriptHistory(e.Text, _lastTranscriptConfidence.Value, _lastTranscriptUpdatedUtc.Value);
-            _overlayReadout = FormatOverlayReadout(
-                _session.State,
-                e.Text,
-                _session.VerifiedCallsign,
-                _session.PendingCommand,
-                _session.PendingApp,
-                _lastIdentityResult?.RetryPrompt,
-                _lastTranscriptConfidence,
-                speechActive: _voiceCommandService.IsSpeechActive,
-                dictationTranscript: _serviceDictationSegments.Count == 0 ? null : string.Join(" ", _serviceDictationSegments),
-                dictationActive: _serviceDictationActive);
+            if (IsIgnorableSpeechTranscript(e.Text))
+                return;
 
             if (AlphaVoiceTranscriptParser.IsStopListeningCommand(e.Text))
             {
@@ -294,6 +281,29 @@ public sealed class CallsignRuntimeWorker : BackgroundService
                 WriteSnapshot();
                 return;
             }
+
+            if (!_serviceDictationActive && !AcceptsSessionTranscript(_session.State))
+            {
+                _statusMessage = $"Listening in the background with {profile.Callsign}.";
+                WriteSnapshot();
+                return;
+            }
+
+            _lastTranscriptText = e.Text;
+            _lastTranscriptConfidence = Math.Clamp(e.Confidence, 0f, 1f);
+            _lastTranscriptUpdatedUtc = DateTime.UtcNow;
+            AppendTranscriptHistory(e.Text, _lastTranscriptConfidence.Value, _lastTranscriptUpdatedUtc.Value);
+            _overlayReadout = FormatOverlayReadout(
+                _session.State,
+                e.Text,
+                _session.VerifiedCallsign,
+                _session.PendingCommand,
+                _session.PendingApp,
+                _lastIdentityResult?.RetryPrompt,
+                _lastTranscriptConfidence,
+                speechActive: _voiceCommandService.IsSpeechActive,
+                dictationTranscript: _serviceDictationSegments.Count == 0 ? null : string.Join(" ", _serviceDictationSegments),
+                dictationActive: _serviceDictationActive);
 
             if (_serviceDictationActive)
             {
@@ -341,6 +351,22 @@ public sealed class CallsignRuntimeWorker : BackgroundService
 
             WriteSnapshot();
         }
+    }
+
+    private static bool AcceptsSessionTranscript(AlphaSessionState state) =>
+        state is AlphaSessionState.WaitingForIdentity
+            or AlphaSessionState.WaitingForCommand
+            or AlphaSessionState.ReadyToLaunch
+            or AlphaSessionState.Launching;
+
+    private static bool IsIgnorableSpeechTranscript(string? transcript)
+    {
+        if (string.IsNullOrWhiteSpace(transcript))
+            return true;
+
+        var trimmed = transcript.Trim();
+        return trimmed.Equals("[BLANK_AUDIO]", StringComparison.OrdinalIgnoreCase)
+            || trimmed.Equals("BLANK_AUDIO", StringComparison.OrdinalIgnoreCase);
     }
 
     private void HandleIdentityTranscript(UserProfile profile, string transcript, float confidence, string? capturedAudioPath)

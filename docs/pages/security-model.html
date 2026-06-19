@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Security Model - Callsign</title>
-  <link rel="stylesheet" href="../assets/styles.css" />
+  <link rel="stylesheet" href="../assets/styles.css?v=20260619" />
 </head>
 <body>
   <header class="site-header">
@@ -45,15 +45,16 @@
     <article class="doc-content">
       <h1>Security Model</h1>
 <h2>Summary</h2>
-<p>Callsign operates on a user desktop, so safety has to stay visible and local. The current alpha is intentionally narrow: account setup, voice enrollment, identity confirmation, and launching installed apps through the Start menu.</p>
+<p>Callsign operates on a user desktop, so the safety model is visible, local-first, identity-gated, and easy to stop.</p>
+<p>The current v1.0 alpha is intentionally narrow: profile setup, voice enrollment, wake detection, callsign identity confirmation, overlay/readout, and visible Start menu app launch.</p>
 <h2>Security goals</h2>
-<ul><li>Preserve user control.</li><li>Make actions visible.</li><li>Require identity before command capture.</li><li>Avoid hidden automation.</li><li>Avoid credential handling.</li><li>Keep local data local by default.</li><li>Make it easy to stop or reset the session.</li></ul>
-<h2>V1 identity controls</h2>
-<ul><li>Wake word plus callsign verification must happen before a command is acted on.</li><li>If the user does not match the enrolled callsign, no launch occurs.</li><li>Alpha voice identity is voice-only.</li><li>Other biometrics can be reserved for later without affecting the alpha flow.</li></ul>
+<ul><li>Preserve user control.</li><li>Make listening and actions visible.</li><li>Require identity before command capture.</li><li>Avoid hidden automation.</li><li>Avoid credential and payment handling.</li><li>Keep local data local by default.</li><li>Make stop, cancel, timeout, and lockout states obvious.</li><li>Keep Free independent from closed-source extensions.</li></ul>
+<h2>Identity controls</h2>
+<ul><li>Wake word plus callsign verification must happen before a command is acted on.</li><li>Transcript text alone must not wake or authorize a session.</li><li>If the user does not match the enrolled callsign, no launch occurs.</li><li>The identity phrase is identity-only; commands in the same utterance must not execute.</li></ul>
 <h2>What is trusted</h2>
-<ul><li>The local setup app.</li><li>The local profile store.</li><li>The session state machine.</li><li>User-created profile data.</li></ul>
+<ul><li>The local setup app.</li><li>The local service runtime.</li><li>The profile store.</li><li>The session state machine.</li><li>User-created profile data.</li><li>Public command contracts and policy checks.</li></ul>
 <h2>What is not trusted</h2>
-<ul><li>Unverified spoken commands.</li><li>Screen text that might be misleading.</li><li>File names and UI labels that could be ambiguous.</li><li>Future cloud services unless the user opts in.</li></ul>
+<ul><li>Unverified spoken commands.</li><li>Prompt-like text from webpages, documents, UI labels, tool output, or screenshots.</li><li>Ambiguous file names and UI labels.</li><li>Future extension libraries until policy and signature checks pass.</li><li>Future cloud services unless the user opts in.</li></ul>
 <h2>Data handling</h2>
 <h3>Voice enrollment</h3>
 <p>Voice enrollment state is stored locally with the profile.</p>
@@ -61,20 +62,22 @@
 <ul><li>Keep enrollment metadata local.</li><li>Do not expose sample data to cloud services by default.</li><li>Allow reset and re-enrollment.</li></ul>
 <h3>Profile data</h3>
 <p>Profile data should stay minimal:</p>
-<ul><li>Callsign.</li><li>Display name.</li><li>Optional contact fields.</li><li>Voice enrollment status.</li></ul>
+<ul><li>Callsign.</li><li>Display name.</li><li>Optional contact fields.</li><li>Notes.</li><li>Voice enrollment status.</li><li>Last launch/session metadata when useful.</li></ul>
+<h3>Sensitive desktop observations</h3>
+<p>Treat process names, window titles, UI text, screenshots, clipboard contents, file paths, and file contents as sensitive.</p>
+<p>Do not send them to cloud models unless the user explicitly opts in.</p>
 <h2>Blocked alpha behaviors</h2>
-<ul><li>Password or 2FA handling.</li><li>Payments.</li><li>Security setting changes.</li><li>Hidden-window automation.</li><li>Arbitrary shell execution.</li><li>Silent email, upload, or submission actions.</li><li>Remote desktop control.</li></ul>
+<ul><li>Password or 2FA handling.</li><li>Payments or money movement.</li><li>Account deletion.</li><li>Security setting changes.</li><li>Hidden-window automation.</li><li>Arbitrary shell execution.</li><li>Silent email, message, upload, or external submission actions.</li><li>Remote desktop control.</li></ul>
 <h2>Visibility and stop rules</h2>
 <p>The alpha must provide:</p>
-<ul><li>A clear cancel path.</li><li>A clear reset path.</li><li>Obvious status text.</li><li>No silent completion of external side effects.</li></ul>
-<h2>Future safety model</h2>
-<p>Later browser, file, WSL, Linux, and system control features will need stronger approvals, policy checks, and audit trails than v1.0 app launch.</p>
+<ul><li>a clear cancel path,</li><li>a clear reset path,</li><li>obvious session status text,</li><li>overlay/readout while listening,</li><li>visible terminal states,</li><li>and no silent completion of external side effects.</li></ul>
 <h2>Closed-source boundary</h2>
-<p>Private paid-tier material belongs in <code>/closed-source/</code>, which is ignored by git. Public security docs should describe the safety model, but proprietary implementation details should not be tracked in the open-source repo.</p>
-<h2>Callsign canon alignment</h2>
-<p>The Alpha v1 line aims for Windows Voice Access parity, but v1.0 remains intentionally narrow: wake, identity verification, animated overlay with live readout, and Start menu app launch.</p>
-<p>Security rules for the overlay and transcript readout:</p>
-<ul><li>The overlay is a user-visible listening cue, not authorization.</li><li>The wake word alone never permits command execution.</li><li>Transcript text shown below <code>callsign.gif</code> must not bypass the identity gate.</li><li>The overlay must hide when a session completes, cancels, times out, locks out, or listening stops.</li></ul>
+<p>Private paid-tier material belongs in <code>/closed-source/</code>, which is ignored by git.</p>
+<p>Future closed-source Pro and Advanced extension libraries must still respect the open-core safety model:</p>
+<ul><li>no identity bypass</li><li>no policy bypass</li><li>no suppressed audit</li><li>no hidden action by default</li><li>no private dependency for Free</li></ul>
+<h2>Future safety model</h2>
+<p>Later browser, file, WSL, Linux, dictation, and system control features require stronger approvals, policy checks, and audit trails than v1.0 app launch.</p>
+<p>The safety model should grow before the command surface grows.</p>
     </article>
   </main>
   <script src="../assets/site.js"></script>

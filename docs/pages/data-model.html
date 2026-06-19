@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Data Model - Callsign</title>
-  <link rel="stylesheet" href="../assets/styles.css" />
+  <link rel="stylesheet" href="../assets/styles.css?v=20260619" />
 </head>
 <body>
   <header class="site-header">
@@ -45,16 +45,16 @@
     <article class="doc-content">
       <h1>Data Model</h1>
 <h2>Overview</h2>
-<p>Callsign keeps the alpha data model small and local.</p>
+<p>Callsign keeps the Free alpha data model small, local, and inspectable.</p>
 <p>Main data types:</p>
-<ul><li>User profile.</li><li>User settings.</li><li>Voice enrollment state.</li><li>Session state.</li><li>Launch history.</li></ul>
+<ul><li>user profile</li><li>user settings</li><li>voice enrollment state</li><li>runtime/session snapshot</li><li>launch history and diagnostics</li><li>future command/extension metadata</li></ul>
 <h2>User profile</h2>
 <p>Profiles live under:</p>
 <pre><code class="language-text">%LOCALAPPDATA%/Callsign/Profiles/&lt;callsign&gt;/settings.json</code></pre>
 <p>The current profile shape includes:</p>
-<ul><li>Callsign.</li><li>Display name.</li><li>Optional email and department fields.</li><li>Notes.</li><li>Local voice enrollment state.</li><li>Last launched app.</li></ul>
+<ul><li>callsign</li><li>display name</li><li>optional email and department fields</li><li>notes</li><li>local voice enrollment state</li><li>last launched app/session metadata</li></ul>
 <h2>Voice enrollment state</h2>
-<p>Voice enrollment is currently stored with the profile settings.</p>
+<p>Voice enrollment is stored with profile settings.</p>
 <p>Suggested fields:</p>
 <pre><code class="language-json">{
   &quot;voice_enrollment_status&quot;: &quot;Enrolled&quot;,
@@ -62,14 +62,19 @@
   &quot;voice_samples_required&quot;: 3,
   &quot;voice_enrolled_utc&quot;: &quot;2026-06-12T00:00:00Z&quot;
 }</code></pre>
-<h2>Session state</h2>
-<p>The alpha session state is mostly runtime-only:</p>
-<ul><li>Idle.</li><li>Waiting for identity.</li><li>Waiting for command.</li><li>Ready to launch.</li><li>Launching.</li><li>Completed.</li><li>Locked out.</li></ul>
+<h2>Runtime/session snapshot</h2>
+<p>The runtime snapshot is how the service and UI stay aligned.</p>
+<p>Important fields include:</p>
+<ul><li>runtime role and authority</li><li>microphone health</li><li>session state</li><li>last transcript/readout</li><li>overlay visibility</li><li>wake/identity/command timing</li><li>launch result or failure state</li></ul>
 <h2>Launch history</h2>
 <p>Useful launch metadata can be recorded locally for debugging and user confidence:</p>
-<ul><li>Profile callsign.</li><li>App name.</li><li>Timestamp.</li><li>Success or failure.</li></ul>
+<ul><li>profile callsign</li><li>app name</li><li>timestamp</li><li>success or failure</li><li>visible verification summary</li></ul>
+<h2>Future extension metadata</h2>
+<p>Future Pro and Advanced extension libraries may need metadata such as:</p>
+<ul><li>extension id</li><li>display name</li><li>tier</li><li>version</li><li>signature status</li><li>risk declarations</li><li>command catalog manifest</li></ul>
+<p>Entitlement secrets and private implementation details must not be stored in the public repo.</p>
 <h2>Retention</h2>
-<ul><li>Profile data: keep until the user deletes it.</li><li>Launch history: keep locally until the user clears it.</li><li>Voice enrollment metadata: keep locally until reset.</li><li>Secrets: do not store.</li></ul>
+<ul><li>Profile data: keep until the user deletes it.</li><li>Launch history: keep locally until the user clears it.</li><li>Voice enrollment metadata: keep locally until reset.</li><li>Runtime diagnostics: keep bounded and local.</li><li>Secrets: do not store in Free alpha profile data.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

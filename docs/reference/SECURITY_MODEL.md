@@ -2,37 +2,43 @@
 
 ## Summary
 
-Callsign operates on a user desktop, so safety has to stay visible and local. The current alpha is intentionally narrow: account setup, voice enrollment, identity confirmation, and launching installed apps through the Start menu.
+Callsign operates on a user desktop, so the safety model is visible, local-first, identity-gated, and easy to stop.
+
+The current v1.0 alpha is intentionally narrow: profile setup, voice enrollment, wake detection, callsign identity confirmation, overlay/readout, and visible Start menu app launch.
 
 ## Security goals
 
 - Preserve user control.
-- Make actions visible.
+- Make listening and actions visible.
 - Require identity before command capture.
 - Avoid hidden automation.
-- Avoid credential handling.
+- Avoid credential and payment handling.
 - Keep local data local by default.
-- Make it easy to stop or reset the session.
+- Make stop, cancel, timeout, and lockout states obvious.
+- Keep Free independent from closed-source extensions.
 
-## V1 identity controls
+## Identity controls
 
 - Wake word plus callsign verification must happen before a command is acted on.
+- Transcript text alone must not wake or authorize a session.
 - If the user does not match the enrolled callsign, no launch occurs.
-- Alpha voice identity is voice-only.
-- Other biometrics can be reserved for later without affecting the alpha flow.
+- The identity phrase is identity-only; commands in the same utterance must not execute.
 
 ## What is trusted
 
 - The local setup app.
-- The local profile store.
+- The local service runtime.
+- The profile store.
 - The session state machine.
 - User-created profile data.
+- Public command contracts and policy checks.
 
 ## What is not trusted
 
 - Unverified spoken commands.
-- Screen text that might be misleading.
-- File names and UI labels that could be ambiguous.
+- Prompt-like text from webpages, documents, UI labels, tool output, or screenshots.
+- Ambiguous file names and UI labels.
+- Future extension libraries until policy and signature checks pass.
 - Future cloud services unless the user opts in.
 
 ## Data handling
@@ -54,43 +60,52 @@ Profile data should stay minimal:
 - Callsign.
 - Display name.
 - Optional contact fields.
+- Notes.
 - Voice enrollment status.
+- Last launch/session metadata when useful.
+
+### Sensitive desktop observations
+
+Treat process names, window titles, UI text, screenshots, clipboard contents, file paths, and file contents as sensitive.
+
+Do not send them to cloud models unless the user explicitly opts in.
 
 ## Blocked alpha behaviors
 
 - Password or 2FA handling.
-- Payments.
+- Payments or money movement.
+- Account deletion.
 - Security setting changes.
 - Hidden-window automation.
 - Arbitrary shell execution.
-- Silent email, upload, or submission actions.
+- Silent email, message, upload, or external submission actions.
 - Remote desktop control.
 
 ## Visibility and stop rules
 
 The alpha must provide:
 
-- A clear cancel path.
-- A clear reset path.
-- Obvious status text.
-- No silent completion of external side effects.
-
-## Future safety model
-
-Later browser, file, WSL, Linux, and system control features will need stronger approvals, policy checks, and audit trails than v1.0 app launch.
+- a clear cancel path,
+- a clear reset path,
+- obvious session status text,
+- overlay/readout while listening,
+- visible terminal states,
+- and no silent completion of external side effects.
 
 ## Closed-source boundary
 
-Private paid-tier material belongs in `/closed-source/`, which is ignored by git. Public security docs should describe the safety model, but proprietary implementation details should not be tracked in the open-source repo.
+Private paid-tier material belongs in `/closed-source/`, which is ignored by git.
 
-## Callsign canon alignment
+Future closed-source Pro and Advanced extension libraries must still respect the open-core safety model:
 
-The Alpha v1 line aims for Windows Voice Access parity, but v1.0 remains intentionally narrow: wake, identity verification, animated overlay with live readout, and Start menu app launch.
+- no identity bypass
+- no policy bypass
+- no suppressed audit
+- no hidden action by default
+- no private dependency for Free
 
-Security rules for the overlay and transcript readout:
+## Future safety model
 
-- The overlay is a user-visible listening cue, not authorization.
-- The wake word alone never permits command execution.
-- Transcript text shown below `callsign.gif` must not bypass the identity gate.
-- The overlay must hide when a session completes, cancels, times out, locks out, or listening stops.
+Later browser, file, WSL, Linux, dictation, and system control features require stronger approvals, policy checks, and audit trails than v1.0 app launch.
 
+The safety model should grow before the command surface grows.

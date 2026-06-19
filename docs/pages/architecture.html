@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Architecture - Callsign</title>
-  <link rel="stylesheet" href="../assets/styles.css" />
+  <link rel="stylesheet" href="../assets/styles.css?v=20260619" />
 </head>
 <body>
   <header class="site-header">
@@ -45,31 +45,33 @@
     <article class="doc-content">
       <h1>Architecture</h1>
 <h2>Overview</h2>
-<p>Callsign is service-first. The UI is for setup and monitoring; the background runtime is the voice session owner.</p>
-<p>The canonical v1.0 path is:</p>
-<ul><li>openWakeWord wake detection</li><li>service-driven identity verification</li><li>command capture and execution</li><li>visible Start menu action</li></ul>
-<h2>Setup surface</h2>
-<p>The WinForms app lets users:</p>
-<ul><li>create and select local profiles</li><li>record and replay samples</li><li>train callsign identity</li><li>manage runtime repair and logs</li><li>monitor service state, microphone health, and recent speech readout</li></ul>
-<p>This app is intentionally not the final execution owner.</p>
-<h2>Runtime</h2>
-<p><code>src/Callsign.Service</code> provides:</p>
-<ul><li>microphone capture and wake detection</li><li>session state machine (<code>wake -&gt; identity -&gt; command</code>)</li><li>identity gate integration</li><li>Start menu launch execution</li><li>runtime snapshot writes for UI synchronization</li><li>overlay readout serialization for visible feedback</li></ul>
-<p>Transcript text is treated as a command channel only after a dedicated wake event and identity confirmation.</p>
-<h2>Overlay and status</h2>
-<p><code>callsign.gif</code> is a UI-only cue, driven by runtime session state.</p>
-<p>Behavior:</p>
-<ul><li>appears on wake transition</li><li>stays on-screen through identity and command capture</li><li>hides on completion, cancel, timeout, lockout, or explicit stop</li></ul>
-<h2>v1.0 scope</h2>
-<p>v1.0 only launches installed apps by visible Start menu path. No arbitrary shell execution exists in the alpha core.</p>
-<h2>Future scope</h2>
-<p>Later features such as dictation, browser control, system control, and file search should be documented separately and should not be treated as current alpha scope.</p>
-<h2>Safety and platform direction</h2>
-<p>The architecture is intentionally local-first and open-source:</p>
-<ul><li>user-visible actions and stop controls</li><li>no hidden background side effects</li><li>no paywall in Alpha v1</li><li>the public core stays stable while future work is planned separately</li></ul>
-<h2>Core contract</h2>
-<p>The Free runtime, policy engine, session state, overlay, command registry contracts, and everyday command set belong in the MIT-licensed repo.</p>
-<p>All commands must still pass the same identity, policy, visibility, and audit pipeline.</p>
+<p>Callsign is service-first.</p>
+<p>The UI is for setup, onboarding, monitoring, voice enrollment, overlay/readout, and visible controls. The background runtime is the authority for wake detection, identity gating, session state, and action orchestration.</p>
+<p>The core session contract is:</p>
+<pre><code class="language-text">Callsign -&gt; identity verification -&gt; command -&gt; visible action</code></pre>
+<h2>Current implementation</h2>
+<h3>Setup and monitoring app</h3>
+<p><code>src/Callsign.UI</code> currently owns the user-facing alpha surface:</p>
+<ul><li>local profile creation and selection</li><li>callsign settings</li><li>voice sample capture and playback</li><li>voice identity training controls</li><li>runtime repair helpers</li><li>runtime state monitoring</li><li>wake overlay and readout UI</li><li>visible control overlays and UI navigation helpers</li><li>command parsing/routing surfaces for the v1.x path</li></ul>
+<h3>Background service</h3>
+<p><code>src/Callsign.Service</code> provides the service runtime:</p>
+<ul><li>microphone/runtime ownership</li><li>wake detection orchestration</li><li>session state transitions</li><li>callsign identity gate integration</li><li>visible Start menu launch execution</li><li>runtime snapshot writes for UI synchronization</li><li>overlay readout serialization</li><li>health and diagnostics data for the monitoring UI</li></ul>
+<p>Transcript text is treated as command input only after a dedicated wake event and identity confirmation.</p>
+<h2>v1.0 release architecture</h2>
+<p>v1.0 is intentionally narrow:</p>
+<ul><li>openWakeWord/audio-path wake detection</li><li>callsign identity verification</li><li><code>callsign.gif</code> overlay with live readout</li><li>visible Start menu launch for installed apps and safe shell-backed destinations</li><li>explicit stop/cancel/timeout/lockout states</li></ul>
+<p>No arbitrary shell execution exists in the v1.0 alpha core.</p>
+<h2>v1.x extension architecture</h2>
+<p>The codebase is moving toward richer adapters:</p>
+<ul><li>dictation with visible review</li><li>browser open/search/navigation</li><li>system control helpers</li><li>file search with visible results</li><li>Windows, WSL, and Linux control paths</li><li>command catalogs and recipes</li></ul>
+<p>These adapters must stay behind the same runtime gates: wake, identity, policy, visibility, approval, and audit.</p>
+<h2>Open-source boundary</h2>
+<p>The Free runtime, setup UI, profile/enrollment flow, overlay, public contracts, docs, tests, and basic everyday commands belong in the MIT-licensed repo.</p>
+<p>Future Pro and Advanced extension libraries may be closed-source, but they should plug into the open runtime rather than replace it.</p>
+<h2>Data and privacy posture</h2>
+<p>Treat these as sensitive:</p>
+<ul><li>process names</li><li>window titles</li><li>UI text</li><li>file paths</li><li>microphone state</li><li>screenshots</li><li>clipboard contents</li><li>profile data</li><li>voice enrollment metadata</li></ul>
+<p>The default alpha posture is local-first. Do not send desktop observations or file contents to cloud models unless the user explicitly opts in.</p>
     </article>
   </main>
   <script src="../assets/site.js"></script>

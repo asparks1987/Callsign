@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Test Plan - Callsign</title>
-  <link rel="stylesheet" href="../assets/styles.css" />
+  <link rel="stylesheet" href="../assets/styles.css?v=20260619" />
 </head>
 <body>
   <header class="site-header">
@@ -45,18 +45,21 @@
     <article class="doc-content">
       <h1>Test Plan</h1>
 <h2>Purpose</h2>
-<p><code>v1.0 alpha</code> is proven when the core service runtime works end-to-end from install through live launch.</p>
+<p><code>v1.0 alpha</code> is proven when the Free open-source core works end-to-end from install through visible launch.</p>
 <p>All Alpha v1 features are free and remain free until at least beta.</p>
 <h2>v1.0 automated coverage</h2>
 <p>Default smoke command:</p>
 <pre><code class="language-powershell">dotnet run --project tests/Callsign.AlphaSmoke/Callsign.AlphaSmoke.csproj</code></pre>
 <p>Required checks:</p>
-<ul><li>fresh install and service start</li><li>wake-only speech does not launch</li><li>wake word detection and identity gate works for <code>Callsign</code> / <code>call sign</code></li><li><code>callsign.gif</code> appears and session readout updates while active</li><li>identity success and mismatch handling</li><li>visible Start menu launch path</li><li>safe stop, cancel, timeout, and lockout handling</li><li>runtime snapshot includes session state, transcript, overlay readout, and microphone telemetry</li></ul>
-<h2>Manual Alpha v1 smoke walkthrough</h2>
-<p>1. Build and install from clean state. 2. Create profile and train identity. 3. Speak wake phrase and confirm overlay + live text. 4. Speak callsign. 5. Speak launch command. 6. Confirm Start menu action is visible. 7. Validate wrong identity and no-mic cases do not launch.</p>
+<ul><li>fresh install/service startup assumptions</li><li>profile creation and local settings persistence</li><li>wake-only speech does not launch</li><li>wake word detection and identity gate for <code>Callsign</code> / <code>call sign</code></li><li><code>callsign.gif</code> appears and session readout updates while active</li><li>identity success and mismatch handling</li><li>visible Start menu launch path</li><li>safe stop, cancel, timeout, and lockout handling</li><li>runtime snapshot includes session state, transcript, overlay readout, and microphone telemetry</li><li>unsafe launch text, paths, URLs, shell fragments, and secret-like inputs are rejected</li></ul>
+<h2>Manual v1.0 walkthrough</h2>
+<p>1. Build and install from clean state. 2. Create profile and callsign. 3. Record and review voice samples. 4. Train or mark voice identity enrolled. 5. Confirm service/runtime health in the UI. 6. Speak wake phrase and confirm overlay + live text. 7. Speak callsign and confirm identity acceptance. 8. Speak launch command. 9. Confirm Start menu action is visible. 10. Validate wrong identity and no-mic cases do not launch. 11. Validate stop, cancel, timeout, and lockout behavior.</p>
+<h2>v1.x test direction</h2>
+<p>Future Alpha v1 releases need additional suites:</p>
+<ul><li>v1.1 dictation review and no-silent-insert tests</li><li>v1.2 browser navigation and external-side-effect approval tests</li><li>v1.3 system control, WSL/Linux, file search, and audit tests</li><li>extension-library signature, entitlement, and policy tests before Pro/Advanced packaging</li></ul>
 <h2>Release gate</h2>
 <p>No <code>v1.0 alpha</code> release until:</p>
-<ul><li>build site and installer are reproducible</li><li>service/session fields are readable in runtime state</li><li>overlay is visible at wake and hidden in terminal states</li><li>identity failures remain safe and visible</li></ul>
+<ul><li>build site and installer are reproducible,</li><li>service/session fields are readable in runtime state,</li><li>overlay is visible at wake and hidden in terminal states,</li><li>identity failures remain safe and visible,</li><li>common app launches work through visible flow,</li><li>and docs/website accurately describe open-source Free plus future closed-source extensions.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

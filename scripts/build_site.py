@@ -8,6 +8,7 @@ DOCS = ROOT / "docs"
 REF = DOCS / "reference"
 PAGES = DOCS / "pages"
 ASSETS = DOCS / "assets"
+ASSET_VERSION = "20260619"
 PAGES.mkdir(parents=True, exist_ok=True)
 ASSETS.mkdir(parents=True, exist_ok=True)
 
@@ -17,18 +18,18 @@ if GIF_SOURCE.exists():
 
 DOC_ORDER = [
     ("Canon", "CANON.md", "canon.html", "The Callsign product book: mission, promise, alpha ladder, and UX bar."),
-    ("Product Spec", "PRODUCT_SPEC.md", "product-spec.html", "v1.0 alpha scope, release ladder, and current product principles."),
-    ("Tier Architecture", "TIER_ARCHITECTURE.md", "tier-architecture.html", "Current Free-core boundary and future tier notes."),
-    ("Architecture", "ARCHITECTURE.md", "architecture.html", "Service runtime, setup UI, wake overlay, and current alpha architecture."),
+    ("Product Spec", "PRODUCT_SPEC.md", "product-spec.html", "v1.0 alpha scope, Alpha v1 ladder, and current product principles."),
+    ("Tier Architecture", "TIER_ARCHITECTURE.md", "tier-architecture.html", "Free open core, future Pro/Advanced extensions, and repository boundaries."),
+    ("Architecture", "ARCHITECTURE.md", "architecture.html", "Service runtime, setup UI, wake overlay, and v1.x extension architecture."),
     ("MCP Tools", "MCP_TOOLS.md", "mcp-tools.html", "Future automation contract and tool design."),
-    ("Windows Automation", "WINDOWS_AUTOMATION.md", "windows-automation.html", "v1.0 Start menu launch strategy."),
+    ("Windows Automation", "WINDOWS_AUTOMATION.md", "windows-automation.html", "v1.0 Start menu launch strategy and v1.x automation direction."),
     ("Security Model", "SECURITY_MODEL.md", "security-model.html", "Identity, local data handling, overlay behavior, and blocked actions."),
     ("Threat Model", "THREAT_MODEL.md", "threat-model.html", "Threats and mitigations for alpha service control."),
     ("Voice UX", "VOICE_UX.md", "voice-ux.html", "Wake word, callsign identity, overlay readout, and launch prompts."),
     ("Data Model", "DATA_MODEL.md", "data-model.html", "Profile storage, enrollment state, and launch history."),
     ("Test Plan", "TEST_PLAN.md", "test-plan.html", "v1.0 service, overlay, identity, launch, and safety checks."),
     ("Deployment", "DEPLOYMENT.md", "deployment.html", "Current build flow, GitHub Pages, and packaging notes."),
-    ("Roadmap", "ROADMAP.md", "roadmap.html", "Current v1.0 release line and future notes."),
+    ("Roadmap", "ROADMAP.md", "roadmap.html", "v1.0, v1.1, v1.2, v1.3, and beta-or-later extension planning."),
     ("Burndown", "BURNDOWN.md", "burndown.html", "Release checklist and acceptance criteria."),
     ("GitHub Pages", "GITHUB_PAGES.md", "github-pages.html", "How the public site and reference docs fit together."),
 ]
@@ -152,7 +153,7 @@ PAGE_TEMPLATE = """<!doctype html>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{title} - Callsign</title>
-  <link rel="stylesheet" href="../assets/styles.css" />
+  <link rel="stylesheet" href="../assets/styles.css?v={asset_version}" />
 </head>
 <body>
   <header class="site-header">
@@ -179,14 +180,14 @@ for title, src, out, _desc in DOC_ORDER:
         continue
     md = md_path.read_text(encoding="utf-8")
     body = render_markdown(md)
-    (PAGES / out).write_text(PAGE_TEMPLATE.format(title=html.escape(title), nav=nav_links, body=body), encoding="utf-8")
+    (PAGES / out).write_text(PAGE_TEMPLATE.format(title=html.escape(title), nav=nav_links, body=body, asset_version=ASSET_VERSION), encoding="utf-8")
 
 public_docs = [
-    ("Canon Book", "pages/canon.html", "The mission, product promise, current alpha line, and design bar."),
-    ("Product Spec", "pages/product-spec.html", "The v1.0 alpha MVP and the current product boundary."),
-    ("Tier Architecture", "pages/tier-architecture.html", "How the Free core stays public while future tiers remain out of scope."),
-    ("Roadmap", "pages/roadmap.html", "The current v1.0 release line and what stays future work."),
-    ("Burndown", "pages/burndown.html", "The current v1.0 release checklist and acceptance criteria."),
+    ("Canon Book", "pages/canon.html", "The mission, product promise, Alpha v1 ladder, and design bar."),
+    ("Product Spec", "pages/product-spec.html", "The v1.0 alpha MVP, v1.x path, and current product boundary."),
+    ("Tier Architecture", "pages/tier-architecture.html", "How Free stays open while Pro and Advanced grow through extension libraries."),
+    ("Roadmap", "pages/roadmap.html", "Wake launch first, then dictation, browser control, system control, and extension packaging."),
+    ("Burndown", "pages/burndown.html", "The v1.0 release checklist and Alpha v1 acceptance criteria."),
     ("Test Plan", "pages/test-plan.html", "How we prove wake, overlay, identity, and visible app launch work safely."),
 ]
 
@@ -203,9 +204,9 @@ index = f"""<!doctype html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Callsign | Open-source voice control for Windows</title>
-  <meta name="description" content="Callsign is the open-source Windows voice assistant for the current alpha. A visible, identity-first desktop assistant that feels like Apple Voice Control and keeps every session easy to inspect and stop." />
-  <link rel="stylesheet" href="assets/styles.css" />
+  <title>Callsign | Open-source voice control with an honest extension future</title>
+  <meta name="description" content="Callsign is an open-source Windows-first voice assistant with a visible, identity-first Free core and a future path for closed-source Pro and Advanced extension libraries." />
+  <link rel="stylesheet" href="assets/styles.css?v={ASSET_VERSION}" />
 </head>
 <body>
   <header class="site-header">
@@ -223,7 +224,7 @@ index = f"""<!doctype html>
       <div class="hero-copy">
         <div class="eyebrow">MIT-licensed desktop voice control</div>
         <h1>Callsign is the voice assistant you can inspect.</h1>
-        <p class="lede">An open-source Windows assistant built around a simple promise: you see when it wakes, you see what it heard, and your identity gates every action.</p>
+        <p class="lede">An open-source Windows-first assistant built around a simple promise: you see when it wakes, you see what it heard, and your identity gates every action. Free is the trust layer; future Pro and Advanced extensions can expand the ceiling without hiding the foundation.</p>
         <div class="actions">
           <a class="button primary" href="pages/canon.html">Read the project canon</a>
           <a class="button" href="pages/roadmap.html">See the alpha roadmap</a>
@@ -243,7 +244,7 @@ index = f"""<!doctype html>
       </div>
       <div class="statement">
         <p>Callsign is for people who want voice control without surrendering their desktop to a mystery box. The Free core is public, auditable, local-first, and designed around visible consent: wake word, callsign verification, live readout, and then a visible action.</p>
-        <p>Later paid tiers are future work. The current public site stays focused on the open-source Free core and the current v1.0 release line.</p>
+        <p>Callsign is also being built toward a commercial future. Pro and Advanced capabilities may ship later as closed-source extension libraries for deeper control, recipes, diagnostics, and specialized workflows. That boundary is honest by design: Free stays open, useful, and inspectable.</p>
       </div>
     </section>
 
@@ -251,18 +252,20 @@ index = f"""<!doctype html>
       <article><span>License</span><strong>MIT core</strong><p>Fork it, audit it, run it, and build around the public architecture.</p></article>
       <article><span>Runtime</span><strong>Visible by design</strong><p>The overlay and readout make listening, identity, and action states obvious.</p></article>
       <article><span>Safety</span><strong>Identity before action</strong><p>Transcript text alone must not wake or authorize a session.</p></article>
-      <article><span>Scope</span><strong>v1.0 only</strong><p>The current release line stops at wake, identity, overlay, and visible Start menu launch.</p></article>
+      <article><span>Future</span><strong>Paid extensions</strong><p>Closed-source libraries can add advanced catalogs while the core remains public.</p></article>
     </section>
 
     <section class="section alpha-panel" id="alpha">
       <div class="section-heading">
         <div class="eyebrow">Alpha v1 release line</div>
-        <h2>Start narrow. Prove the loop. Keep it free through alpha.</h2>
-        <p>Alpha is not a teaser tier. The v1.0 release is where Callsign proves open voice control can feel polished enough for daily use.</p>
+        <h2>Start narrow. Reach parity. Keep it free through alpha.</h2>
+        <p>Alpha is not a teaser tier. The v1 line is where Callsign proves open voice control can feel polished enough for daily use, then grows toward dictation, browser control, and system control.</p>
       </div>
       <div class="timeline">
         <article><span>v1.0</span><h3>Wake, verify, launch</h3><p>Background service wake detection, identity verification, animated overlay, live readout, and Start menu app launch.</p></article>
-        <article><span>Future</span><h3>Later work</h3><p>Dictation, browser control, system control, and file search stay out of the current public scope.</p></article>
+        <article><span>v1.1</span><h3>Dictation</h3><p>Visible review before inserted, copied, pasted, or submitted text.</p></article>
+        <article><span>v1.2</span><h3>Browser control</h3><p>Visible open, search, navigation, and safe bounded browser workflows.</p></article>
+        <article><span>v1.3</span><h3>System control</h3><p>Windows, WSL, Linux, and file search with results shown or opened through Explorer.</p></article>
       </div>
     </section>
 
@@ -282,14 +285,14 @@ index = f"""<!doctype html>
 
     <section class="section tier-band">
       <div class="section-heading">
-        <div class="eyebrow">Open core, current scope</div>
-        <h2>Free is the foundation. The rest is future planning.</h2>
+        <div class="eyebrow">Open core, expandable future</div>
+        <h2>Free is the foundation. Extensions are the business.</h2>
       </div>
       <div class="grid">
         <article class="card"><h3>Free</h3><p>Open-source callsign identity, wake overlay, live readout, and visible Start menu launching.</p></article>
-        <article class="card"><h3>Current release</h3><p>v1.0 stops at wake, identity, overlay feedback, and app launch.</p></article>
-        <article class="card"><h3>Future work</h3><p>Dictation, browser control, system control, and paid tiers are tracked separately.</p></article>
-        <article class="card"><h3>Boundary</h3><p>Public docs stay focused on the current scope and keep private material out of the repo.</p></article>
+        <article class="card"><h3>Pro</h3><p>Planned paid command libraries for deeper Windows, WSL, Linux, browser, and workflow control.</p></article>
+        <article class="card"><h3>Advanced</h3><p>Future specialized catalogs, recipes, diagnostics, and power-user automation shipped as closed-source extension libraries.</p></article>
+        <article class="card"><h3>Boundary</h3><p>Proprietary tier material belongs in <code>/closed-source/</code>, leaving the public repo clean and inspectable.</p></article>
       </div>
     </section>
 

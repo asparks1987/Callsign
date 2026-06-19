@@ -1,25 +1,14 @@
-﻿# Callsign Alpha v1 Burndown
+# Callsign Alpha v1 Burndown
 
 ## Definition
 
-Alpha v1 is a release line, not one oversized first drop. The full Alpha v1 line should reach functional parity with Windows Voice Access while preserving Callsign's stricter flow:
+Alpha v1 is a release line, not one oversized first drop.
 
-```text
-Callsign -> identity verification -> command -> visible action
-```
-
-`v1.0 alpha` is the MVP. It is testing-ready when a fresh user can install Callsign, create a profile, enroll voice, say the wake word, verify their callsign, see the animated overlay and live readout, and launch an installed app through the visible Start menu path.
+The current public target is `v1.0 alpha`: install Callsign, create a profile, enroll voice, say the wake word, verify callsign identity, see `callsign.gif` plus live readout, and launch an installed app through the visible Start menu path.
 
 All Alpha v1 features are free and remain free until at least beta.
 
-The Free/open-source core is the public product the world should associate with Callsign.
-It should be the part that most closely matches and often beats built-in Windows voice tools on everyday visible control.
-
-The paid tiers are the expansion layer:
-
-- Pro should add deeper Windows, WSL, and Linux control.
-- Advanced should stay optimized for new commands, recipes, diagnostics, and power-user workflows that can be added continuously.
-- The paid wall belongs in front of those advanced capabilities, not in front of the Free core.
+Future Pro and Advanced features may ship as closed-source extension libraries, but the v1.0 Free core must work without them.
 
 ## Status legend
 
@@ -33,9 +22,9 @@ The paid tiers are the expansion layer:
 
 | ID | Release | Priority | Status | Work item | Acceptance criteria | Verification |
 |---:|---|---|---|---|---|---|
-| 0.1 | v1.0 | P0 | In progress | Keep README, canon, roadmap, site, and tests aligned around `v1.0` as wake/identity/app-launch MVP. | No doc claims dictation, browser control, or system control blocks v1.0. | `rg -n "v1.0 alpha|Alpha v1|Voice Access" README.md CANON.md docs/reference` |
-| 0.2 | v1.0 | P0 | Done | Keep Alpha v1 free-through-alpha canon. | Docs say all Alpha v1 features stay free until at least beta. | `rg -n "free until at least beta|remain free" README.md CANON.md docs/reference` |
-| 0.3 | v1.0 | P0 | In progress | Generate public site from reference docs. | `/docs` renders canon, product spec, roadmap, burndown, and test plan. | `python scripts/build_site.py` |
+| 0.1 | v1.0 | P0 | In progress | Keep README, canon, roadmap, site, and tests aligned around v1.0 as the wake/identity/app-launch MVP. | Docs distinguish current v1.0 release criteria from v1.x surfaces. | `rg -n "v1.0 alpha|v1.1 alpha|closed-source extension" README.md CANON.md docs/reference` |
+| 0.2 | v1.0 | P0 | Done | Keep Alpha v1 free-through-alpha canon. | Docs say Alpha v1 features stay free until at least beta. | `rg -n "free until at least beta|remain free" README.md CANON.md docs/reference` |
+| 0.3 | v1.0 | P0 | In progress | Generate public site from reference docs. | `/docs` renders canon, product spec, roadmap, tier architecture, burndown, and test plan. | `python scripts/build_site.py` |
 | 0.4 | v1.0 | P0 | Done | Keep proprietary assets in `closed-source/`. | Private runtime/model/premium material stays ignored. | Inspect `.gitignore`. |
 
 ## Phase 1: v1.0 installer and runtime ownership
@@ -46,7 +35,7 @@ The paid tiers are the expansion layer:
 | 1.2 | v1.0 | P0 | Done | Package configuration manager and service runtime. | Installed app folder contains UI and service binaries. | Manual install inspect. |
 | 1.3 | v1.0 | P0 | In progress | Ensure exactly one authoritative user runtime owns microphone capture. | Duplicate runtimes exit or mark themselves non-authoritative. | Troubleshooting report plus Session tab. |
 | 1.4 | v1.0 | P0 | In progress | Prove runtime can hear audio. | Session tab shows active mic, packet age, and `CanHearAudio`. | Speak and inspect Session tab. |
-| 1.5 | v1.0 | P0 | In progress | Cache build/deploy steps. | Unchanged builds reuse prior outputs and private runtime bundles. | `.\buildcallsign.ps1` twice. |
+| 1.5 | v1.0 | P0 | In progress | Cache build and deploy steps. | Unchanged builds reuse prior outputs and private runtime bundles. | `.\buildcallsign.ps1` twice. |
 
 ## Phase 2: v1.0 profile and enrollment
 
@@ -62,7 +51,7 @@ The paid tiers are the expansion layer:
 
 | ID | Release | Priority | Status | Work item | Acceptance criteria | Verification |
 |---:|---|---|---|---|---|---|
-| 3.1 | v1.0 | P0 | In progress | Use openWakeWord as the wake event source. | Transcript text alone cannot wake the service. | Smoke and live wake tests. |
+| 3.1 | v1.0 | P0 | In progress | Use openWakeWord/audio detection as the wake event source. | Transcript text alone cannot wake the service. | Smoke and live wake tests. |
 | 3.2 | v1.0 | P0 | In progress | Recognize `Callsign` and `call sign` reliably enough for public alpha. | Live wake score crosses threshold in normal room audio. | `testopenwakeword.ps1` against live segments. |
 | 3.3 | v1.0 | P0 | In progress | Show `callsign.gif` immediately on wake. | Overlay appears above all windows and does not steal focus. | Manual wake test. |
 | 3.4 | v1.0 | P0 | In progress | Show live text below the overlay animation. | Overlay updates during identity, command, and launch. | Manual service flow. |
@@ -73,30 +62,17 @@ The paid tiers are the expansion layer:
 
 | ID | Release | Priority | Status | Work item | Acceptance criteria | Verification |
 |---:|---|---|---|---|---|---|
-| 4.1 | v1.0 | P0 | Done | Restrict launch scope to installed app names. | Paths, URLs, shells, WSL, separators, and unsafe text are rejected. | Smoke test. |
+| 4.1 | v1.0 | P0 | Done | Restrict launch scope to installed app names and safe shell-backed destinations. | Paths, URLs, shells, WSL, separators, and unsafe text are rejected. | Smoke test. |
 | 4.2 | v1.0 | P0 | Done | Resolve installed apps from Start menu entries. | Notepad, Calculator, browser, and VS Code resolve when installed. | Smoke/manual test. |
 | 4.3 | v1.0 | P0 | In progress | Launch through visible Start menu flow. | User can see the desktop action. | Live launch Notepad. |
 | 4.4 | v1.0 | P0 | Not started | Confirm ambiguous app matches. | Wrong app is not silently launched. | Ambiguous app manual test. |
 | 4.5 | v1.0 | P0 | Not started | Complete clean-install release walkthrough. | Fresh user completes wake, identity, overlay, transcript, and launch. | Manual release checklist. |
 
-## Phase 5: Alpha v1 parity line after v1.0
+## Phase 5: Alpha v1 extension line
 
 | ID | Release | Priority | Status | Work item | Acceptance criteria | Verification |
 |---:|---|---|---|---|---|---|
-| 5.1 | v1.1 | P0 | In progress | Dictation with visible review. | User can dictate, review, copy, paste, or discard text explicitly. | Dictation tab/manual test. |
-| 5.2 | v1.2 | P0 | In progress | Browser open/search/navigation. | Browser actions are visible and external side effects stay blocked. | Browser manual test. |
-| 5.3 | v1.3 | P0 | In progress | System control for Windows, WSL, and Linux. | Approved actions execute visibly with policy and audit. | System-control tests. |
-| 5.4 | v1.3 | P0 | In progress | File search through Explorer. | Results are shown or opened in Explorer; contents are not read/uploaded. | File search smoke/manual test. |
-| 5.5 | Alpha v1 | P0 | Not started | Windows Voice Access parity review. | Core command coverage is comparable while Callsign keeps identity gating. | Parity checklist. |
-
-## Phase 6: Beta-or-later sustainability
-
-| ID | Release | Priority | Status | Work item | Acceptance criteria | Verification |
-|---:|---|---|---|---|---|---|
-| 6.1 | Beta+ | P1 | Not started | Revisit Free, Pro, and Advanced packaging. | No Alpha v1 feature is retroactively paywalled during alpha, and the paid tiers remain clearly ahead of the Free core. | Product review. |
-| 6.2 | Beta+ | P1 | Not started | Build the in-app Pro upgrade path. | A Free install can activate Pro entitlement without replacing the app or breaking Free behavior. | Upgrade flow test. |
-| 6.3 | Beta+ | P1 | Not started | Define the signed command-pack registry. | Free, Pro, and Advanced commands load through one registry and one policy path. | Command registry contract tests. |
-| 6.4 | Beta+ | P1 | Not started | Add paid command-pack update and rollback. | New Pro packs can be added frequently, verified by signature, disabled, and rolled back. | Pack update/rollback tests. |
-| 6.5 | Beta+ | P1 | Not started | Signed installer and update/rollback flow. | Users can update safely. | Installer tests. |
-| 6.6 | Beta+ | P1 | Not started | Opt-in diagnostics and support paths. | Users can report issues without leaking sensitive data. | Privacy review. |
-| 6.7 | Beta+ | P1 | Not started | Continuous Pro and Advanced command growth. | New paid commands and workflows can be added frequently without changing the open-source Free core contract. | Product backlog review. |
+| 5.1 | v1.1 | P1 | Deferred | Dictation with visible review. | Text is reviewed before insertion/copy/paste. | Future dictation tests. |
+| 5.2 | v1.2 | P1 | Deferred | Browser control. | Open/search/navigation are visible and external side effects require approval. | Future browser tests. |
+| 5.3 | v1.3 | P1 | Deferred | System control, WSL/Linux, and file search. | Results/actions are visible, policy-gated, and audited. | Future system/file tests. |
+| 5.4 | Beta+ | P1 | Deferred | Pro/Advanced closed-source extension libraries. | Free remains independent and extensions cannot bypass safety gates. | Future extension tests. |

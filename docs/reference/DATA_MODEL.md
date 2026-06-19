@@ -2,15 +2,16 @@
 
 ## Overview
 
-Callsign keeps the alpha data model small and local.
+Callsign keeps the Free alpha data model small, local, and inspectable.
 
 Main data types:
 
-- User profile.
-- User settings.
-- Voice enrollment state.
-- Session state.
-- Launch history.
+- user profile
+- user settings
+- voice enrollment state
+- runtime/session snapshot
+- launch history and diagnostics
+- future command/extension metadata
 
 ## User profile
 
@@ -22,16 +23,16 @@ Profiles live under:
 
 The current profile shape includes:
 
-- Callsign.
-- Display name.
-- Optional email and department fields.
-- Notes.
-- Local voice enrollment state.
-- Last launched app.
+- callsign
+- display name
+- optional email and department fields
+- notes
+- local voice enrollment state
+- last launched app/session metadata
 
 ## Voice enrollment state
 
-Voice enrollment is currently stored with the profile settings.
+Voice enrollment is stored with profile settings.
 
 Suggested fields:
 
@@ -44,31 +45,48 @@ Suggested fields:
 }
 ```
 
-## Session state
+## Runtime/session snapshot
 
-The alpha session state is mostly runtime-only:
+The runtime snapshot is how the service and UI stay aligned.
 
-- Idle.
-- Waiting for identity.
-- Waiting for command.
-- Ready to launch.
-- Launching.
-- Completed.
-- Locked out.
+Important fields include:
+
+- runtime role and authority
+- microphone health
+- session state
+- last transcript/readout
+- overlay visibility
+- wake/identity/command timing
+- launch result or failure state
 
 ## Launch history
 
 Useful launch metadata can be recorded locally for debugging and user confidence:
 
-- Profile callsign.
-- App name.
-- Timestamp.
-- Success or failure.
+- profile callsign
+- app name
+- timestamp
+- success or failure
+- visible verification summary
+
+## Future extension metadata
+
+Future Pro and Advanced extension libraries may need metadata such as:
+
+- extension id
+- display name
+- tier
+- version
+- signature status
+- risk declarations
+- command catalog manifest
+
+Entitlement secrets and private implementation details must not be stored in the public repo.
 
 ## Retention
 
 - Profile data: keep until the user deletes it.
 - Launch history: keep locally until the user clears it.
 - Voice enrollment metadata: keep locally until reset.
-- Secrets: do not store.
-
+- Runtime diagnostics: keep bounded and local.
+- Secrets: do not store in Free alpha profile data.

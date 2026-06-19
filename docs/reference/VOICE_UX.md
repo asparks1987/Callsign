@@ -2,50 +2,51 @@
 
 ## Goal
 
-Callsign should feel calm, premium, direct, and visible.
-The v1.0 alpha voice experience is deliberately narrow:
+Callsign should feel calm, visible, and easy to stop.
 
-1. Say `Callsign` or `call sign`.
-2. See `callsign.gif` appear above the desktop.
-3. Read what Callsign heard below the animation.
-4. Say your callsign.
-5. Speak the app you want to launch.
-6. Watch the app open through a visible Start menu flow.
+The user should never wonder:
+
+- whether Callsign is listening,
+- what Callsign heard,
+- whether identity passed,
+- what command is pending,
+- or how to cancel.
 
 All Alpha v1 features are free and remain free until at least beta.
 
-The Free tier is the public open-source core.
-It is the part that should most closely reach parity with built-in Windows voice tools while feeling better organized, more visible, and more trustworthy.
+## v1.0 voice flow
 
-The tier architecture and upgrade model are defined in `TIER_ARCHITECTURE.md`.
+1. Say `Callsign` or `call sign`.
+2. See `callsign.gif` appear above the desktop.
+3. Read the live hearing cue or transcript below the animation.
+4. Say your enrolled callsign.
+5. Wait for identity confirmation.
+6. Speak the installed app you want to launch.
+7. Watch the app open through visible Start menu flow.
 
-## v1.0 voice interaction modes
+## Wake mode
 
-### Wake mode
-
-The background service waits for the wake word through openWakeWord audio detection.
+The background service waits for the wake word through openWakeWord/audio detection.
 
 Examples:
 
 - `Callsign`
 - `Call sign`
 
-Transcription mistakes can be shown as diagnostics after audio capture, but they do not wake the service by themselves.
+Transcription mistakes can be shown as diagnostics after audio capture, but transcript text alone must not wake the service.
 
-### Overlay mode
+## Overlay mode
 
-When wake is detected, Callsign shows the animated overlay and readout.
-If speech is currently arriving but no final transcript has landed yet, the overlay should show a live hearing cue such as `Hearing your callsign...` or `Hearing your command...` instead of staying blank.
-The overlay should also keep a subtle pulse or glow while audio is active, show a compact `LIVE` badge, and mirror the current runtime state so the user can see that Callsign is actively listening.
+The overlay is a visible state cue.
 
-The overlay must show:
+It should show:
 
-- the wake phase
-- the identity phase
-- the command phase
-- the last heard transcript when available
-- the current launch or stop result
-- an authority line that makes it obvious whether the runtime is hearing audio or only previewing
+- wake phase
+- identity phase
+- command phase
+- current transcript or hearing cue
+- current launch/stop result
+- authority/status information when useful
 
 Required readout examples:
 
@@ -56,32 +57,11 @@ Required readout examples:
 - `Command: open Notepad`
 - `Launching Notepad...`
 
-The overlay must never steal focus, block input, or prevent the user from stopping the session.
+The overlay must not steal focus, block input, or prevent the user from stopping the session.
 
-### Visible control mode
+## Identity mode
 
-Setup and control surfaces should be voice-addressable by label wherever possible.
-When Callsign shows visible controls, it should paint numbered badges over the live UI and keep the currently focused control highlighted so the user can see what is active.
-
-Examples:
-
-- `click callsign`
-- `click active account`
-- `click display name`
-- `click repair wakeword`
-- `click train voice identity`
-- `show numbers`
-- `show visible controls`
-- `hide visible controls`
-- `click 1`
-- `click 2`
-- `click 3`
-
-This is part of the current Windows voice-control parity target: the user should be able to name the thing they can see and have Callsign move to it or activate it visibly.
-
-### Identity mode
-
-The service listens for the user's enrolled callsign.
+The post-wake identity utterance is identity-only.
 
 Examples:
 
@@ -89,11 +69,11 @@ Examples:
 - `Jordan`
 - `womprat`
 
-The identity phrase is identity-only. Commands in the same utterance must not execute.
+Commands in the same utterance must not execute. If identity fails or times out, no launch occurs.
 
-### Launch command mode
+## v1.0 command mode
 
-After identity is confirmed, the service listens for an installed app launch request.
+After identity is confirmed, v1.0 accepts installed app launch requests.
 
 Examples:
 
@@ -105,22 +85,35 @@ Examples:
 - `open Downloads`
 - `open Documents`
 
-For `v1.0 alpha`, Start menu app launch is the only required voice action.
+The launch path should stay visible and understandable.
 
-## Recovery mode
+## Visible control mode
 
-If identity fails or times out, the assistant should clearly tell the user to try again.
+The setup app and overlay should remain understandable to users who rely on visible UI.
 
-If wake readiness fails, the configuration UI should point the tester to `Repair Wakeword` first. Manual PowerShell commands remain a fallback for advanced troubleshooting.
+Current and v1.x command routing can support visible-control concepts such as:
 
-Examples:
+- `show numbers`
+- `show visible controls`
+- `hide visible controls`
+- `click 1`
+- `click 2`
+- `click display name`
+- `click train voice identity`
 
-- `I did not match that callsign. Try again.`
-- `The session timed out. Say Callsign to start over.`
+This supports the long-term accessibility goal, but it should not weaken the v1.0 release gate.
+
+## v1.x voice modes
+
+Planned Alpha v1 extensions:
+
+- v1.1: dictation with visible review before text actions
+- v1.2: browser control with visible navigation and approval boundaries
+- v1.3: system control, WSL/Linux workflows, and file search with visible results
 
 ## Response style
 
-Keep responses short while the user is working.
+Keep active-session responses short.
 
 Good:
 
@@ -128,9 +121,9 @@ Good:
 - `Launching Notepad.`
 - `Session cancelled.`
 
-Avoid long explanations during the active flow.
+Avoid long explanations while the user is in the middle of a voice flow.
 
-## Interruption
+## Stop and recovery
 
 Required stop phrases:
 
@@ -149,15 +142,9 @@ Required behavior:
 
 ## Accessibility considerations
 
-- Support keyboard interaction for all setup screens.
-- Keep the session state visible.
-- Make the current phase obvious.
-- Show the animated listening state on wake.
-- Show live text readout while the user is speaking.
-- Show a short recent speech history in the Session tab.
-- Allow voice enrollment to be retried.
-
-## Future voice modes
-
-Dictation, browser control, and system control are future work and should stay out of the current v1.0 promise.
-
+- Support keyboard interaction for setup screens.
+- Keep session state visible.
+- Show live text while the user is speaking.
+- Show a recent speech history in the Session tab.
+- Allow voice enrollment reset and retry.
+- Keep failures readable: mic, wake runtime, identity runtime, model, service, or launch failure.

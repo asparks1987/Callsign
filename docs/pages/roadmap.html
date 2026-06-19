@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Roadmap - Callsign</title>
-  <link rel="stylesheet" href="../assets/styles.css" />
+  <link rel="stylesheet" href="../assets/styles.css?v=20260619" />
 </head>
 <body>
   <header class="site-header">
@@ -46,14 +46,27 @@
       <h1>Roadmap</h1>
 <h2>Release ladder</h2>
 <p>All Alpha v1 features are free and remain free until at least beta.</p>
-<p>The current public scope is v1.0 alpha:</p>
-<table><thead><tr><th>Release</th><th>Focus</th><th>Goal</th></tr></thead><tbody><tr><td>v1.0 alpha</td><td>Wake + identity + overlay + Start menu launch</td><td>Service wakeword, verified callsign gate, topmost overlay readout, and visible Start menu launch.</td></tr></tbody></table>
+<table><thead><tr><th>Release</th><th>Focus</th><th>Goal</th></tr></thead><tbody><tr><td><code>v1.0 alpha</code></td><td>Wake + identity + overlay + Start menu launch</td><td>Prove the core visible session model end to end.</td></tr><tr><td><code>v1.1 alpha</code></td><td>Dictation with review</td><td>Let users dictate text while keeping insertion/copy actions explicit and visible.</td></tr><tr><td><code>v1.2 alpha</code></td><td>Browser control</td><td>Add visible open/search/navigation and bounded browser workflows.</td></tr><tr><td><code>v1.3 alpha</code></td><td>System control and file search</td><td>Add Windows, WSL, Linux, and Explorer-backed file search workflows with policy gates.</td></tr><tr><td><code>Beta or later</code></td><td>Packaging and extension libraries</td><td>Decide Pro/Advanced packaging, entitlement, signed libraries, and paid command catalogs.</td></tr></tbody></table>
 <h2>v1.0 alpha</h2>
-<ul><li>Account and callsign setup</li><li>Voice sample recording and playback</li><li>Background service listening</li><li><code>Callsign</code> wake word detection for <code>Callsign</code> and <code>call sign</code></li><li>Overlay activation at wake with live readout</li><li>Callsign identity verification before launch</li><li>Visible Start menu app launch</li><li>Stop, cancel, timeout, and lockout safety</li></ul>
-<h2>Exit criteria</h2>
-<ul><li>Fresh install can complete service startup and profile enrollment.</li><li>Wake is visible, audible enough, and synchronized with overlay lifecycle.</li><li><code>callsign.gif</code> is shown at wake and hidden only in terminal states.</li><li>Start menu launch succeeds on common installed apps.</li><li>Wrong or missing identity never launches.</li><li>Safe terminal behavior is visible to users.</li></ul>
-<h2>Future ideas</h2>
-<p>Later work such as dictation, browser control, system control, and file search should be tracked separately and should not be treated as current alpha scope.</p>
+<p>v1.0 is the current public release gate.</p>
+<p>Required:</p>
+<ul><li>account and callsign setup</li><li>voice sample recording and playback</li><li>background service listening</li><li><code>Callsign</code> / <code>call sign</code> wake detection from audio</li><li>overlay activation at wake with live readout</li><li>callsign identity verification before command capture</li><li>visible Start menu app launch</li><li>stop, cancel, timeout, and lockout safety</li><li>runtime state visible in the setup/monitoring UI</li></ul>
+<h2>v1.1 alpha</h2>
+<p>Planned:</p>
+<ul><li>dictation capture after identity</li><li>visible text review</li><li>explicit insert/copy/paste controls</li><li>no silent text entry into sensitive fields</li><li>clear cancel/reset behavior</li></ul>
+<h2>v1.2 alpha</h2>
+<p>Planned:</p>
+<ul><li>visible browser open/search/navigation</li><li>safe URL and search parsing</li><li>clear boundary around form submission, uploads, messages, and external side effects</li><li>approval prompts for higher-risk browser actions</li></ul>
+<h2>v1.3 alpha</h2>
+<p>Planned:</p>
+<ul><li>Windows system control through visible, policy-governed adapters</li><li>WSL and Linux command/control paths that are not arbitrary hidden shell execution</li><li>file search with results shown to the user</li><li>Explorer-backed open/reveal behavior</li><li>stronger audit and approval coverage for state-changing commands</li></ul>
+<h2>Commercial roadmap</h2>
+<p>The public Free core remains open-source.</p>
+<p>Future Pro and Advanced tiers may add closed-source extension libraries for:</p>
+<ul><li>deeper command catalogs</li><li>recipes and diagnostics</li><li>advanced workflow automation</li><li>specialized Windows, WSL, Linux, and browser controls</li><li>continuously updated paid capability packs</li></ul>
+<p>Closed-source material belongs in <code>/closed-source/</code> and must not become a dependency for Free.</p>
+<h2>Exit criteria for v1.0</h2>
+<ul><li>Fresh install can complete service startup and profile enrollment.</li><li>Wake is visible and synchronized with overlay lifecycle.</li><li><code>callsign.gif</code> appears at wake and hides only in terminal states.</li><li>Start menu launch succeeds for common installed apps.</li><li>Wrong, missing, stale, or weak identity never launches.</li><li>Stop/cancel/timeout/lockout behavior is visible and testable.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

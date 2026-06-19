@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GitHub Pages - Callsign</title>
-  <link rel="stylesheet" href="../assets/styles.css" />
+  <link rel="stylesheet" href="../assets/styles.css?v=20260619" />
 </head>
 <body>
   <header class="site-header">
@@ -46,17 +46,17 @@
       <h1>GitHub Pages</h1>
 <p>The <code>/docs</code> folder is the public-facing Callsign site plus generated contributor reference pages.</p>
 <h2>Public landing page</h2>
-<p><code>docs/index.html</code> is the public page for open-source users.</p>
+<p><code>docs/index.html</code> is the public page for open-source users and future extension customers.</p>
 <p>It must:</p>
-<ul><li>explain the canon in plain language,</li><li>reinforce the <code>Callsign -&gt; identity verification -&gt; command</code> flow,</li><li>show the overlay-first UX and live transcript concept,</li><li>state that all Alpha v1 capabilities are free until at least beta,</li><li>make clear that the Free/open-source core is the public Windows voice assistant,</li><li>keep the public page focused on the current v1.0 release line,</li><li>link to the tier architecture plan for the current Free-core boundary,</li><li>and guide users to the release ladder.</li></ul>
+<ul><li>explain the canon in plain language,</li><li>reinforce the <code>Callsign -&gt; identity verification -&gt; command -&gt; visible action</code> flow,</li><li>sell the Free/open-source core as the public trust layer,</li><li>show the overlay-first UX and live transcript concept,</li><li>state that all Alpha v1 capabilities are free until at least beta,</li><li>explain that v1.0 starts with wake, identity, overlay, and visible Start menu launch,</li><li>show the Alpha v1 path through dictation, browser control, and system control,</li><li>mention the future closed-source Pro/Advanced extension-library plan,</li><li>and link to the tier architecture plan for the exact boundary.</li></ul>
 <h2>Reference docs</h2>
 <p><code>docs/pages/</code> is generated from <code>docs/reference/</code>.</p>
-<p>Reference content may include internal implementation details needed for contributors, while keeping <code>/docs/index.html</code> clean and user-facing.</p>
+<p>Reference content may include implementation details needed for contributors, while keeping <code>/docs/index.html</code> focused on the user story.</p>
 <p><code>docs/pages/canon.html</code> is the canonical product book for the launch plan.</p>
 <h2>Regeneration</h2>
 <p>Run:</p>
-<pre><code class="language-bash">python scripts/build_site.py</code></pre>
-<p>and confirm the site pages reflect the same current v1.0 canon as <code>README.md</code>, <code>CANON.md</code>, and <code>burndown.md</code>.</p>
+<pre><code class="language-powershell">python scripts/build_site.py</code></pre>
+<p>Then confirm the site pages reflect the same canon as <code>README.md</code>, <code>CANON.md</code>, and <code>docs/reference</code>.</p>
     </article>
   </main>
   <script src="../assets/site.js"></script>

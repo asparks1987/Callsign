@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Canon - Callsign</title>
-  <link rel="stylesheet" href="../assets/styles.css" />
+  <link rel="stylesheet" href="../assets/styles.css?v=20260619" />
 </head>
 <body>
   <header class="site-header">
@@ -45,64 +45,51 @@
     <article class="doc-content">
       <h1>Callsign Canon Book</h1>
 <h2>Mission</h2>
-<p>Callsign is the open-source, Windows-first voice assistant for the current alpha.</p>
-<p>It should feel as approachable as Apple Voice Control, stay more visible than hidden automation tools, and keep every session on the same identity-first path:</p>
-<p><code>Callsign -&gt; identity verification -&gt; command -&gt; visible action</code></p>
+<p>Callsign is an open-source, Windows-first desktop voice assistant for visible, identity-gated computer control.</p>
+<p>The project exists to make voice control feel powerful without making the user trust hidden automation. Every user-facing session follows the same structure:</p>
+<pre><code class="language-text">Callsign -&gt; identity verification -&gt; command -&gt; visible action</code></pre>
 <h2>Product promise</h2>
-<p>Callsign is built around a simple promise:</p>
-<ul><li>the user can always see when Callsign is listening,</li><li>the user can always see what Callsign heard,</li><li>the user can always stop the session,</li><li>and the user never has to guess whether a command was authorized.</li></ul>
-<p>The wake word only opens a session. The enrolled callsign unlocks command capture. The command only becomes action when the product can show the path visibly.</p>
-<p>The open-source Free tier is the public foundation of Callsign. It is the part that should most directly compete with built-in Windows voice control for everyday use:</p>
-<ul><li>wake with <code>Callsign</code></li><li>see what was heard</li><li>verify identity before action</li><li>launch visible desktop apps</li><li>stop the session at any time</li></ul>
-<p>Future paid tiers are outside the current alpha scope and should not shape the public promise yet.</p>
-<h2>Tier architecture canon</h2>
-<p>The Free product is the MIT-licensed open-source core. It must be downloadable from GitHub or the public website, install with minimal effort, and remain useful without a paid account.</p>
-<p>Free is the Windows Voice Access parity layer for the current alpha: the part of Callsign that should cover everyday voice control better, more visibly, and more safely than the built-in tool.</p>
-<p>The current public repo should stay focused on the Free core until the later tier plans are real and separately scoped.</p>
-<h2>Why this exists</h2>
-<p>Current desktop voice tools usually break down in one of three places:</p>
-<ul><li>they hide what they heard,</li><li>they make users trust a black box,</li><li>or they stop short of practical everyday control.</li></ul>
-<p>Callsign is the opposite:</p>
-<ul><li>open-source core,</li><li>local-first operation,</li><li>identity-gated sessions,</li><li>visible overlay feedback,</li><li>and a clear release ladder from launch to broader control.</li></ul>
+<p>The user can always see:</p>
+<ul><li>when Callsign is listening,</li><li>what Callsign thinks it heard,</li><li>whether identity has been accepted,</li><li>what action is about to happen,</li><li>and how to stop or reset the session.</li></ul>
+<p>The wake word opens a session. The enrolled callsign authorizes command capture. The command becomes action only through a visible, policy-governed path.</p>
+<h2>Open-source canon</h2>
+<p>The Free tier is the public trust layer of Callsign.</p>
+<p>It includes the setup app, local profile/enrollment flow, background runtime, wake/session state, overlay/readout, visible Start menu launch path, public contracts, docs, and tests for the open core.</p>
+<p>The Free core must be useful without a paid account and must not depend on private code. Alpha v1 features remain free until at least beta.</p>
+<p>The public website should sell this plainly: Callsign is inspectable voice control for people who want a desktop assistant they can understand, fork, audit, and stop.</p>
+<h2>Closed-source extension canon</h2>
+<p>Callsign is also being built with a future commercial extension layer in mind.</p>
+<p>Future Pro and Advanced capabilities may ship as closed-source extension libraries. Those libraries can add deeper command catalogs, recipes, diagnostics, browser workflows, Windows/WSL/Linux control, and specialized automation while keeping the core runtime open.</p>
+<p>The boundary is strict:</p>
+<ul><li>Free remains open-source and independently useful.</li><li>Proprietary tier material belongs in <code>/closed-source/</code>, which is ignored by git.</li><li>Paid extensions must not bypass identity, visibility, policy, approval, or audit rules.</li><li>Closed-source libraries expand the ceiling; they do not replace the public foundation.</li></ul>
 <h2>Alpha v1 release line</h2>
-<p>All Alpha v1 features are free and remain free until at least beta.</p>
-<ul><li><code>v1.0 alpha</code>: background service wake detection, identity verification, <code>callsign.gif</code> overlay, live text readout, and visible Start menu app launch.</li></ul>
-<p>Free is the open-source release line the public can use and trust on day one. Later features are tracked separately and should not be treated as current scope.</p>
-<h2>Windows Voice Access parity line</h2>
-<p>Alpha v1 is the path to functional parity with built-in Windows voice tools.</p>
-<p>The target is not just feature count. The target is:</p>
-<ul><li>practical daily usefulness,</li><li>readable state changes,</li><li>visible control surfaces,</li><li>and a stronger trust model than the default platform tools.</li></ul>
-<p>The Free tier should be the Windows Voice Access alternative the project is known for.</p>
-<h2>UX bar</h2>
-<p>The experience should feel:</p>
-<ul><li>as polished and calm as Apple Voice Control,</li><li>as powerful and extensible as Talon,</li><li>and more trustworthy because identity is required before action.</li></ul>
-<h2>Required interaction model</h2>
-<p>The public alpha flow is fixed and testable:</p>
-<p>1. Say <code>Callsign</code>. 2. See <code>callsign.gif</code> appear on top of everything. 3. Read the live transcript or hearing cue below the animation. 4. Say your enrolled callsign. 5. Wait for identity confirmation. 6. Say the installed app or command. 7. Watch the visible action happen.</p>
-<p>Accepted wake variants include <code>Callsign</code> and <code>call sign</code>.</p>
+<p>Alpha v1 is a release line, not a single oversized drop.</p>
+<table><thead><tr><th>Release</th><th>Public promise</th></tr></thead><tbody><tr><td><code>v1.0 alpha</code></td><td>Background service wake detection, callsign identity verification, <code>callsign.gif</code> overlay with live readout, and visible Start menu app launch.</td></tr><tr><td><code>v1.1 alpha</code></td><td>Dictation with visible review before text insertion or clipboard actions.</td></tr><tr><td><code>v1.2 alpha</code></td><td>Browser control for visible open/search/navigation and safe bounded browser tasks.</td></tr><tr><td><code>v1.3 alpha</code></td><td>System control for Windows, WSL, and Linux, including file search results shown or opened through Explorer.</td></tr></tbody></table>
+<p>All Alpha v1 features are free until at least beta.</p>
+<h2>Current implementation shape</h2>
+<p>Callsign is service-first.</p>
+<ul><li><code>src/Callsign.Service</code> is the runtime authority for wake detection, session state, identity gate, runtime status snapshots, and launch orchestration.</li><li><code>src/Callsign.UI</code> is setup, onboarding, monitoring, voice enrollment, overlay/readout, and user-visible control.</li><li>The current public release gate remains v1.0: wake, identity, overlay, transcript/readout, and visible Start menu app launch.</li><li>The repo also contains early v1.x surfaces for browser launch, file search, system control, visible control routing, and richer command parsing. These should be documented as forward path unless proven as release-ready.</li></ul>
+<h2>Required v1.0 interaction model</h2>
+<p>1. The user creates a local profile and callsign. 2. The user records voice samples and marks the profile as enrolled. 3. The background runtime listens for the wake cue through audio detection. 4. The user says <code>Callsign</code> or <code>call sign</code>. 5. <code>callsign.gif</code> appears with a live readout. 6. The user says their callsign. 7. Identity is accepted or rejected visibly. 8. If accepted, the user says an installed app launch request. 9. Callsign launches the app through visible Start menu flow. 10. Completion, cancel, timeout, lockout, and failure states are visible.</p>
 <h2>Overlay canon</h2>
-<p>The wake overlay is a user-facing cue, not an authorization path.</p>
+<p>The overlay is a user-facing state cue, not an authorization path.</p>
 <p>It must:</p>
-<ul><li>appear immediately when wake is detected,</li><li>stay visible through identity and command capture,</li><li>show live text readout below the animation,</li><li>show whether the authoritative runtime or preview listener is owning audio,</li><li>remain topmost without stealing focus,</li><li>and hide when the session completes, cancels, times out, or locks out.</li></ul>
+<ul><li>appear when wake is detected,</li><li>stay visible through identity and command capture,</li><li>show live text or a hearing cue below the animation,</li><li>show what runtime state owns the session,</li><li>avoid stealing focus,</li><li>and hide only when the session completes, cancels, times out, locks out, or stops.</li></ul>
 <p>Readout examples:</p>
 <ul><li><code>Callsign heard. Say your callsign.</code></li><li><code>Hearing your callsign...</code></li><li><code>Heard: womprat</code></li><li><code>Hearing your command...</code></li><li><code>Command: open Notepad</code></li><li><code>Launching Notepad...</code></li></ul>
-<h2>Architecture canon</h2>
-<p>Callsign is service-first.</p>
-<p>The UI is for setup, configuration, and monitoring. The background runtime is the authority for wake detection, identity gating, and command orchestration.</p>
-<p>The alpha v1 runtime is intentionally narrow:</p>
-<ul><li>openWakeWord wake detection,</li><li>strict identity gate,</li><li>visible Start menu launch path,</li><li>and readable telemetry for session, audio, and overlay sync.</li></ul>
 <h2>Safety canon</h2>
 <p>No action can skip identity.</p>
-<ul><li>Transcript-only wake is ignored.</li><li>Misheard identity is treated as a repeat request or rejection.</li><li>Session termination states must remain visible.</li><li>Closed-source features stay out of alpha canon and out of the public repo.</li></ul>
+<ul><li>Transcript-only wake is ignored.</li><li>Wake alone never executes commands.</li><li>Misheard identity repeats, rejects, times out, or locks out.</li><li>The user must have visible stop and reset paths.</li><li>Hidden or minimized-window action is not part of the MVP.</li><li>Arbitrary shell execution is not part of the product.</li><li>Sensitive data and external side effects require explicit user approval.</li></ul>
 <h2>Platform direction</h2>
-<p>Windows is the practical alpha launch platform.</p>
-<p>WSL and Linux are part of the same product story and should be documented early, but they expand from the same visible, identity-first session model rather than replacing it.</p>
+<p>Windows is the practical launch platform.</p>
+<p>WSL and Linux control are v1.x extension paths. They should be built through visible, policy-governed adapters rather than raw hidden execution.</p>
+<h2>UX bar</h2>
+<p>Callsign should feel:</p>
+<ul><li>clear enough for someone who needs accessibility-first voice control,</li><li>calm enough for daily use,</li><li>powerful enough to grow toward advanced command catalogs,</li><li>and trustworthy because it is visible, identity-first, and open at the core.</li></ul>
 <h2>Public site canon</h2>
-<p>The public website should sell the open-source core clearly and simply:</p>
-<ul><li>the app is visible,</li><li>the workflow is identity-first,</li><li>the alpha is free,</li><li>and the product is meant to be a credible Windows voice assistant for the current release.</li></ul>
-<p>Internal plumbing stays in contributor docs. Public pages stay focused on the user story.</p>
-<h2>Non-goals for v1.0</h2>
-<ul><li>arbitrary shell execution,</li><li>hidden actions or silent completion paths,</li><li>full command parity in the first public MVP,</li><li>browser control,</li><li>dictation,</li><li>system control,</li><li>paid-feature requirements in Alpha v1.</li></ul>
+<p>The public site under <code>docs/</code> should sell two ideas together:</p>
+<ul><li>Callsign is open-source voice control you can inspect and stop.</li><li>Callsign has a future closed-source extension-library path for advanced paid capabilities.</li></ul>
+<p>Internal implementation details belong in reference docs. The homepage should lead with user trust, open-source usefulness, alpha scope, and the honest commercial boundary.</p>
     </article>
   </main>
   <script src="../assets/site.js"></script>

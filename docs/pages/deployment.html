@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Deployment - Callsign</title>
-  <link rel="stylesheet" href="../assets/styles.css" />
+  <link rel="stylesheet" href="../assets/styles.css?v=20260619" />
 </head>
 <body>
   <header class="site-header">
@@ -45,9 +45,15 @@
     <article class="doc-content">
       <h1>Deployment</h1>
 <h2>Current state</h2>
-<p>Callsign currently ships as a Windows setup and onboarding app.</p>
-<p>The alpha build flow is:</p>
-<p>1. Run <code>buildcallsign.ps1</code>. 2. Publish the WinForms app. 3. Emit a launchable executable in the repo root. 4. Optionally build a real installer if Inno Setup is available.</p>
+<p>Callsign currently ships as a Windows-first alpha with a setup/onboarding app and service runtime.</p>
+<p>The public package is the Free open-source core. Future paid Pro and Advanced capabilities may ship as closed-source extension libraries, but those libraries are not required for the current Free install path.</p>
+<h2>Alpha build flow</h2>
+<p>From the repository root:</p>
+<pre><code class="language-powershell">.\buildcallsign.ps1
+dotnet run --project tests/Callsign.AlphaSmoke/Callsign.AlphaSmoke.csproj
+python scripts/build_site.py</code></pre>
+<p>The build currently produces or refreshes:</p>
+<ul><li><code>Callsign-Setup.exe</code></li><li><code>Callsign-Run.exe</code></li><li>published UI/service binaries under <code>build/</code></li><li>generated static documentation under <code>docs/</code></li></ul>
 <h2>GitHub Pages deployment</h2>
 <p>The repository is arranged for GitHub Pages from <code>docs/</code>.</p>
 <p>Steps:</p>
@@ -56,17 +62,18 @@
 <pre><code class="language-text">docs/index.html</code></pre>
 <h2>Local site preview</h2>
 <p>From the repository root:</p>
-<pre><code class="language-bash">python -m http.server 8000 -d docs</code></pre>
+<pre><code class="language-powershell">python -m http.server 8000 --directory docs</code></pre>
 <p>Open:</p>
 <pre><code class="language-text">http://localhost:8000</code></pre>
-<h2>Windows package layout</h2>
-<p>Current alpha output is intentionally small:</p>
-<pre><code class="language-text">Callsign-Run.exe
-Callsign-Setup.exe
-build/
-docs/</code></pre>
-<p>Future app packaging can add:</p>
-<ul><li>A real background service.</li><li>A tray helper.</li><li>Better update handling.</li><li>Future tier packaging if the product grows beyond v1.0.</li></ul>
+<h2>Package boundary</h2>
+<p>The Free package should include:</p>
+<ul><li>setup/onboarding app</li><li>background service runtime</li><li>wake/identity runtime dependencies needed for Free</li><li><code>callsign.gif</code> overlay asset</li><li>local profile/enrollment storage</li><li>docs and license material</li></ul>
+<p>The Free package should not require:</p>
+<ul><li>paid account login</li><li>private command packs</li><li>entitlement secrets</li><li>closed-source libraries</li></ul>
+<h2>Future extension packaging</h2>
+<p>Beta-or-later packaging may add:</p>
+<ul><li>extension discovery</li><li>signed extension validation</li><li>Pro/Advanced entitlement checks</li><li>closed-source command libraries</li><li>extension update channels</li><li>clearer tier labeling in UI</li></ul>
+<p>Closed-source material belongs in <code>/closed-source/</code> during local development and must not be committed to the public repo.</p>
     </article>
   </main>
   <script src="../assets/site.js"></script>

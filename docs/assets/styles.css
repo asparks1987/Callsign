@@ -69,7 +69,7 @@ a:hover { text-decoration: underline; }
   min-height: min(590px, calc(100vh - 3.5rem));
   display: grid;
   align-items: end;
-  padding: clamp(2.4rem, 5vw, 4.2rem) clamp(1rem, 5vw, 5rem) clamp(1.8rem, 3vw, 2.4rem);
+  padding: clamp(2.4rem, 5vw, 4.2rem) clamp(1rem, 5vw, 5rem) clamp(1.2rem, 2.2vw, 1.8rem);
   overflow: hidden;
   border-bottom: 1px solid var(--line);
 }
@@ -466,8 +466,8 @@ blockquote {
   .hero {
     min-height: auto;
     align-items: start;
-    padding-top: 12rem;
-    padding-bottom: 2rem;
+    padding-top: 10.5rem;
+    padding-bottom: 1.4rem;
   }
   .hero-status {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -477,6 +477,7 @@ blockquote {
   .hero-status span { font-size: 0.58rem; }
   .hero-status strong { font-size: 0.78rem; line-height: 1.2; }
   .proof-strip, .timeline { grid-template-columns: 1fr; }
-  h1 { font-size: clamp(2.45rem, 12vw, 3.5rem); }
-  .lede { font-size: 1rem; }
+  .actions { margin-top: 1rem; }
+  h1 { font-size: clamp(2.25rem, 11vw, 3.2rem); }
+  .lede { font-size: 0.96rem; }
 }

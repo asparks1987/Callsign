@@ -4,24 +4,25 @@ The `/docs` folder is the public-facing Callsign site plus generated contributor
 
 ## Public landing page
 
-`docs/index.html` is the public page for open-source users.
+`docs/index.html` is the public page for open-source users and future extension customers.
 
 It must:
 
 - explain the canon in plain language,
-- reinforce the `Callsign -> identity verification -> command` flow,
+- reinforce the `Callsign -> identity verification -> command -> visible action` flow,
+- sell the Free/open-source core as the public trust layer,
 - show the overlay-first UX and live transcript concept,
 - state that all Alpha v1 capabilities are free until at least beta,
-- make clear that the Free/open-source core is the public Windows voice assistant,
-- keep the public page focused on the current v1.0 release line,
-- link to the tier architecture plan for the current Free-core boundary,
-- and guide users to the release ladder.
+- explain that v1.0 starts with wake, identity, overlay, and visible Start menu launch,
+- show the Alpha v1 path through dictation, browser control, and system control,
+- mention the future closed-source Pro/Advanced extension-library plan,
+- and link to the tier architecture plan for the exact boundary.
 
 ## Reference docs
 
 `docs/pages/` is generated from `docs/reference/`.
 
-Reference content may include internal implementation details needed for contributors, while keeping `/docs/index.html` clean and user-facing.
+Reference content may include implementation details needed for contributors, while keeping `/docs/index.html` focused on the user story.
 
 `docs/pages/canon.html` is the canonical product book for the launch plan.
 
@@ -29,8 +30,8 @@ Reference content may include internal implementation details needed for contrib
 
 Run:
 
-```bash
+```powershell
 python scripts/build_site.py
 ```
 
-and confirm the site pages reflect the same current v1.0 canon as `README.md`, `CANON.md`, and `burndown.md`.
+Then confirm the site pages reflect the same canon as `README.md`, `CANON.md`, and `docs/reference`.

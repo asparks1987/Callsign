@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Windows Automation - Callsign</title>
-  <link rel="stylesheet" href="../assets/styles.css" />
+  <link rel="stylesheet" href="../assets/styles.css?v=20260619" />
 </head>
 <body>
   <header class="site-header">
@@ -45,19 +45,28 @@
     <article class="doc-content">
       <h1>Windows Automation Strategy</h1>
 <h2>Goal</h2>
-<p>For <code>v1.0 alpha</code>, Callsign should launch installed Windows apps in a visible, understandable way from the background service.</p>
-<p>The v1.0 path is:</p>
-<p>1. Service hears <code>Callsign</code>. 2. Service verifies the user&#x27;s callsign. 3. User asks for an installed app. 4. Callsign opens Start search. 5. Callsign types the app name. 6. Callsign launches the matching app.</p>
+<p>Callsign automates the desktop only in ways the user can understand and stop.</p>
+<p>The v1.0 alpha path is deliberately visible:</p>
+<p>1. Service hears <code>Callsign</code>. 2. Service verifies the user&#x27;s callsign. 3. User asks for an installed app. 4. Callsign opens Start search. 5. Callsign types or resolves the app name. 6. Callsign launches the matching app visibly.</p>
 <p>All Alpha v1 features are free and remain free until at least beta.</p>
-<h2>Why keep it visible</h2>
-<p>Visible automation is easier to trust and easier to stop.</p>
-<p>Callsign should not hide the fact that it is interacting with the desktop.</p>
 <h2>v1.0 strategy</h2>
-<ul><li>Use the Start menu search experience for app launching.</li><li>Open common shell destinations such as Settings, File Explorer, This PC, Recycle Bin, and user folders through visible shell-backed launches.</li><li>Keep the app launch target obvious in the UI and service status.</li><li>Keep the user able to cancel or reset the session.</li><li>Avoid arbitrary shell execution.</li><li>Reject paths, URLs, shell text, secrets, and non-launch automation.</li></ul>
-<h2>Future automation</h2>
-<p>Browser control, dictation helpers, system control, and file search are future work and should not be treated as current alpha scope.</p>
+<ul><li>Use the Start menu search experience for app launching.</li><li>Resolve installed app names and safe shell-backed destinations.</li><li>Keep the app launch target visible in the UI and service status.</li><li>Let the user cancel or reset the session.</li><li>Reject paths, URLs, shell fragments, secrets, unsafe text, and non-launch automation.</li><li>Avoid arbitrary shell execution.</li></ul>
+<h2>Automation priority order</h2>
+<p>Prefer action methods in this order:</p>
+<p>1. Native app/API operation. 2. Windows UI Automation pattern. 3. Saved selector. 4. Vision/OCR-assisted target. 5. SendInput keyboard/mouse fallback. 6. Human handoff.</p>
+<p>Raw coordinate clicking is a last resort and must include verification.</p>
+<h2>v1.x direction</h2>
+<p>The repo already contains early services for broader control surfaces:</p>
+<ul><li>browser launch/open/search helpers</li><li>system control helpers</li><li>file search and open/reveal helpers</li><li>command routing for visible UI controls</li></ul>
+<p>These are the path toward:</p>
+<ul><li>v1.1 dictation with visible review</li><li>v1.2 browser control</li><li>v1.3 Windows, WSL, Linux, and file search control</li></ul>
+<p>They should stay behind identity, policy, approval, visibility, and audit gates.</p>
+<h2>Extension-library direction</h2>
+<p>Future Pro and Advanced tiers may add closed-source automation libraries.</p>
+<p>Those libraries can expand command coverage, but they must not:</p>
+<ul><li>bypass the policy engine,</li><li>suppress audit logs,</li><li>perform hidden actions by default,</li><li>handle credentials or payment data,</li><li>or execute arbitrary shell text as a shortcut.</li></ul>
 <h2>Safety rules</h2>
-<ul><li>Do not rely on hidden windows.</li><li>Do not use background-only automation for the v1.0 launch path.</li><li>Do not use raw coordinates when a visible, semantic path is available.</li><li>Do not bypass the wake word, callsign identity, policy, or audit model.</li></ul>
+<ul><li>Do not rely on hidden windows.</li><li>Do not use background-only automation for the v1.0 launch path.</li><li>Do not use raw coordinates when a visible semantic path is available.</li><li>Do not bypass wake word, callsign identity, policy, approval, or audit.</li><li>Do not send screenshots, UI trees, clipboard contents, or file contents to cloud models unless the user explicitly opts in.</li></ul>
     </article>
   </main>
   <script src="../assets/site.js"></script>

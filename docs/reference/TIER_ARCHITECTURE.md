@@ -1,65 +1,98 @@
-# Tier Architecture and Upgrade Plan
+# Tier Architecture and Extension Plan
 
 ## Canon
 
-Callsign is a Free-first open-source product in the current alpha.
+Callsign is Free-first and open-core.
 
-The public release line must stay focused on the visible, identity-first control model:
+The Free tier is the MIT-licensed public foundation. Future paid features may arrive as closed-source extension libraries, but the open core must remain useful, understandable, and safe on its own.
 
 ```text
-Callsign -> identity verification -> command -> visible action
+Free open core -> optional Pro/Advanced extension libraries
 ```
 
-## Current product boundary
+## Free tier
 
-The current repo and website should describe the Free core only:
+Free is the public Callsign product.
 
-- MIT-licensed open-source code
-- local profile storage
-- wake detection
+It includes:
+
+- setup and onboarding
+- local profiles and callsigns
+- voice enrollment state
+- background service runtime
+- wake detection and session state
 - callsign identity verification
-- `callsign.gif` wake overlay with live readout
+- `callsign.gif` overlay with live readout
 - visible Start menu app launch
-- stop, cancel, timeout, and lockout controls
+- stop, cancel, timeout, and lockout behavior
+- docs, public contracts, and alpha smoke tests
 
-The Free core must install cleanly from the public site or GitHub and must work without a paid account.
+Free must install cleanly from GitHub or the public website and work without a paid account.
 
-## What stays out of current scope
+## Pro direction
 
-These are future ideas, not current alpha promises:
+Pro is the planned paid tier for deeper everyday control.
 
-- paid tiers
-- signed command packs
-- browser control
-- dictation
-- system control
-- WSL or Linux workflows
+Possible closed-source extension libraries:
 
-If later tiers are introduced, they must not weaken the Free core or make the open-source experience depend on private code.
+- broader Windows control
+- browser workflow control
+- WSL and Linux control
+- richer command packs
+- workflow adapters
+- signed automation recipes
+
+Pro extensions must call into the same public runtime gates: identity, visibility, policy, approval, and audit.
+
+## Advanced direction
+
+Advanced is the planned paid tier for specialized and fast-moving capabilities.
+
+Possible closed-source extension libraries:
+
+- specialized command catalogs
+- diagnostics
+- power-user recipes
+- domain-specific workflows
+- richer system-control packs
+- continuously updated automation libraries
+
+Advanced should expand what expert users can do without turning Callsign into hidden malware-like automation.
 
 ## Repository boundary
 
 The public repository should contain:
 
-- the Free app
-- the service runtime
+- the Free app and service runtime
 - setup and monitoring UI
 - open command interfaces
-- policy engine contracts
-- docs and website
-- tests for the v1.0 capability set
+- policy and audit contracts
+- docs and generated website
+- tests for the open-core capability set
 
-The public repository should not contain:
+The public repository must not contain:
 
 - private paid-tier code
 - proprietary command packs
 - entitlement secrets
 - commercial rollout configuration
-- or private business experiments
+- private business experiments
 
 Local private material belongs in `/closed-source/`, which remains git-ignored.
 
-## Installer requirements
+## Extension rules
+
+Every extension library, open or closed, must respect the core contract:
+
+- no identity bypass
+- no policy bypass
+- no hidden action by default
+- no suppressed audit logging
+- no arbitrary shell execution as a shortcut
+- no credential, payment, 2FA, or security-setting automation in MVP paths
+- no cloud transfer of sensitive desktop data without explicit opt-in
+
+## Installer and upgrade direction
 
 The installer should support:
 
@@ -70,15 +103,20 @@ The installer should support:
 - preserve profiles on upgrade
 - skip unchanged runtime extraction
 - show progress for long operations
-- and write readable logs under the Callsign local app data folder
+- write readable logs under the Callsign local app data folder
 
-The installer must not ask users to hunt for model files, command packs, or runtime dependencies.
+Future upgrade flows can add:
+
+- extension discovery
+- signed extension validation
+- entitlement checks
+- extension updates
+- clear labeling of Free, Pro, and Advanced capabilities
 
 ## Non-negotiables
 
 - Do not make Free dependent on private code.
-- Do not remove Free features after monetization starts.
+- Do not remove Alpha v1 features from Free.
 - Do not let paid entitlement bypass safety policy.
 - Do not hide what Callsign heard or did.
 - Do not put closed-source material in the public repo.
-

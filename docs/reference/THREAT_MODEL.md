@@ -2,15 +2,19 @@
 
 ## Scope
 
-This threat model covers the current Callsign alpha: local profile storage, voice enrollment, identity confirmation, visible app launch, and the background service that owns wake and session orchestration.
+This threat model covers the Callsign alpha: local profile storage, voice enrollment, identity confirmation, visible app launch, and the background service that owns wake and session orchestration.
+
+It also names the future threat boundary for Pro and Advanced closed-source extension libraries.
 
 ## Assets
 
 - User control over the desktop.
 - Local profile data.
 - Voice enrollment state.
+- Runtime/session state.
 - Launch history.
-- UI status and session state.
+- UI status and overlay readout.
+- Future extension manifests and command catalogs.
 
 ## Actors
 
@@ -20,23 +24,37 @@ Wants the assistant to open apps and help with routine desktop work.
 
 ### Confused or ambiguous user
 
-May say a command that is unclear or incomplete.
+May say a command that is unclear, incomplete, or unsafe.
+
+### Nearby speaker
+
+May accidentally or intentionally say the wake word or a similar callsign.
 
 ### Malicious local process
 
-May try to tamper with profiles, spoof identity, or interfere with the visible session.
+May try to tamper with profiles, spoof runtime state, interfere with the visible session, or modify future extension files.
 
 ### Malicious webpage or document
 
-May try to influence future automation features through prompt injection.
+May try to influence browser, file, or system-control features through prompt injection.
+
+### Malicious extension
+
+Future closed-source libraries could try to bypass identity, policy, audit, or visibility unless extension loading is constrained.
 
 ## Trust boundaries
 
 ```text
-User speech -> identity check -> session state machine -> visible launch action -> local profile storage
+User speech -> wake detection -> identity check -> session state machine -> policy/approval -> visible action -> local profile storage
 ```
 
-The most important boundary is between user identity and command capture. No launch should occur until the enrolled callsign is matched.
+The most important boundary is between identity and command capture. No action should occur until the enrolled callsign is matched.
+
+Future extension libraries add another boundary:
+
+```text
+Signed extension manifest -> policy evaluation -> runtime adapter -> visible action
+```
 
 ## Threats and mitigations
 
@@ -45,6 +63,7 @@ The most important boundary is between user identity and command capture. No lau
 Mitigation:
 
 - Require wake word plus enrolled callsign.
+- Treat identity utterance as identity-only.
 - Lock out after timeout or repeated mismatch.
 - Make the session status visible.
 
@@ -55,6 +74,7 @@ Mitigation:
 - Keep the app name visible in the UI.
 - Require explicit launch intent.
 - Provide cancel and reset controls.
+- Reject ambiguous or unsafe launch strings.
 
 ### Threat: profile tampering
 
@@ -63,6 +83,7 @@ Mitigation:
 - Store profiles locally.
 - Keep the data model minimal.
 - Validate profile paths and callsigns.
+- Normalize Windows paths before policy checks.
 
 ### Threat: hidden or confusing automation
 
@@ -71,21 +92,33 @@ Mitigation:
 - Use visible launch paths.
 - Avoid hidden background actions in alpha.
 - Keep the UI status text obvious.
+- Require verification for fallback automation.
 
 ### Threat: future prompt injection
 
 Mitigation:
 
-- Treat observed content as data.
+- Treat observed content as untrusted data.
 - Keep policy outside the model.
-- Add safety rules before broader automation lands.
+- Require approval for external side effects.
+- Do not let webpages, documents, screenshots, clipboard contents, or UI text override user intent.
+
+### Threat: unsafe closed-source extension
+
+Mitigation:
+
+- Keep Free independent from private code.
+- Require signed manifests before loading future extension libraries.
+- Route all extension commands through identity, policy, approval, visibility, and audit.
+- Keep proprietary material in `/closed-source/` during local development and out of the public repo.
 
 ## Residual risks
 
 - Voice recognition can mishear.
 - A nearby person can still speak a similar callsign.
-- A user may approve a bad action if the product grows beyond the current alpha.
+- A user may approve a bad action as command surfaces grow.
 - Future cloud features may add privacy risk unless they stay opt-in.
+- Closed-source extensions require strong signing, review, and policy gates before release.
 
 ## Callsign canon alignment
 
@@ -97,4 +130,3 @@ Threat considerations added by the wake overlay and live readout:
 - Misheard identity must not be treated as a command.
 - The text readout is diagnostic feedback and must not become an alternate authorization path.
 - A stuck overlay or stale transcript could confuse the user, so terminal session states must hide the overlay and clear active readout.
-

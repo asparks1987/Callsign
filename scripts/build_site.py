@@ -1,20 +1,42 @@
 ﻿from pathlib import Path
 import html
+import os
 import re
 import shutil
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 REF = DOCS / "reference"
 PAGES = DOCS / "pages"
 ASSETS = DOCS / "assets"
-ASSET_VERSION = "20260619"
+ASSET_VERSION = "20260619b"
 PAGES.mkdir(parents=True, exist_ok=True)
 ASSETS.mkdir(parents=True, exist_ok=True)
 
 GIF_SOURCE = ROOT / "callsign.gif"
 if GIF_SOURCE.exists():
     shutil.copy2(GIF_SOURCE, ASSETS / "callsign.gif")
+
+def write_text_retry(path: Path, text: str) -> None:
+    last_error: Exception | None = None
+    tmp_path = path.with_name(path.name + ".tmp")
+    for _ in range(8):
+        try:
+            tmp_path.write_text(text, encoding="utf-8")
+            os.replace(tmp_path, path)
+            return
+        except PermissionError as exc:
+            last_error = exc
+            time.sleep(0.25)
+        finally:
+            try:
+                if tmp_path.exists():
+                    tmp_path.unlink()
+            except OSError:
+                pass
+    if last_error is not None:
+        raise last_error
 
 DOC_ORDER = [
     ("Canon", "CANON.md", "canon.html", "The Callsign product book: mission, promise, alpha ladder, and UX bar."),
@@ -180,7 +202,7 @@ for title, src, out, _desc in DOC_ORDER:
         continue
     md = md_path.read_text(encoding="utf-8")
     body = render_markdown(md)
-    (PAGES / out).write_text(PAGE_TEMPLATE.format(title=html.escape(title), nav=nav_links, body=body, asset_version=ASSET_VERSION), encoding="utf-8")
+    write_text_retry(PAGES / out, PAGE_TEMPLATE.format(title=html.escape(title), nav=nav_links, body=body, asset_version=ASSET_VERSION))
 
 public_docs = [
     ("Canon Book", "pages/canon.html", "The mission, product promise, Alpha v1 ladder, and design bar."),
@@ -284,16 +306,21 @@ index = f"""<!doctype html>
     </section>
 
     <section class="section tier-band">
-      <div class="section-heading">
-        <div class="eyebrow">Open core, expandable future</div>
-        <h2>Free is the foundation. Extensions are the business.</h2>
+      <div>
+        <div class="section-heading">
+          <div class="eyebrow">Open core, expandable future</div>
+          <h2>Free is the foundation. Extensions are the business.</h2>
+        </div>
+        <div class="grid">
+          <article class="card"><h3>Free</h3><p>Open-source callsign identity, wake overlay, live readout, and visible Start menu launching.</p></article>
+          <article class="card"><h3>Pro</h3><p>Planned paid command libraries for deeper Windows, WSL, Linux, browser, and workflow control.</p></article>
+          <article class="card"><h3>Advanced</h3><p>Future specialized catalogs, recipes, diagnostics, and power-user automation shipped as closed-source extension libraries.</p></article>
+          <article class="card"><h3>Boundary</h3><p>Proprietary tier material belongs in <code>/closed-source/</code>, leaving the public repo clean and inspectable.</p></article>
+        </div>
       </div>
-      <div class="grid">
-        <article class="card"><h3>Free</h3><p>Open-source callsign identity, wake overlay, live readout, and visible Start menu launching.</p></article>
-        <article class="card"><h3>Pro</h3><p>Planned paid command libraries for deeper Windows, WSL, Linux, browser, and workflow control.</p></article>
-        <article class="card"><h3>Advanced</h3><p>Future specialized catalogs, recipes, diagnostics, and power-user automation shipped as closed-source extension libraries.</p></article>
-        <article class="card"><h3>Boundary</h3><p>Proprietary tier material belongs in <code>/closed-source/</code>, leaving the public repo clean and inspectable.</p></article>
-      </div>
+      <figure class="extension-visual">
+        <img src="assets/extension-libraries.png" alt="Modular Callsign extension libraries around an open voice-control core" />
+      </figure>
     </section>
 
     <section class="section" id="docs">
@@ -313,5 +340,5 @@ index = f"""<!doctype html>
 </html>
 """
 
-(DOCS / "index.html").write_text(index, encoding="utf-8")
+write_text_retry(DOCS / "index.html", index)
 print(f"Generated {len(DOC_ORDER)} reference pages and docs/index.html")

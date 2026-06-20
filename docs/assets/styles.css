@@ -1,18 +1,24 @@
 :root {
-  --bg: #0b0d10;
-  --bg-2: #12161b;
-  --ink: #f7f4ed;
-  --muted: #b9c0c7;
-  --dim: #828b94;
-  --line: rgba(247, 244, 237, 0.16);
-  --panel: rgba(247, 244, 237, 0.07);
-  --panel-strong: rgba(247, 244, 237, 0.11);
-  --green: #67e8b9;
-  --blue: #7dc4ff;
-  --gold: #f6c46f;
-  --red: #ff8f7a;
-  --code: #080a0d;
-  --shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+  --bg: #0d1117;
+  --bg-2: #161b22;
+  --surface: #21262d;
+  --surface-2: #30363d;
+  --ink: #f0f6fc;
+  --muted: #8b949e;
+  --dim: #6e7681;
+  --line: #30363d;
+  --panel: rgba(33, 38, 45, 0.78);
+  --panel-strong: rgba(48, 54, 61, 0.88);
+  --green: #238636;
+  --green-bright: #3fb950;
+  --blue: #58a6ff;
+  --gold: #d29922;
+  --red: #f85149;
+  --light: #f6f8fa;
+  --light-ink: #24292f;
+  --light-muted: #57606a;
+  --code: #010409;
+  --shadow: 0 24px 70px rgba(1, 4, 9, 0.44);
 }
 
 * { box-sizing: border-box; }
@@ -20,16 +26,16 @@ html { scroll-behavior: smooth; }
 body {
   margin: 0;
   background:
-    linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(255,255,255,0.032) 1px, transparent 1px),
-    linear-gradient(135deg, #0b0d10 0%, #15181e 42%, #0b0d10 100%);
+    linear-gradient(90deg, rgba(240,246,252,0.026) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(240,246,252,0.024) 1px, transparent 1px),
+    linear-gradient(135deg, #0d1117 0%, #161b22 48%, #010409 100%);
   background-size: 56px 56px, 56px 56px, auto;
   color: var(--ink);
   font-family: "Aptos", "Bahnschrift", "Trebuchet MS", sans-serif;
   line-height: 1.55;
 }
 
-a { color: var(--green); text-decoration: none; }
+a { color: var(--blue); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
 .site-header {
@@ -41,7 +47,7 @@ a:hover { text-decoration: underline; }
   justify-content: space-between;
   gap: 1rem;
   padding: 0.85rem clamp(1rem, 4vw, 3rem);
-  background: rgba(11, 13, 16, 0.86);
+  background: rgba(13, 17, 23, 0.88);
   backdrop-filter: blur(16px) saturate(130%);
   border-bottom: 1px solid var(--line);
 }
@@ -79,8 +85,8 @@ a:hover { text-decoration: underline; }
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(11,13,16,0.96) 0%, rgba(11,13,16,0.82) 44%, rgba(11,13,16,0.28) 76%, rgba(11,13,16,0.76) 100%),
-    url("callsign.gif") right 8vw center / min(42vw, 520px) auto no-repeat;
+    linear-gradient(90deg, rgba(13,17,23,0.98) 0%, rgba(13,17,23,0.88) 42%, rgba(13,17,23,0.18) 74%, rgba(13,17,23,0.72) 100%),
+    url("callsign-hero.png") right center / min(58vw, 980px) auto no-repeat;
   opacity: 0.98;
 }
 
@@ -89,7 +95,7 @@ a:hover { text-decoration: underline; }
   position: absolute;
   inset: auto 0 0;
   height: 36%;
-  background: linear-gradient(0deg, rgba(11,13,16,0.96), transparent);
+  background: linear-gradient(0deg, rgba(13,17,23,0.98), transparent);
 }
 
 .hero-copy, .hero-status {
@@ -154,14 +160,14 @@ h3 {
   padding: 0.78rem 1rem;
   border-radius: 8px;
   color: var(--ink);
-  background: rgba(247,244,237,0.08);
+  background: rgba(33,38,45,0.82);
   font-weight: 800;
 }
 
 .button.primary {
   background: var(--green);
-  border-color: var(--green);
-  color: #07100d;
+  border-color: #2ea043;
+  color: #ffffff;
 }
 
 .hero-status {
@@ -178,7 +184,7 @@ h3 {
 .hero-status p {
   margin: 0;
   padding: 0.95rem 1rem;
-  background: rgba(11,13,16,0.88);
+  background: rgba(13,17,23,0.9);
 }
 
 .hero-status span, .proof-strip span, .timeline span, .mini-overlay span {
@@ -212,7 +218,7 @@ h3 {
 .statement {
   color: #d5dbe1;
   font-size: 1.1rem;
-  border-left: 3px solid var(--green);
+  border-left: 3px solid var(--green-bright);
   padding-left: 1.2rem;
 }
 
@@ -225,7 +231,7 @@ h3 {
 
 .proof-strip article {
   min-height: 220px;
-  background: rgba(247,244,237,0.075);
+  background: var(--panel);
   border: 1px solid var(--line);
   padding: 1.1rem;
 }
@@ -243,8 +249,8 @@ h3 {
 
 .alpha-panel {
   max-width: none;
-  background: #f7f4ed;
-  color: #101317;
+  background: var(--light);
+  color: var(--light-ink);
 }
 
 .alpha-panel .section-heading,
@@ -254,21 +260,21 @@ h3 {
   margin-right: auto;
 }
 
-.alpha-panel .eyebrow { color: #0e6c58; }
+.alpha-panel .eyebrow { color: var(--green); }
 .alpha-panel .section-heading p,
-.alpha-panel .timeline p { color: #4a535c; }
+.alpha-panel .timeline p { color: var(--light-muted); }
 
 .timeline {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
   margin-top: 1.4rem;
-  border: 1px solid rgba(16,19,23,0.16);
-  background: rgba(16,19,23,0.16);
+  border: 1px solid #d0d7de;
+  background: #d0d7de;
 }
 
 .timeline article {
-  background: #fffaf1;
+  background: #ffffff;
   padding: 1.1rem;
   min-height: 230px;
 }
@@ -276,7 +282,7 @@ h3 {
 .timeline span {
   display: inline-flex;
   width: fit-content;
-  color: #07100d;
+  color: #ffffff;
   background: var(--green);
   border-radius: 4px;
   padding: 0.16rem 0.48rem;
@@ -284,7 +290,7 @@ h3 {
 }
 
 .mini-overlay {
-  background: rgba(247,244,237,0.08);
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 1rem;
@@ -302,9 +308,9 @@ h3 {
 .mini-overlay p {
   margin: 0.65rem 0 0;
   padding: 0.85rem;
-  border: 1px solid rgba(247,244,237,0.12);
+  border: 1px solid var(--line);
   border-radius: 6px;
-  background: rgba(0,0,0,0.28);
+  background: rgba(1,4,9,0.38);
   color: var(--ink);
 }
 
@@ -315,7 +321,7 @@ h3 {
 }
 
 .card {
-  background: rgba(247,244,237,0.075);
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 1.1rem;
@@ -326,6 +332,29 @@ h3 {
 .tier-band .card:nth-child(2) { border-top: 4px solid var(--blue); }
 .tier-band .card:nth-child(3) { border-top: 4px solid var(--gold); }
 .tier-band .card:nth-child(4) { border-top: 4px solid var(--red); }
+
+.tier-band {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(320px, 0.85fr);
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: center;
+}
+
+.extension-visual {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #010409;
+  box-shadow: var(--shadow);
+}
+
+.extension-visual img {
+  width: 100%;
+  display: block;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
 
 .section-heading {
   max-width: 850px;
@@ -338,13 +367,13 @@ h3 {
   margin: 1rem 0;
   border-radius: 8px;
   border: 1px solid var(--line);
-  background: rgba(247,244,237,0.08);
+  background: var(--panel);
   color: var(--ink);
   font: inherit;
 }
 
 .flow {
-  background: rgba(247,244,237,0.08);
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 1.2rem;
@@ -371,7 +400,7 @@ h3 {
   position: sticky;
   top: 5.5rem;
   align-self: start;
-  background: rgba(247,244,237,0.08);
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 1rem;
@@ -386,7 +415,7 @@ h3 {
 }
 
 .doc-content {
-  background: rgba(247,244,237,0.075);
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: clamp(1rem, 4vw, 2.4rem);
@@ -403,8 +432,8 @@ pre, code {
 }
 
 code {
-  background: rgba(247,244,237,0.08);
-  border: 1px solid rgba(247,244,237,0.08);
+  background: rgba(33,38,45,0.86);
+  border: 1px solid var(--line);
   border-radius: 4px;
   padding: 0.08rem 0.28rem;
 }
@@ -437,7 +466,7 @@ th, td {
   vertical-align: top;
 }
 
-th { background: rgba(247,244,237,0.09); }
+th { background: var(--surface); }
 
 blockquote {
   border-left: 4px solid var(--green);
@@ -455,10 +484,10 @@ blockquote {
   .site-header { align-items: flex-start; flex-direction: column; }
   .hero::before {
     background:
-      linear-gradient(180deg, rgba(11,13,16,0.94) 0%, rgba(11,13,16,0.78) 58%, rgba(11,13,16,0.96) 100%),
-      url("callsign.gif") right 1rem top 4rem / min(68vw, 360px) auto no-repeat;
+      linear-gradient(180deg, rgba(13,17,23,0.7) 0%, rgba(13,17,23,0.82) 46%, rgba(13,17,23,0.98) 100%),
+      url("callsign-hero.png") right top / min(92vw, 620px) auto no-repeat;
   }
-  .intro-grid, .feature-band, .doc-shell { grid-template-columns: 1fr; }
+  .intro-grid, .feature-band, .tier-band, .doc-shell { grid-template-columns: 1fr; }
   .doc-sidebar { position: static; max-height: none; }
 }
 

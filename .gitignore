@@ -1,6 +1,8 @@
 # Build/cache artifacts
 bin/
 obj/
+build/
+dist/
 .vs/
 .idea/
 *.user
@@ -13,8 +15,14 @@ cache/
 *.local.json
 /fzf.exe
 /Callsign-Service.exe
+/Callsign-Setup.exe
+/Callsign-Run.exe
 /src/Callsign.Setup/Payload/fzf.exe
 /src/Callsign.Setup/Payload/Callsign.Service.exe
+/src/Callsign.Setup/Payload/Callsign.UI.exe
+/src/Callsign.Setup/Payload/*.zip
+/src/Callsign.Setup/Payload/*.tar.gz
+/src/Callsign.Setup/Payload/*.manifest.json
 
 # Proprietary/private Callsign material
 /closed-source/

@@ -27,6 +27,23 @@ cache/
 # Proprietary/private Callsign material
 /closed-source/
 
+# Generated binary and packaged artifacts
+*.7z
+*.dll
+*.exe
+*.jsonl
+*.manifest.json
+*.msi
+*.onnx
+*.pkl
+*.pt
+*.so
+*.tar
+*.tar.gz
+*.xz
+*.zip
+*.nupkg
+
 # OS files
 .DS_Store
 Thumbs.db

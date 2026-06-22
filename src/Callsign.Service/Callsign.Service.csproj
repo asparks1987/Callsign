@@ -12,6 +12,7 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Callsign.Extensions\Callsign.Extensions.csproj" />
     <ProjectReference Include="..\Callsign.UI\Callsign.UI.csproj" />
   </ItemGroup>
 </Project>

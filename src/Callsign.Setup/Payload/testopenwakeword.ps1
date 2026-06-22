@@ -66,14 +66,32 @@ if ($null -eq $python) {
 $script = @'
 import json
 import sys
+import wave
 
+import numpy as np
 from openwakeword.model import Model
 
 wav_path = sys.argv[1]
 model_path = sys.argv[2]
 
 model = Model(wakeword_models=[model_path], inference_framework="onnx")
-predictions = model.predict_clip(wav_path)
+hop_milliseconds = 20
+
+predictions = []
+with wave.open(wav_path, "rb") as wav_file:
+    sample_rate = wav_file.getframerate()
+    frame_size = max(1, int(sample_rate * hop_milliseconds / 1000.0))
+
+    while True:
+        raw_frame = wav_file.readframes(frame_size)
+        if not raw_frame:
+            break
+
+        frame = np.frombuffer(raw_frame, dtype=np.int16)
+        if frame.size == 0:
+            continue
+
+        predictions.append(model.predict(frame))
 
 
 def iter_scores(value, label=None):

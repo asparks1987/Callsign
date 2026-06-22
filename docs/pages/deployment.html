@@ -47,6 +47,8 @@
 <h2>Current state</h2>
 <p>Callsign currently ships as a Windows-first alpha with a setup/onboarding app and service runtime.</p>
 <p>The public package is the Free open-source core. Future paid Pro and Advanced capabilities may ship as closed-source extension libraries, but those libraries are not required for the current Free install path.</p>
+<p>The update server and its Docker/Compose deployment now live in the separate local repo at <code>update-server-repo/</code>.</p>
+<p>The public website can also run as a Dockerized static site on port <code>8085</code>. The website image serves generated docs from <code>docs/</code> and the offline installer at <code>/downloads/Callsign-Setup.exe</code>.</p>
 <h2>Alpha build flow</h2>
 <p>From the repository root:</p>
 <pre><code class="language-powershell">.\buildcallsign.ps1
@@ -65,6 +67,18 @@ python scripts/build_site.py</code></pre>
 <pre><code class="language-powershell">python -m http.server 8000 --directory docs</code></pre>
 <p>Open:</p>
 <pre><code class="language-text">http://localhost:8000</code></pre>
+<h2>Docker website preview</h2>
+<p>From the repository root:</p>
+<pre><code class="language-powershell">python scripts/build_site.py
+docker compose -f deploy/website/docker-compose.yml up -d --build</code></pre>
+<p>Open:</p>
+<pre><code class="language-text">http://localhost:8085</code></pre>
+<p>For Pi deployment, copy the repository folder including <code>Callsign-Setup.exe</code> to the Pi and run the same Compose command. The generated site links to the offline installer at:</p>
+<pre><code class="language-text">http://&lt;pi-hostname-or-ip&gt;:8085/downloads/Callsign-Setup.exe</code></pre>
+<p>From the Windows workstation, the helper script can copy only the generated website, Dockerfile, Compose file, and installer to the Pi:</p>
+<pre><code class="language-powershell">.\deploy\website\deploy-pi.ps1</code></pre>
+<p>The script starts the Compose stack remotely and verifies the installer endpoint without storing SSH credentials in the repository.</p>
+<p>The default remote path is <code>/home/aryns/callsign/website</code>, which avoids requiring sudo on the Pi.</p>
 <h2>Package boundary</h2>
 <p>The Free package should include:</p>
 <ul><li>setup/onboarding app</li><li>background service runtime</li><li>wake/identity runtime dependencies needed for Free</li><li><code>callsign.gif</code> overlay asset</li><li>local profile/enrollment storage</li><li>docs and license material</li></ul>

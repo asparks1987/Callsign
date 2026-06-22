@@ -1,0 +1,10 @@
+services:
+  callsign-website:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.website
+    image: callsign/website:local
+    container_name: callsign-website
+    restart: unless-stopped
+    ports:
+      - "8085:80"

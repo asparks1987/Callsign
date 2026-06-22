@@ -1,6 +1,8 @@
 using Callsign.UI.Models;
 using Callsign.UI.Services;
 using Callsign.UI;
+using Callsign.Extensions;
+using Callsign.AlphaSmoke;
 using NAudio.Wave;
 using System.Diagnostics;
 using System.Drawing;
@@ -47,6 +49,8 @@ var checks = new List<(string Name, Action Check)>
     ("browser helper resolves URLs and search phrases", BrowserTargetResolution),
     ("file search helper finds files in the intended scope", FileSearchResolution),
     ("verified service command router classifies alpha actions", ServiceCommandRouterClassifiesAlphaActions),
+    ("extension pack registry loads drop-in command packs", ExtensionPackRegistryLoadsDropInPack),
+    ("extension pack registry can disable and re-enable packs", ExtensionPackRegistryCanDisableAndReenablePack),
     ("voice navigation routes Callsign tabs", VoiceNavigationRoutesTabs),
     ("voice help command routes setup help", VoiceHelpCommandRoutesSetupHelp),
     ("overlay readout formatter follows the phase contract", OverlayReadoutFormatterFollowsPhaseContract),
@@ -176,8 +180,15 @@ static void ProfileCreationPersists()
     }
     finally
     {
-        if (Directory.Exists(root))
-            Directory.Delete(root, recursive: true);
+        try
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+        catch
+        {
+            // The loaded test assembly can keep the copied pack DLL locked until process exit.
+        }
     }
 }
 
@@ -271,8 +282,15 @@ static void LegacyWakeSettingsUpgrade()
     }
     finally
     {
-        if (Directory.Exists(root))
-            Directory.Delete(root, recursive: true);
+        try
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+        catch
+        {
+            // The loaded test assembly can keep the copied pack DLL locked until process exit.
+        }
     }
 }
 
@@ -966,6 +984,49 @@ static void ServiceCommandRouterClassifiesAlphaActions()
     Require(zoomOutRoute.Target == "browser-zoom-out", $"Expected browser-zoom-out target, got '{zoomOutRoute.Target}'.");
     Require(AlphaCommandRouter.TryRoute("browser zoom reset", out var zoomResetRoute), "Browser zoom reset command should route.");
     Require(zoomResetRoute.Target == "browser-zoom-reset", $"Expected browser-zoom-reset target, got '{zoomResetRoute.Target}'.");
+}
+
+static void ExtensionPackRegistryLoadsDropInPack()
+{
+    var registry = PackTestSupport.CreateRegistry();
+    registry.RegisterPack(new SampleCommandPack());
+
+    var packs = registry.GetPacks();
+    Require(packs.Count == 1, $"Expected one pack, found {packs.Count}.");
+    Require(packs[0].PackId == "sample-pack", $"Expected sample-pack id, got '{packs[0].PackId}'.");
+    Require(packs[0].LoadStatus == CallsignPackLoadStatus.Loaded, $"Expected loaded pack status, got {packs[0].LoadStatus}.");
+
+    Require(registry.TryResolve("sample pack echo hello from alpha", out var resolution), "Pack command should route.");
+    Require(resolution.PackId == "sample-pack", $"Expected sample-pack pack id, got '{resolution.PackId}'.");
+    Require(resolution.CommandId == "sample-echo", $"Expected sample-echo command id, got '{resolution.CommandId}'.");
+    Require(resolution.ArgumentText == "hello from alpha", $"Expected argument text to survive routing, got '{resolution.ArgumentText}'.");
+
+    var execution = new CallsignCommandExecutionContext(
+        resolution.PackId,
+        resolution.CommandId,
+        "sample pack echo hello from alpha",
+        "sample pack echo hello from alpha",
+        resolution.ArgumentText,
+        "Echo One",
+        DateTimeOffset.UtcNow,
+        CancellationToken.None);
+
+    Require(registry.TryExecute(execution, out var result), "Pack execution should succeed.");
+    Require(result.Succeeded, $"Pack execution should succeed, got message '{result.Message}'.");
+    Require(result.Message.Contains("sample-pack", StringComparison.OrdinalIgnoreCase), $"Execution message should mention the pack, got '{result.Message}'.");
+}
+
+static void ExtensionPackRegistryCanDisableAndReenablePack()
+{
+    var registry = PackTestSupport.CreateRegistry();
+    registry.RegisterPack(new SampleCommandPack());
+
+    Require(registry.DisablePack("sample-pack"), "Pack should be disableable.");
+    Require(!registry.TryResolve("sample pack echo hello", out _), "Disabled pack should not route.");
+
+    Require(registry.EnablePack("sample-pack"), "Pack should be re-enableable.");
+    Require(registry.TryResolve("sample pack echo hello", out var resolution), "Re-enabled pack should route again.");
+    Require(resolution.PackId == "sample-pack", $"Expected sample-pack id after re-enable, got '{resolution.PackId}'.");
 }
 
 static void VoiceNavigationRoutesTabs()

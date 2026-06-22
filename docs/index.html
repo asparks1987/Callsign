@@ -12,6 +12,7 @@
     <a class="brand" href="index.html">Callsign</a>
     <nav>
       <a href="#promise">Promise</a>
+      <a href="#download">Download</a>
       <a href="#alpha">Alpha</a>
       <a href="#overlay">Wake overlay</a>
       <a href="#docs">Docs</a>
@@ -25,8 +26,8 @@
         <h1>Callsign is the voice assistant you can inspect.</h1>
         <p class="lede">An open-source Windows-first assistant built around a simple promise: you see when it wakes, you see what it heard, and your identity gates every action. Free is the trust layer; future Pro and Advanced extensions can expand the ceiling without hiding the foundation.</p>
         <div class="actions">
-          <a class="button primary" href="pages/canon.html">Read the project canon</a>
-          <a class="button" href="pages/roadmap.html">See the alpha roadmap</a>
+          <a class="button primary" href="downloads/Callsign-Setup.exe">Download offline installer</a>
+          <a class="button" href="#docs">Read the docs</a>
         </div>
       </div>
       <div class="hero-status" aria-label="Callsign session preview">
@@ -52,6 +53,19 @@
       <article><span>Runtime</span><strong>Visible by design</strong><p>The overlay and readout make listening, identity, and action states obvious.</p></article>
       <article><span>Safety</span><strong>Identity before action</strong><p>Transcript text alone must not wake or authorize a session.</p></article>
       <article><span>Future</span><strong>Paid extensions</strong><p>Closed-source libraries can add advanced catalogs while the core remains public.</p></article>
+    </section>
+
+    <section class="section download-panel" id="download">
+      <div>
+        <div class="eyebrow">Offline installer</div>
+        <h2>Download the open-source alpha package.</h2>
+        <p>The Dockerized site serves the current offline Windows installer directly from the website container. The installer is built from the public Free core and does not require paid command packs.</p>
+      </div>
+      <div class="download-actions">
+        <a class="button primary" href="downloads/Callsign-Setup.exe">Download Callsign-Setup.exe</a>
+        <a class="button" href="pages/deployment.html">Install and deployment notes</a>
+        <a class="button" href="pages/canon.html">Project canon</a>
+      </div>
     </section>
 
     <section class="section alpha-panel" id="alpha">
@@ -104,31 +118,72 @@
       <div class="section-heading">
         <div class="eyebrow">Canon and contributor docs</div>
         <h2>Build from the same book.</h2>
+        <p>Use the links below for the project documentation. Source material is available in the local repository alongside this Dockerized site and in the generated reference pages.</p>
       </div>
       <div class="grid">
         <article class="card doc-card" data-doc-card>
-      <h3><a href="pages/canon.html">Canon Book</a></h3>
-      <p>The mission, product promise, Alpha v1 ladder, and design bar.</p>
+      <h3><a href="pages/canon.html">Canon</a></h3>
+      <p>The Callsign product book: mission, promise, alpha ladder, and UX bar.</p>
     </article>
 <article class="card doc-card" data-doc-card>
       <h3><a href="pages/product-spec.html">Product Spec</a></h3>
-      <p>The v1.0 alpha MVP, v1.x path, and current product boundary.</p>
+      <p>v1.0 alpha scope, Alpha v1 ladder, and current product principles.</p>
     </article>
 <article class="card doc-card" data-doc-card>
       <h3><a href="pages/tier-architecture.html">Tier Architecture</a></h3>
-      <p>How Free stays open while Pro and Advanced grow through extension libraries.</p>
+      <p>Free open core, future Pro/Advanced extensions, and repository boundaries.</p>
     </article>
 <article class="card doc-card" data-doc-card>
-      <h3><a href="pages/roadmap.html">Roadmap</a></h3>
-      <p>Wake launch first, then dictation, browser control, system control, and extension packaging.</p>
+      <h3><a href="pages/architecture.html">Architecture</a></h3>
+      <p>Service runtime, setup UI, wake overlay, and v1.x extension architecture.</p>
     </article>
 <article class="card doc-card" data-doc-card>
-      <h3><a href="pages/burndown.html">Burndown</a></h3>
-      <p>The v1.0 release checklist and Alpha v1 acceptance criteria.</p>
+      <h3><a href="pages/windows-automation.html">Windows Automation</a></h3>
+      <p>v1.0 Start menu launch strategy and v1.x automation direction.</p>
+    </article>
+<article class="card doc-card" data-doc-card>
+      <h3><a href="pages/security-model.html">Security Model</a></h3>
+      <p>Identity, local data handling, overlay behavior, and blocked actions.</p>
+    </article>
+<article class="card doc-card" data-doc-card>
+      <h3><a href="pages/threat-model.html">Threat Model</a></h3>
+      <p>Threats and mitigations for alpha service control.</p>
+    </article>
+<article class="card doc-card" data-doc-card>
+      <h3><a href="pages/voice-ux.html">Voice UX</a></h3>
+      <p>Wake word, callsign identity, overlay readout, and launch prompts.</p>
+    </article>
+<article class="card doc-card" data-doc-card>
+      <h3><a href="pages/data-model.html">Data Model</a></h3>
+      <p>Profile storage, enrollment state, and launch history.</p>
     </article>
 <article class="card doc-card" data-doc-card>
       <h3><a href="pages/test-plan.html">Test Plan</a></h3>
-      <p>How we prove wake, overlay, identity, and visible app launch work safely.</p>
+      <p>v1.0 service, overlay, identity, launch, and safety checks.</p>
+    </article>
+<article class="card doc-card" data-doc-card>
+      <h3><a href="pages/deployment.html">Deployment</a></h3>
+      <p>Current build flow, GitHub Pages, and packaging notes.</p>
+    </article>
+<article class="card doc-card" data-doc-card>
+      <h3><a href="pages/roadmap.html">Roadmap</a></h3>
+      <p>v1.0, v1.1, v1.2, v1.3, and beta-or-later extension planning.</p>
+    </article>
+<article class="card doc-card" data-doc-card>
+      <h3><a href="pages/burndown.html">Burndown</a></h3>
+      <p>Release checklist and acceptance criteria.</p>
+    </article>
+<article class="card doc-card" data-doc-card>
+      <h3><a href="pages/github-pages.html">GitHub Pages</a></h3>
+      <p>How the public site and reference docs fit together.</p>
+    </article>
+        <article class="card doc-card" data-doc-card>
+      <h3><a href="https://github.com/asparks1987/Callsign">Source Repository</a></h3>
+      <p>Browse the open-source Callsign code, issues, and project history.</p>
+    </article>
+<article class="card doc-card" data-doc-card>
+      <h3><a href="https://github.com/asparks1987/Callsign/tree/main/src">Source Tree</a></h3>
+      <p>Jump directly to the client, service, setup, and extension source folders.</p>
     </article>
       </div>
     </section>

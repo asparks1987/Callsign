@@ -11,6 +11,7 @@ REF = DOCS / "reference"
 PAGES = DOCS / "pages"
 ASSETS = DOCS / "assets"
 ASSET_VERSION = "20260619b"
+SOURCE_REPO_URL = "https://github.com/asparks1987/Callsign"
 PAGES.mkdir(parents=True, exist_ok=True)
 ASSETS.mkdir(parents=True, exist_ok=True)
 
@@ -205,12 +206,8 @@ for title, src, out, _desc in DOC_ORDER:
     write_text_retry(PAGES / out, PAGE_TEMPLATE.format(title=html.escape(title), nav=nav_links, body=body, asset_version=ASSET_VERSION))
 
 public_docs = [
-    ("Canon Book", "pages/canon.html", "The mission, product promise, Alpha v1 ladder, and design bar."),
-    ("Product Spec", "pages/product-spec.html", "The v1.0 alpha MVP, v1.x path, and current product boundary."),
-    ("Tier Architecture", "pages/tier-architecture.html", "How Free stays open while Pro and Advanced grow through extension libraries."),
-    ("Roadmap", "pages/roadmap.html", "Wake launch first, then dictation, browser control, system control, and extension packaging."),
-    ("Burndown", "pages/burndown.html", "The v1.0 release checklist and Alpha v1 acceptance criteria."),
-    ("Test Plan", "pages/test-plan.html", "How we prove wake, overlay, identity, and visible app launch work safely."),
+    (title, f"pages/{out}", desc)
+    for title, _src, out, desc in PUBLIC_DOC_ORDER
 ]
 
 public_cards = "\n".join(
@@ -235,6 +232,7 @@ index = f"""<!doctype html>
     <a class="brand" href="index.html">Callsign</a>
     <nav>
       <a href="#promise">Promise</a>
+      <a href="#download">Download</a>
       <a href="#alpha">Alpha</a>
       <a href="#overlay">Wake overlay</a>
       <a href="#docs">Docs</a>
@@ -248,8 +246,8 @@ index = f"""<!doctype html>
         <h1>Callsign is the voice assistant you can inspect.</h1>
         <p class="lede">An open-source Windows-first assistant built around a simple promise: you see when it wakes, you see what it heard, and your identity gates every action. Free is the trust layer; future Pro and Advanced extensions can expand the ceiling without hiding the foundation.</p>
         <div class="actions">
-          <a class="button primary" href="pages/canon.html">Read the project canon</a>
-          <a class="button" href="pages/roadmap.html">See the alpha roadmap</a>
+          <a class="button primary" href="downloads/Callsign-Setup.exe">Download offline installer</a>
+          <a class="button" href="#docs">Read the docs</a>
         </div>
       </div>
       <div class="hero-status" aria-label="Callsign session preview">
@@ -275,6 +273,19 @@ index = f"""<!doctype html>
       <article><span>Runtime</span><strong>Visible by design</strong><p>The overlay and readout make listening, identity, and action states obvious.</p></article>
       <article><span>Safety</span><strong>Identity before action</strong><p>Transcript text alone must not wake or authorize a session.</p></article>
       <article><span>Future</span><strong>Paid extensions</strong><p>Closed-source libraries can add advanced catalogs while the core remains public.</p></article>
+    </section>
+
+    <section class="section download-panel" id="download">
+      <div>
+        <div class="eyebrow">Offline installer</div>
+        <h2>Download the open-source alpha package.</h2>
+        <p>The Dockerized site serves the current offline Windows installer directly from the website container. The installer is built from the public Free core and does not require paid command packs.</p>
+      </div>
+      <div class="download-actions">
+        <a class="button primary" href="downloads/Callsign-Setup.exe">Download Callsign-Setup.exe</a>
+        <a class="button" href="pages/deployment.html">Install and deployment notes</a>
+        <a class="button" href="pages/canon.html">Project canon</a>
+      </div>
     </section>
 
     <section class="section alpha-panel" id="alpha">
@@ -327,9 +338,18 @@ index = f"""<!doctype html>
       <div class="section-heading">
         <div class="eyebrow">Canon and contributor docs</div>
         <h2>Build from the same book.</h2>
+        <p>Use the links below for the project documentation. Source material is available in the local repository alongside this Dockerized site and in the generated reference pages.</p>
       </div>
       <div class="grid">
         {public_cards}
+        <article class="card doc-card" data-doc-card>
+      <h3><a href="{SOURCE_REPO_URL}">Source Repository</a></h3>
+      <p>Browse the open-source Callsign code, issues, and project history.</p>
+    </article>
+<article class="card doc-card" data-doc-card>
+      <h3><a href="{SOURCE_REPO_URL}/tree/main/src">Source Tree</a></h3>
+      <p>Jump directly to the client, service, setup, and extension source folders.</p>
+    </article>
       </div>
     </section>
   </main>

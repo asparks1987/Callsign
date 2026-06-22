@@ -28,6 +28,7 @@ public static class AlphaCommandRouter
             (UiSessionPrefixes, "Session"),
             (UiDictationPrefixes, "Dictation"),
             (UiBrowserPrefixes, "Browser"),
+            (UiPacksPrefixes, "Packs"),
             (UiFilesPrefixes, "Files"),
             (UiSystemPrefixes, "System")
         };
@@ -94,6 +95,12 @@ public static class AlphaCommandRouter
         if (TryStripAnyPrefix(command, UiOpenAppFolderPrefixes, out _))
         {
             route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionOpenAppFolder);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiPacksPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionOpenPacks);
             return true;
         }
 
@@ -1397,6 +1404,7 @@ public static class AlphaCommandRouter
     private const string UiActionOpenDataFolder = "ui-open-data-folder";
     private const string UiActionOpenLogsFolder = "ui-open-logs-folder";
     private const string UiActionOpenAppFolder = "ui-open-app-folder";
+    private const string UiActionOpenPacks = "ui-open-packs";
     private const string UiActionStartListening = "ui-start-listening";
     private const string UiActionStopListening = "ui-stop-listening";
     private const string UiActionVoiceHelp = "ui-voice-help";
@@ -1675,6 +1683,19 @@ public static class AlphaCommandRouter
         "dictation tab",
         "open dictation tab",
         "show dictation tab"
+    ];
+
+    private static readonly string[] UiPacksPrefixes =
+    [
+        "open packs",
+        "show packs",
+        "go to packs",
+        "switch to packs",
+        "packs tab",
+        "open packs tab",
+        "show packs tab",
+        "command packs",
+        "manage packs"
     ];
 
     private static readonly string[] UiBrowserPrefixes =

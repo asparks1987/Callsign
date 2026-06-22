@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Globalization;
 using System.Media;
 using System.Text.RegularExpressions;
+using Callsign.Extensions;
 using Callsign.UI.Models;
 using Callsign.UI.Services;
 
@@ -254,6 +255,15 @@ public sealed class MainForm : Form
     private Button _openFileResultButton = null!;
     private Button _openFileFolderButton = null!;
 
+    private Label _packsRootLabel = null!;
+    private Label _packsStatusLabel = null!;
+    private ListBox _packsList = null!;
+    private ListBox _packCommandsList = null!;
+    private Button _refreshPacksButton = null!;
+    private Button _openPacksFolderButton = null!;
+    private Button _enablePackButton = null!;
+    private Button _disablePackButton = null!;
+
     private DateTime? _dictationStartedUtc;
     private DateTime? _dictationLastTranscriptUtc;
     private string? _dictationLastTranscriptText;
@@ -275,6 +285,7 @@ public sealed class MainForm : Form
         Font = new Font("Segoe UI", 10);
 
         BuildForm();
+        CallsignCommandRegistry.Shared.Refresh();
         PreloadWakeOverlay();
 
         _voiceCommandService.TranscriptReceived += VoiceTranscriptReceived;
@@ -348,6 +359,7 @@ public sealed class MainForm : Form
         _tabs.TabPages.Add(BuildBrowserTab());
         _tabs.TabPages.Add(BuildSystemTab());
         _tabs.TabPages.Add(BuildFileSearchTab());
+        _tabs.TabPages.Add(BuildPacksTab());
         root.Controls.Add(_tabs, 0, 0);
 
         _statusLabel = new Label
@@ -1368,6 +1380,72 @@ public sealed class MainForm : Form
         return tab;
     }
 
+    private TabPage BuildPacksTab()
+    {
+        var tab = new TabPage("Packs");
+        var layout = BuildTwoColumnLayout(9);
+
+        var heading = CreateHeading("Load extension packs from a local folder");
+        var description = new Label
+        {
+            AutoSize = true,
+            MaximumSize = new Size(900, 0),
+            Text = "Installed packs are discovered from the local Callsign packs folder. Each pack can contribute new commands to the voice pipeline and the visible command palette."
+        };
+        _packsRootLabel = new Label { AutoSize = true, Text = "Pack folder: not loaded yet." };
+        _packsStatusLabel = new Label { AutoSize = true, Text = "No packs scanned yet." };
+        _packsList = new ListBox
+        {
+            Dock = DockStyle.Fill,
+            Height = 180,
+            AccessibleName = "Installed packs"
+        };
+        _packsList.SelectedIndexChanged += (_, _) => RefreshPacksPanel();
+        _packCommandsList = new ListBox
+        {
+            Dock = DockStyle.Fill,
+            Height = 180,
+            AccessibleName = "Pack commands"
+        };
+
+        _refreshPacksButton = new Button { Text = "Refresh Packs", Width = 120 };
+        _refreshPacksButton.Click += (_, _) => RefreshPacksPanel(forceReload: true);
+
+        _openPacksFolderButton = new Button { Text = "Open Folder", Width = 110 };
+        _openPacksFolderButton.Click += (_, _) => OpenPacksFolder();
+
+        _enablePackButton = new Button { Text = "Enable", Width = 90 };
+        _enablePackButton.Click += (_, _) => ToggleSelectedPack(enabled: true);
+
+        _disablePackButton = new Button { Text = "Disable", Width = 90 };
+        _disablePackButton.Click += (_, _) => ToggleSelectedPack(enabled: false);
+
+        var row = 0;
+        AddFullWidth(layout, heading, row++);
+        AddFullWidth(layout, description, row++);
+        AddRow(layout, "Folder", _packsRootLabel, row++);
+        AddRow(layout, "Status", _packsStatusLabel, row++);
+        AddFullWidth(layout, _packsList, row++);
+        AddFullWidth(layout, _packCommandsList, row++);
+
+        var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
+        buttons.Controls.Add(_refreshPacksButton);
+        buttons.Controls.Add(_openPacksFolderButton);
+        buttons.Controls.Add(_enablePackButton);
+        buttons.Controls.Add(_disablePackButton);
+        layout.Controls.Add(buttons, 1, row);
+        layout.SetColumnSpan(buttons, 2);
+
+        tab.Controls.Add(layout);
+        return tab;
+    }
+
+    private sealed record PackListItem(CallsignPackInfo Pack)
+    {
+        public override string ToString() =>
+            $"{Pack.DisplayName} v{Pack.Version} [{Pack.Tier}] ({Pack.LoadStatus})";
+    }
+
     private static TableLayoutPanel BuildTwoColumnLayout(int rowCount)
     {
         var layout = new TableLayoutPanel
@@ -1535,6 +1613,7 @@ public sealed class MainForm : Form
         RefreshDictationPanel();
         RefreshBrowserPanel();
         RefreshFileSearchPanel();
+        RefreshPacksPanel();
     }
 
     private void RefreshAccountPanel()
@@ -1902,6 +1981,8 @@ public sealed class MainForm : Form
             return "Open Logs Folder requested.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-open-app-folder", StringComparison.OrdinalIgnoreCase))
             return "Open App Folder requested.";
+        if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-open-packs", StringComparison.OrdinalIgnoreCase))
+            return "Open Packs requested.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-start-listening", StringComparison.OrdinalIgnoreCase))
             return "Start Listening requested.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-stop-listening", StringComparison.OrdinalIgnoreCase))
@@ -1984,6 +2065,9 @@ public sealed class MainForm : Form
             case "ui open app folder":
                 OpenInstalledAppFolder();
                 return true;
+            case "ui open packs":
+                ShowPacksTab();
+                return true;
             case "ui start listening":
                 StartVoiceListening();
                 return true;
@@ -2011,6 +2095,37 @@ public sealed class MainForm : Form
             default:
                 return false;
         }
+    }
+
+    private bool TryExecuteExtensionCommand(AlphaVoiceIntent intent, out CallsignCommandExecutionResult result)
+    {
+        result = new CallsignCommandExecutionResult(false, string.Empty);
+        if (intent.Kind != AlphaVoiceIntentKind.ExtensionCommand)
+            return false;
+
+        result = ExecuteExtensionCommand(intent);
+        return true;
+    }
+
+    private CallsignCommandExecutionResult ExecuteExtensionCommand(AlphaVoiceIntent intent)
+    {
+        var context = new CallsignCommandExecutionContext(
+            intent.PackId,
+            intent.Target,
+            intent.NormalizedCommand,
+            intent.NormalizedCommand,
+            intent.ArgumentText,
+            _activeProfile?.Callsign,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+
+        if (!CallsignCommandRegistry.Shared.TryExecute(context, out var result))
+            result = new CallsignCommandExecutionResult(false, "No extension pack command matched the spoken phrase.");
+
+        if (result.Succeeded)
+            _session.CompleteLaunch();
+
+        return result;
     }
 
     private void MoveUiFocus(int direction)
@@ -2345,6 +2460,15 @@ public sealed class MainForm : Form
         UpdateStatus("Opened voice help.");
     }
 
+    private void ShowPacksTab()
+    {
+        var packTab = _tabs.TabPages.Cast<TabPage>().FirstOrDefault(page => string.Equals(page.Text, "Packs", StringComparison.OrdinalIgnoreCase));
+        if (packTab != null)
+            _tabs.SelectedTab = packTab;
+        RefreshPacksPanel(forceReload: false);
+        UpdateStatus("Opened extension packs.");
+    }
+
     private static string BuildVoiceHelpText()
     {
         return
@@ -2363,13 +2487,14 @@ public sealed class MainForm : Form
             "- open data folder\n" +
             "- open logs folder\n" +
             "- open app folder\n" +
+            "- open packs\n" +
             "- start listening\n" +
             "- stop listening\n" +
             "- voice help / what can I say\n\n" +
             "Navigation:\n" +
             "- next tab\n" +
             "- previous tab\n" +
-            "- open account / voice / session / dictation / browser / files / system\n" +
+            "- open account / voice / session / dictation / browser / packs / files / system\n" +
             "- next control\n" +
             "- previous control\n" +
             "- activate control\n\n" +
@@ -3599,6 +3724,17 @@ public sealed class MainForm : Form
                     _sessionResultLabel.Text = $"Voice action: {uiNavigationIntent.Target}.";
                     RefreshSessionPanel();
                     UpdateStatus($"Voice action executed: {uiNavigationIntent.Target.Replace("ui-", string.Empty, StringComparison.OrdinalIgnoreCase).Replace("-", " ", StringComparison.OrdinalIgnoreCase)}.");
+                    return;
+                }
+            }
+
+            if (uiNavigationIntent.ContainsCallsign && uiNavigationIntent.Kind == AlphaVoiceIntentKind.ExtensionCommand)
+            {
+                if (TryExecuteExtensionCommand(uiNavigationIntent, out var extensionResult))
+                {
+                    _sessionResultLabel.Text = $"Pack command: {uiNavigationIntent.PackId}/{uiNavigationIntent.Target}.";
+                    RefreshSessionPanel();
+                    UpdateStatus(extensionResult.Message);
                     return;
                 }
             }
@@ -4875,6 +5011,107 @@ public sealed class MainForm : Form
         {
             UpdateStatus($"Unable to open app folder: {ex.Message}");
         }
+    }
+
+    private void OpenPacksFolder()
+    {
+        var folder = CallsignCommandRegistry.Shared.PackRoot;
+        Directory.CreateDirectory(folder);
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"\"{folder}\"",
+                UseShellExecute = true
+            });
+            UpdateStatus($"Opened extension pack folder: '{folder}'.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to open pack folder: {ex.Message}");
+        }
+    }
+
+    private void RefreshPacksPanel(bool forceReload = false)
+    {
+        if (_packsRootLabel == null || _packsStatusLabel == null || _packsList == null || _packCommandsList == null)
+            return;
+
+        if (forceReload)
+            CallsignCommandRegistry.Shared.Refresh();
+
+        var packs = CallsignCommandRegistry.Shared.GetPacks();
+        _packsRootLabel.Text = CallsignCommandRegistry.Shared.PackRoot;
+        _packsStatusLabel.Text = packs.Count == 0
+            ? "No packs were discovered. Drop a pack DLL into the folder, then refresh."
+            : $"{packs.Count} pack(s) discovered.";
+
+        _packsList.BeginUpdate();
+        try
+        {
+            _packsList.Items.Clear();
+            foreach (var pack in packs)
+                _packsList.Items.Add(new PackListItem(pack));
+        }
+        finally
+        {
+            _packsList.EndUpdate();
+        }
+
+        if (_packsList.Items.Count > 0 && _packsList.SelectedIndex < 0)
+            _packsList.SelectedIndex = 0;
+
+        RefreshSelectedPackCommands();
+    }
+
+    private void RefreshSelectedPackCommands()
+    {
+        if (_packsList == null || _packCommandsList == null)
+            return;
+
+        _packCommandsList.BeginUpdate();
+        try
+        {
+            _packCommandsList.Items.Clear();
+            if (_packsList.SelectedItem is not PackListItem packItem)
+                return;
+
+            foreach (var command in CallsignCommandRegistry.Shared.GetCommands().Where(command => string.Equals(command.PackId, packItem.Pack.PackId, StringComparison.OrdinalIgnoreCase)))
+            {
+                var phrase = command.Definition.VoicePhrases.FirstOrDefault() ?? command.CommandDisplayName;
+                _packCommandsList.Items.Add($"{phrase} -> {command.CommandDisplayName} ({command.Definition.RiskTier})");
+            }
+        }
+        finally
+        {
+            _packCommandsList.EndUpdate();
+        }
+    }
+
+    private void ToggleSelectedPack(bool enabled)
+    {
+        if (_packsList?.SelectedItem is not PackListItem packItem)
+        {
+            UpdateStatus("Select a pack first.");
+            return;
+        }
+
+        var changed = enabled
+            ? CallsignCommandRegistry.Shared.EnablePack(packItem.Pack.PackId)
+            : CallsignCommandRegistry.Shared.DisablePack(packItem.Pack.PackId);
+
+        if (!changed)
+        {
+            UpdateStatus($"Pack '{packItem.Pack.DisplayName}' could not be updated.");
+            return;
+        }
+
+        RefreshPacksPanel(forceReload: false);
+        UpdateStatus(enabled
+            ? $"Enabled pack '{packItem.Pack.DisplayName}'."
+            : $"Disabled pack '{packItem.Pack.DisplayName}'.");
     }
 
     private void RunOpenWakeWordSetupHelper()

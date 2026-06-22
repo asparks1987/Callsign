@@ -247,6 +247,28 @@ h3 {
   color: var(--muted);
 }
 
+.download-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr);
+  gap: clamp(1.4rem, 5vw, 4rem);
+  align-items: center;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.download-panel p {
+  color: var(--muted);
+  max-width: 760px;
+  font-size: 1.08rem;
+}
+
+.download-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
 .alpha-panel {
   max-width: none;
   background: var(--light);
@@ -487,7 +509,7 @@ blockquote {
       linear-gradient(180deg, rgba(13,17,23,0.7) 0%, rgba(13,17,23,0.82) 46%, rgba(13,17,23,0.98) 100%),
       url("callsign-hero.png") right top / min(92vw, 620px) auto no-repeat;
   }
-  .intro-grid, .feature-band, .tier-band, .doc-shell { grid-template-columns: 1fr; }
+  .intro-grid, .feature-band, .tier-band, .download-panel, .doc-shell { grid-template-columns: 1fr; }
   .doc-sidebar { position: static; max-height: none; }
 }
 

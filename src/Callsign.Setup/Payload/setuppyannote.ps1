@@ -56,19 +56,6 @@ function Invoke-Native {
     }
 }
 
-function Write-Manifest {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path,
-        [Parameter(Mandatory = $true)]
-        [hashtable]$Data
-    )
-
-    New-Item -ItemType Directory -Path $runtimeManifestDir -Force | Out-Null
-    $Data.updatedUtc = (Get-Date).ToUniversalTime().ToString("o")
-    $Data | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $Path -Encoding UTF8
-}
-
 function Get-PythonCandidates {
     $candidates = @()
     if (-not [string]::IsNullOrWhiteSpace($PythonCommand)) {
@@ -259,16 +246,6 @@ function Install-PyannotePackages {
     Invoke-Native -FilePath $venvPython -Arguments $installArgs
     Write-Host "Step 3/4: verifying the pyannote package import path..." -ForegroundColor Cyan
     Invoke-Native -FilePath $venvPython -Arguments @("-c", "import pyannote.audio, torch, torchaudio, numpy, scipy, soundfile, huggingface_hub, omegaconf")
-    Write-Manifest -Path $pythonRuntimeManifest -Data @{
-        kind = "python-runtime"
-        path = $venvPython
-        source = "setuppyannote.ps1"
-    }
-    Write-Manifest -Path $pyannoteWheelhouseManifest -Data @{
-        kind = "pyannote-wheelhouse"
-        path = $wheelhouse
-        source = "setuppyannote.ps1"
-    }
     Write-Host "Step 4/4: pyannote package installation completed." -ForegroundColor Green
 }
 
@@ -304,11 +281,6 @@ function Download-PyannoteModel {
     if (Test-PyannoteModelCache) {
         Write-Host "Using bundled pyannote/embedding model cache: $modelCache" -ForegroundColor Green
         Write-SetupLog "Using bundled pyannote model cache at '$modelCache'."
-        Write-Manifest -Path $pyannoteModelCacheManifest -Data @{
-            kind = "pyannote-model-cache"
-            path = $modelCache
-            source = "setuppyannote.ps1"
-        }
         return
     }
 
@@ -330,11 +302,6 @@ function Download-PyannoteModel {
 
     Write-Host "Downloading pyannote/embedding with huggingface_hub into $modelCache..." -ForegroundColor Cyan
     Invoke-Native -FilePath $venvPython -Arguments @("-c", "import os; from huggingface_hub import snapshot_download; snapshot_download('pyannote/embedding', cache_dir=os.environ['CALLSIGN_PYANNOTE_CACHE'], token=os.environ.get('HF_TOKEN'))")
-    Write-Manifest -Path $pyannoteModelCacheManifest -Data @{
-        kind = "pyannote-model-cache"
-        path = $modelCache
-        source = "setuppyannote.ps1"
-    }
 }
 
 Write-SetupLog "pyannote setup started. InstallPythonPackages=$InstallPythonPackages DownloadModel=$DownloadModel TestEmbedding=$TestEmbedding CheckOnly=$CheckOnly"
@@ -398,27 +365,6 @@ if ($CheckOnly -and (-not $runtimeReady -or -not $modelReady -or -not $bundleRea
 
 if ($runtimeReady -and $modelReady -and $bundleReady) {
     Write-Host "pyannote runtime is ready for Callsign." -ForegroundColor Green
-    if (Test-Path -LiteralPath $venvPython) {
-        Write-Manifest -Path $pythonRuntimeManifest -Data @{
-            kind = "python-runtime"
-            path = $venvPython
-            source = "setuppyannote.ps1"
-        }
-    }
-    if (Test-Path -LiteralPath $wheelhouse) {
-        Write-Manifest -Path $pyannoteWheelhouseManifest -Data @{
-            kind = "pyannote-wheelhouse"
-            path = $wheelhouse
-            source = "setuppyannote.ps1"
-        }
-    }
-    if (Test-Path -LiteralPath $modelCache) {
-        Write-Manifest -Path $pyannoteModelCacheManifest -Data @{
-            kind = "pyannote-model-cache"
-            path = $modelCache
-            source = "setuppyannote.ps1"
-        }
-    }
     Write-SetupLog "pyannote readiness passed."
 }
 else {

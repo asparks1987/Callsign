@@ -9,7 +9,8 @@ public enum AlphaVoiceIntentKind
     Dictation,
     SystemControl,
     UiNavigation,
-    UiAction
+    UiAction,
+    ExtensionCommand
 }
 
 public sealed record AlphaVoiceIntent(
@@ -17,7 +18,9 @@ public sealed record AlphaVoiceIntent(
     string NormalizedCommand,
     AlphaVoiceIntentKind Kind,
     string Target,
-    BrowserOpenTarget BrowserTarget = BrowserOpenTarget.Default);
+    BrowserOpenTarget BrowserTarget = BrowserOpenTarget.Default,
+    string ArgumentText = "",
+    string PackId = "");
 
 public static class AlphaVoiceIntentParser
 {
@@ -46,6 +49,18 @@ public static class AlphaVoiceIntentParser
             };
 
             return new AlphaVoiceIntent(containsCallsign, normalizedCommand, kind, route.Target, route.BrowserTarget);
+        }
+
+        if (Callsign.Extensions.CallsignCommandRegistry.Shared.TryResolve(normalizedCommand, out var command))
+        {
+            return new AlphaVoiceIntent(
+                containsCallsign,
+                normalizedCommand,
+                AlphaVoiceIntentKind.ExtensionCommand,
+                command.CommandId,
+                BrowserOpenTarget.Default,
+                command.ArgumentText,
+                command.PackId);
         }
 
         var appName = AlphaVoiceTranscriptParser.InferAppName(normalizedCommand);

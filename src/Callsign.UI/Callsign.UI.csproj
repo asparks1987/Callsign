@@ -18,4 +18,7 @@
     <PackageReference Include="Whisper.net.Runtime" Version="1.9.1" />
     <PackageReference Include="System.Speech" Version="10.0.0" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Callsign.Extensions\Callsign.Extensions.csproj" />
+  </ItemGroup>
 </Project>

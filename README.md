@@ -25,6 +25,8 @@ The current repo is focused on the Alpha v1 line. v1.0 is the first public MVP:
 
 The codebase also contains early surfaces for the broader Alpha v1 direction, including browser launch helpers, system control helpers, file search, visible-control routing, and richer command parsing. Those are part of the v1.x path, not a reason to weaken the v1.0 release gate.
 
+The update server now lives in the separate local repo at `update-server-repo/`, which owns the Dockerized server, manifests, and deployment docs.
+
 ## Open-source promise
 
 Callsign is Free-first.

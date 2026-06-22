@@ -1,5 +1,6 @@
 using Callsign.UI.Models;
 using Callsign.UI.Services;
+using Callsign.Extensions;
 using Microsoft.Extensions.Hosting;
 using System.Text.Json;
 
@@ -80,6 +81,7 @@ public sealed class CallsignRuntimeWorker : BackgroundService
         }
 
         WriteSnapshot();
+        CallsignCommandRegistry.Shared.Refresh();
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -488,6 +490,14 @@ public sealed class CallsignRuntimeWorker : BackgroundService
             return;
         }
 
+        if (TryExecuteExtensionCommand(intent, profile, out var extensionResult))
+        {
+            _session.CompleteLaunch();
+            _statusMessage = extensionResult.Message;
+            RecordServiceAction("extension_command", $"{intent.PackId}/{intent.Target}", extensionResult.Message, succeeded: extensionResult.Succeeded);
+            return;
+        }
+
         var appName = _session.PendingApp;
         if (string.IsNullOrWhiteSpace(appName))
             appName = intent.Kind == AlphaVoiceIntentKind.StartMenuLaunch
@@ -637,6 +647,31 @@ public sealed class CallsignRuntimeWorker : BackgroundService
 
         RequestUiMode(intent.Target);
         message = $"Opening {intent.Target} action.";
+        return true;
+    }
+
+    private bool TryExecuteExtensionCommand(AlphaVoiceIntent intent, UserProfile profile, out CallsignCommandExecutionResult result)
+    {
+        result = new CallsignCommandExecutionResult(false, string.Empty);
+        if (intent.Kind != AlphaVoiceIntentKind.ExtensionCommand)
+            return false;
+
+        var context = new CallsignCommandExecutionContext(
+            intent.PackId,
+            intent.Target,
+            intent.NormalizedCommand,
+            intent.NormalizedCommand,
+            intent.ArgumentText,
+            profile.Callsign,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+
+        if (!CallsignCommandRegistry.Shared.TryExecute(context, out result))
+        {
+            result = new CallsignCommandExecutionResult(false, "No extension pack command matched the spoken phrase.");
+            return true;
+        }
+
         return true;
     }
 

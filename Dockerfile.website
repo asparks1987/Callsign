@@ -1,0 +1,6 @@
+FROM nginx:1.27-alpine
+
+COPY docs/ /usr/share/nginx/html/
+COPY Callsign-Setup.exe /usr/share/nginx/html/downloads/Callsign-Setup.exe
+
+EXPOSE 80

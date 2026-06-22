@@ -1,0 +1,7 @@
+*
+!Callsign-Setup.exe
+!Dockerfile.website
+!docs/
+!docs/**
+!deploy/
+!deploy/**

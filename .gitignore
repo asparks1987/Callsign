@@ -26,6 +26,7 @@ cache/
 
 # Proprietary/private Callsign material
 /closed-source/
+/update-server-repo/
 
 # Generated binary and packaged artifacts
 *.7z

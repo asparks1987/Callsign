@@ -11,6 +11,7 @@
     <a class="brand" href="../index.html">Callsign</a>
     <nav><a href="canon.html">Canon</a>
 <a href="product-spec.html">Product Spec</a>
+<a href="voice-access-parity.html">Voice Access Parity</a>
 <a href="tier-architecture.html">Tier Architecture</a>
 <a href="architecture.html">Architecture</a>
 <a href="windows-automation.html">Windows Automation</a>
@@ -29,6 +30,7 @@
       <strong>Docs</strong>
       <a href="canon.html">Canon</a>
 <a href="product-spec.html">Product Spec</a>
+<a href="voice-access-parity.html">Voice Access Parity</a>
 <a href="tier-architecture.html">Tier Architecture</a>
 <a href="architecture.html">Architecture</a>
 <a href="windows-automation.html">Windows Automation</a>
@@ -55,13 +57,17 @@
 <h2>Current alpha boundary</h2>
 <p>The current public release gate is <code>v1.0 alpha</code>.</p>
 <p>v1.0 is complete only when a fresh user can install Callsign, create a profile, enroll voice, say the wake word, verify their callsign, see the overlay/readout, and launch an installed app through a visible Start menu flow.</p>
-<p>The repo already contains early surfaces for the broader Alpha v1 direction, including command routing, browser launch helpers, system control helpers, and file search. Those surfaces are v1.x work unless they are explicitly listed as v1.0 release criteria.</p>
+<p>The repo already contains early surfaces for the broader Alpha v1 direction, including command routing, browser launch helpers, system control helpers, file search, visible control overlays, dictation, and extension packs. Those surfaces are v1.x work unless they are explicitly listed as v1.0 release criteria.</p>
+<p>The long-term Free-core objective is practical parity with stable Windows 11 Voice Access while preserving Callsign&#x27;s wake, callsign identity, visibility, policy, and audit model. The canonical checklist lives in <code>VOICE_ACCESS_PARITY_MATRIX.md</code>.</p>
 <h2>Canon flow</h2>
 <pre><code class="language-text">Callsign -&gt; identity verification -&gt; command -&gt; visible action</code></pre>
 <p>Transcript text alone must never bypass wake detection or identity verification.</p>
 <h2>Alpha v1 release ladder</h2>
 <p>All Alpha v1 capabilities are free and remain free until at least beta.</p>
-<table><thead><tr><th>Release</th><th>Scope</th></tr></thead><tbody><tr><td><code>v1.0 alpha</code></td><td>Service wake detection, callsign verification, overlay + live readout, and visible Start menu app launch.</td></tr><tr><td><code>v1.1 alpha</code></td><td>Dictation with visible review before insertion, copy, paste, or other text action.</td></tr><tr><td><code>v1.2 alpha</code></td><td>Browser control for visible open, search, navigation, and bounded browser workflows.</td></tr><tr><td><code>v1.3 alpha</code></td><td>System control for Windows, WSL, and Linux, including file search results shown or opened through Explorer.</td></tr></tbody></table>
+<p>Alpha versioning starts at <code>0.0.3a</code> and uses two tracks:</p>
+<ul><li>Major milestones: <code>0.0.3a</code>, <code>0.0.4a</code>, <code>0.0.5a</code>, <code>0.1.0a</code>, and <code>1.0.0a</code>.</li><li><code>0.0.01a</code> and higher for micro stabilizing patches between milestones</li><li><code>1.0.0a</code> for the first public Alpha parity release</li></ul>
+<table><thead><tr><th>Release</th><th>Scope</th></tr></thead><tbody><tr><td><code>v1.0 alpha</code></td><td>Service wake detection, callsign verification, overlay + live readout, and visible Start menu app launch.</td></tr><tr><td><code>v1.1 alpha</code></td><td>Dictation with visible review before insertion, copy, paste, or other text action.</td></tr><tr><td><code>v1.2 alpha</code></td><td>Browser control for visible open, search, navigation, and bounded browser workflows.</td></tr><tr><td><code>v1.3 alpha</code></td><td>System control for Windows, WSL, and Linux, including file search results shown or opened through Explorer.</td></tr><tr><td><code>v1.4 alpha</code></td><td>Voice Access parity hardening, command discovery, update splash, manual walkthroughs, and release-candidate installer/site verification.</td></tr></tbody></table>
+<p>The 100% parity target for <code>VOICE_ACCESS_PARITY_MATRIX.md</code> is the release gating criterion for <code>1.0.0a</code>; all earlier versions keep the flow intentionally additive.</p>
 <h2>Free tier requirements</h2>
 <p>The Free tier is the public open-source product.</p>
 <p>It must:</p>

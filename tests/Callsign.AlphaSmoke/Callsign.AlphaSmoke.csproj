@@ -4,10 +4,12 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Callsign.UI\Callsign.UI.csproj" />
     <ProjectReference Include="..\..\src\Callsign.Extensions\Callsign.Extensions.csproj" />
+    <ProjectReference Include="..\Callsign.SamplePack\Callsign.SamplePack.csproj" />
     <PackageReference Include="System.Speech" Version="10.0.0" />
   </ItemGroup>
 </Project>

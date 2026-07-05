@@ -99,6 +99,7 @@ public sealed class ProfileStore
                 return null;
 
             profile.Settings ??= new UserSettings();
+            profile.Settings.DictationVocabulary ??= [];
             if (string.IsNullOrWhiteSpace(profile.Settings.DashboardTitle))
                 profile.Settings.DashboardTitle = "Callsign";
             if (string.IsNullOrWhiteSpace(profile.Settings.VoiceEnrollmentStatus))

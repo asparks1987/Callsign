@@ -17,6 +17,7 @@ public sealed class WakeOverlayForm : Form
     private readonly Label _phaseLabel;
     private readonly Label _liveBadgeLabel;
     private readonly Label _readoutLabel;
+    private readonly Label _safetyLabel;
     private readonly Label _transcriptHeadingLabel;
     private readonly Label _captionLabel;
     private readonly Label _wakeStatusLabel;
@@ -51,9 +52,9 @@ public sealed class WakeOverlayForm : Form
         TransparencyKey = OverlayTransparencyColor;
         ForeColor = Color.White;
         Width = 430;
-        Height = 600;
-        MinimumSize = new Size(340, 420);
-        MaximumSize = new Size(560, 720);
+        Height = 628;
+        MinimumSize = new Size(340, 448);
+        MaximumSize = new Size(560, 748);
         Padding = new Padding(14);
 
         _layout = new TableLayoutPanel
@@ -65,7 +66,7 @@ public sealed class WakeOverlayForm : Form
         };
         _layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
         _layout.RowStyles.Add(new RowStyle(SizeType.Percent, 72));
-        _layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 240));
+        _layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 268));
         Controls.Add(_layout);
 
         _titleLabel = new Label
@@ -75,7 +76,9 @@ public sealed class WakeOverlayForm : Form
             ForeColor = Color.FromArgb(190, 255, 239),
             TextAlign = ContentAlignment.MiddleCenter,
             Font = new Font("Segoe UI Semibold", 11.5f, FontStyle.Bold),
-            Text = "Callsign"
+            Text = "Callsign",
+            AccessibleName = "Wake overlay title",
+            AccessibleDescription = "Names the visible Callsign wake overlay."
         };
         _layout.Controls.Add(_titleLabel, 0, 0);
 
@@ -108,8 +111,10 @@ public sealed class WakeOverlayForm : Form
             BackColor = Color.Transparent,
             ForeColor = Color.FromArgb(105, 245, 214),
             TextAlign = ContentAlignment.MiddleLeft,
-            Font = new Font(FontFamily.GenericSansSerif, 9.5f, FontStyle.Bold),
-            Text = "LISTENING"
+            Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold),
+            Text = "LISTENING",
+            AccessibleName = "Wake overlay phase",
+            AccessibleDescription = "Shows the current wake, identity, command, or action phase."
         };
         _headerPanel.Controls.Add(_phaseLabel);
 
@@ -120,9 +125,11 @@ public sealed class WakeOverlayForm : Form
             BackColor = Color.Transparent,
             ForeColor = Color.FromArgb(105, 245, 214),
             TextAlign = ContentAlignment.MiddleCenter,
-            Font = new Font(FontFamily.GenericSansSerif, 8.5f, FontStyle.Bold),
+            Font = new Font("Segoe UI Semibold", 8.5f, FontStyle.Bold),
             Padding = new Padding(4, 2, 4, 2),
-            Text = "READY"
+            Text = "READY",
+            AccessibleName = "Wake overlay live badge",
+            AccessibleDescription = "Shows whether Callsign is ready, listening, or hearing speech."
         };
         _headerPanel.Controls.Add(_liveBadgeLabel);
         _messagePanel.Controls.Add(_headerPanel);
@@ -135,11 +142,29 @@ public sealed class WakeOverlayForm : Form
             BackColor = Color.Transparent,
             ForeColor = Color.White,
             TextAlign = ContentAlignment.MiddleCenter,
-            Font = new Font(FontFamily.GenericSansSerif, 11.25f, FontStyle.Bold),
+            Font = new Font("Segoe UI Semibold", 11.25f, FontStyle.Bold),
             Padding = new Padding(12, 6, 12, 2),
-            Text = "Callsign heard. Say your callsign."
+            Text = "Callsign heard. Say your callsign.",
+            AccessibleName = "Wake overlay live readout",
+            AccessibleDescription = "Shows what Callsign expects next or what it heard."
         };
         _messagePanel.Controls.Add(_readoutLabel);
+
+        _safetyLabel = new Label
+        {
+            Dock = DockStyle.Top,
+            AutoSize = false,
+            Height = 32,
+            BackColor = Color.Transparent,
+            ForeColor = Color.FromArgb(210, 242, 255),
+            TextAlign = ContentAlignment.MiddleCenter,
+            Font = new Font("Segoe UI Semibold", 8.25f, FontStyle.Bold),
+            Padding = new Padding(8, 0, 8, 0),
+            Text = "Safety: say stop, cancel, stop listening, or reset session. Commands stay blocked until identity is confirmed.",
+            AccessibleName = "Wake overlay safety",
+            AccessibleDescription = "Shows visible stop, cancel, stop listening, and reset session escape phrases, and explains that commands remain blocked until identity is confirmed."
+        };
+        _messagePanel.Controls.Add(_safetyLabel);
 
         _transcriptHeadingLabel = new Label
         {
@@ -149,10 +174,12 @@ public sealed class WakeOverlayForm : Form
             BackColor = Color.Transparent,
             ForeColor = Color.FromArgb(166, 255, 246),
             TextAlign = ContentAlignment.MiddleCenter,
-            Font = new Font(FontFamily.GenericSansSerif, 8.0f, FontStyle.Bold),
+            Font = new Font("Segoe UI Semibold", 8.0f, FontStyle.Bold),
             Padding = new Padding(4, 0, 4, 0),
             Text = "LIVE TRANSCRIPT",
-            Visible = false
+            Visible = false,
+            AccessibleName = "Wake overlay transcript heading",
+            AccessibleDescription = "Labels the live transcript area."
         };
         _messagePanel.Controls.Add(_transcriptHeadingLabel);
 
@@ -164,10 +191,12 @@ public sealed class WakeOverlayForm : Form
             BackColor = Color.Transparent,
             ForeColor = Color.FromArgb(232, 255, 248),
             TextAlign = ContentAlignment.MiddleCenter,
-            Font = new Font(FontFamily.GenericSansSerif, 9.4f, FontStyle.Bold),
+            Font = new Font("Segoe UI Semibold", 9.4f, FontStyle.Bold),
             Padding = new Padding(6, 2, 6, 2),
             Text = string.Empty,
-            Visible = false
+            Visible = false,
+            AccessibleName = "Wake overlay transcript",
+            AccessibleDescription = "Shows the most recent spoken transcript or dictation readout."
         };
         _messagePanel.Controls.Add(_captionLabel);
 
@@ -179,10 +208,12 @@ public sealed class WakeOverlayForm : Form
             BackColor = Color.Transparent,
             ForeColor = Color.FromArgb(255, 211, 121),
             TextAlign = ContentAlignment.MiddleCenter,
-            Font = new Font(FontFamily.GenericSansSerif, 8.5f, FontStyle.Bold),
+            Font = new Font("Segoe UI Semibold", 8.5f, FontStyle.Bold),
             Padding = new Padding(4, 0, 4, 0),
             Text = string.Empty,
-            Visible = false
+            Visible = false,
+            AccessibleName = "Wake overlay wake status",
+            AccessibleDescription = "Shows wake detector confidence or retry status."
         };
         _messagePanel.Controls.Add(_wakeStatusLabel);
 
@@ -194,10 +225,12 @@ public sealed class WakeOverlayForm : Form
             BackColor = Color.Transparent,
             ForeColor = Color.FromArgb(170, 230, 250),
             TextAlign = ContentAlignment.MiddleCenter,
-            Font = new Font(FontFamily.GenericSansSerif, 8.25f, FontStyle.Bold),
+            Font = new Font("Segoe UI Semibold", 8.25f, FontStyle.Bold),
             Padding = new Padding(4, 0, 4, 0),
             Text = string.Empty,
-            Visible = false
+            Visible = false,
+            AccessibleName = "Wake overlay runtime authority",
+            AccessibleDescription = "Shows which Callsign runtime owns the active microphone listener."
         };
         _messagePanel.Controls.Add(_authorityLabel);
 
@@ -208,9 +241,11 @@ public sealed class WakeOverlayForm : Form
             BackColor = Color.Transparent,
             ForeColor = Color.FromArgb(190, 235, 249),
             TextAlign = ContentAlignment.MiddleCenter,
-            Font = new Font(FontFamily.GenericSansSerif, 8.5f, FontStyle.Bold),
+            Font = new Font("Segoe UI Semibold", 8.5f, FontStyle.Bold),
             Padding = new Padding(2, 0, 2, 0),
-            Text = "Mic: idle"
+            Text = "Mic: idle",
+            AccessibleName = "Wake overlay microphone activity",
+            AccessibleDescription = "Shows microphone activity and speech detection status."
         };
         _messagePanel.Controls.Add(_activityLabel);
 
@@ -239,13 +274,16 @@ public sealed class WakeOverlayForm : Form
             BackColor = Color.Transparent,
             ForeColor = Color.FromArgb(190, 235, 249),
             TextAlign = ContentAlignment.MiddleCenter,
-            Font = new Font(FontFamily.GenericSansSerif, 8.5f, FontStyle.Regular),
+            Font = new Font("Segoe UI", 8.5f, FontStyle.Regular),
             Padding = new Padding(8, 0, 8, 2),
             Text = string.Empty,
-            Visible = false
+            Visible = false,
+            AccessibleName = "Wake overlay transcript history",
+            AccessibleDescription = "Shows recent transcript history during the active voice session."
         };
         _messagePanel.Controls.Add(_historyLabel);
         _layout.Controls.Add(_messagePanel, 0, 2);
+        ApplyMessageRegion();
 
         _animationTimer = new System.Windows.Forms.Timer
         {
@@ -265,6 +303,7 @@ public sealed class WakeOverlayForm : Form
     public bool IsReady => _overlayImage != null;
     public string PhaseText => _phaseLabel.Text;
     public string ReadoutText => _readoutLabel.Text;
+    public string SafetyText => _safetyLabel.Text;
     public string TranscriptHeadingText => _transcriptHeadingLabel.Text;
     public string CaptionText => _captionLabel.Text;
     public string WakeStatusText => _wakeStatusLabel.Text;
@@ -274,6 +313,32 @@ public sealed class WakeOverlayForm : Form
     public string LiveBadgeText => _liveBadgeLabel.Text;
     public string ActivityText => _activityLabel.Text;
     public double ActivityLevel => _activityLevel;
+    public string VisualStyleName => CallsignVisualStyle.DescribeSurface("wake overlay");
+    public string TitleAccessibleName => _titleLabel.AccessibleName ?? string.Empty;
+    public string PhaseAccessibleName => _phaseLabel.AccessibleName ?? string.Empty;
+    public string ReadoutAccessibleName => _readoutLabel.AccessibleName ?? string.Empty;
+    public string SafetyAccessibleName => _safetyLabel.AccessibleName ?? string.Empty;
+    public string SafetyAccessibleDescription => _safetyLabel.AccessibleDescription ?? string.Empty;
+    public string TranscriptAccessibleName => _captionLabel.AccessibleName ?? string.Empty;
+    public string ActivityAccessibleName => _activityLabel.AccessibleName ?? string.Empty;
+    public string AuthorityAccessibleDescription => _authorityLabel.AccessibleDescription ?? string.Empty;
+    public bool IsTopMostOverlay => TopMost;
+    public bool IsNonActivatingOverlay => ShowWithoutActivation;
+    public bool UsesNoActivateClickThroughStyles
+    {
+        get
+        {
+            var flags = CreateParams.ExStyle;
+            return (flags & WsExNoActivate) == WsExNoActivate
+                && (flags & WsExTransparent) == WsExTransparent
+                && (flags & WsExToolWindow) == WsExToolWindow;
+        }
+    }
+
+    public string WindowBehaviorSummary =>
+        UsesNoActivateClickThroughStyles && IsTopMostOverlay && IsNonActivatingOverlay
+            ? "Topmost no-activate click-through tool-window overlay."
+            : "Overlay window behavior incomplete.";
 
     protected override bool ShowWithoutActivation => true;
 
@@ -290,14 +355,37 @@ public sealed class WakeOverlayForm : Form
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
-        PositionOverlay();
+        if (_messagePanel is null)
+            return;
+        ApplyMessageRegion();
+        TryPositionOverlay();
     }
 
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
+        if (_messagePanel is null)
+            return;
+        ApplyMessageRegion();
         if (Visible)
-            PositionOverlay();
+            TryPositionOverlay();
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+
+        if (_messagePanel.Width <= 0 || _messagePanel.Height <= 0)
+            return;
+
+        using var fillBrush = new SolidBrush(Color.FromArgb(182, 18, 24, 36));
+        using var shadowPen = new Pen(Color.FromArgb(72, 0, 0, 0), 3f);
+        using var borderPen = new Pen(Color.FromArgb(105, 255, 255, 255), 1.4f);
+        using var framePath = CreateRoundedPath(_messagePanel.Bounds, 22);
+        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        e.Graphics.FillPath(fillBrush, framePath);
+        e.Graphics.DrawPath(shadowPen, framePath);
+        e.Graphics.DrawPath(borderPen, framePath);
     }
 
     protected override void Dispose(bool disposing)
@@ -322,6 +410,7 @@ public sealed class WakeOverlayForm : Form
             _phaseLabel.Dispose();
             _liveBadgeLabel.Dispose();
             _readoutLabel.Dispose();
+            _safetyLabel.Dispose();
             _transcriptHeadingLabel.Dispose();
             _captionLabel.Dispose();
             _wakeStatusLabel.Dispose();
@@ -349,15 +438,19 @@ public sealed class WakeOverlayForm : Form
         SetTranscriptHistory(transcriptHistory);
         SetAudioActivity(activityLevel, activityText, speechActive);
 
-        if (!Visible)
-            Show();
-
-        PositionOverlay();
-        TopMost = true;
-        BringToFront();
-        if (_overlayImage != null && ImageAnimator.CanAnimate(_overlayImage))
-            ImageAnimator.UpdateFrames(_overlayImage);
-        _pictureBox.Invalidate();
+        try
+        {
+            TryShowOverlay();
+            TryPositionOverlay();
+            TopMost = true;
+            TryBringToFront();
+            if (_overlayImage != null && ImageAnimator.CanAnimate(_overlayImage))
+                ImageAnimator.UpdateFrames(_overlayImage);
+            TryInvalidatePictureBox();
+        }
+        catch
+        {
+        }
     }
 
     public void SetReadout(string? readout, string? phase = null)
@@ -568,6 +661,85 @@ public sealed class WakeOverlayForm : Form
         var x = Math.Max(workingArea.Left + margin, workingArea.Left + (workingArea.Width - Width) / 2);
         var y = workingArea.Top + margin;
         Bounds = new Rectangle(x, y, Width, Height);
+    }
+
+    private void TryPositionOverlay()
+    {
+        try
+        {
+            PositionOverlay();
+        }
+        catch
+        {
+            Bounds = new Rectangle(24, 24, Width, Height);
+        }
+    }
+
+    private void TryShowOverlay()
+    {
+        if (Visible)
+            return;
+
+        try
+        {
+            Show();
+        }
+        catch
+        {
+        }
+    }
+
+    private void TryBringToFront()
+    {
+        try
+        {
+            BringToFront();
+        }
+        catch
+        {
+        }
+    }
+
+    private void TryInvalidatePictureBox()
+    {
+        try
+        {
+            _pictureBox.Invalidate();
+        }
+        catch
+        {
+        }
+    }
+
+    private void ApplyMessageRegion()
+    {
+        if (_messagePanel is null || _messagePanel.Width <= 0 || _messagePanel.Height <= 0)
+            return;
+
+        _messagePanel.Region?.Dispose();
+        _messagePanel.Region = new Region(CreateRoundedPath(new Rectangle(Point.Empty, _messagePanel.Size), 22));
+    }
+
+    private static System.Drawing.Drawing2D.GraphicsPath CreateRoundedPath(Rectangle bounds, int radius)
+    {
+        var path = new System.Drawing.Drawing2D.GraphicsPath();
+        var diameter = Math.Max(1, radius * 2);
+
+        var topLeft = new Rectangle(bounds.Left, bounds.Top, diameter, diameter);
+        var topRight = new Rectangle(bounds.Right - diameter, bounds.Top, diameter, diameter);
+        var bottomRight = new Rectangle(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter);
+        var bottomLeft = new Rectangle(bounds.Left, bounds.Bottom - diameter, diameter, diameter);
+
+        path.AddArc(topLeft, 180, 90);
+        path.AddLine(bounds.Left + radius, bounds.Top, bounds.Right - radius, bounds.Top);
+        path.AddArc(topRight, 270, 90);
+        path.AddLine(bounds.Right, bounds.Top + radius, bounds.Right, bounds.Bottom - radius);
+        path.AddArc(bottomRight, 0, 90);
+        path.AddLine(bounds.Right - radius, bounds.Bottom, bounds.Left + radius, bounds.Bottom);
+        path.AddArc(bottomLeft, 90, 90);
+        path.AddLine(bounds.Left, bounds.Bottom - radius, bounds.Left, bounds.Top + radius);
+        path.CloseFigure();
+        return path;
     }
 
     private void OnFrameChanged(object? sender, EventArgs e)

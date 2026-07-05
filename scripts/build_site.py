@@ -42,6 +42,7 @@ def write_text_retry(path: Path, text: str) -> None:
 DOC_ORDER = [
     ("Canon", "CANON.md", "canon.html", "The Callsign product book: mission, promise, alpha ladder, and UX bar."),
     ("Product Spec", "PRODUCT_SPEC.md", "product-spec.html", "v1.0 alpha scope, Alpha v1 ladder, and current product principles."),
+    ("Voice Access Parity", "VOICE_ACCESS_PARITY_MATRIX.md", "voice-access-parity.html", "The Free-core matrix for reaching practical Windows Voice Access parity."),
     ("Tier Architecture", "TIER_ARCHITECTURE.md", "tier-architecture.html", "Free open core, future Pro/Advanced extensions, and repository boundaries."),
     ("Architecture", "ARCHITECTURE.md", "architecture.html", "Service runtime, setup UI, wake overlay, and v1.x extension architecture."),
     ("MCP Tools", "MCP_TOOLS.md", "mcp-tools.html", "Future automation contract and tool design."),

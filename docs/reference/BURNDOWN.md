@@ -10,6 +10,8 @@ All Alpha v1 features are free and remain free until at least beta.
 
 Future Pro and Advanced features may ship as closed-source extension libraries, but the v1.0 Free core must work without them.
 
+The Free-core parity target is practical stable Windows 11 Voice Access usefulness while preserving Callsign wake, identity, visible action, policy, and audit rules. The canonical checklist is `VOICE_ACCESS_PARITY_MATRIX.md`.
+
 ## Status legend
 
 - `Done`: implemented and covered by smoke/manual evidence.
@@ -27,14 +29,25 @@ Future Pro and Advanced features may ship as closed-source extension libraries, 
 | 0.3 | v1.0 | P0 | In progress | Generate public site from reference docs. | `/docs` renders canon, product spec, roadmap, tier architecture, burndown, and test plan. | `python scripts/build_site.py` |
 | 0.4 | v1.0 | P0 | Done | Keep proprietary assets in `closed-source/`. | Private runtime/model/premium material stays ignored. | Inspect `.gitignore`. |
 
+## Phase 0.1: Alpha release numbering
+
+| ID | Release | Priority | Status | Work item | Acceptance criteria | Verification |
+|---:|---|---|---|---|---|---|
+| 0.6 | 0.0.3a | P0 | Done | Reach the extension-library baseline milestone with folder-import packs and policy-safe defaults. | Registry supports `.dll` drop/folder import and community packs are loaded disabled by default. | Build + smoke manual pack flow (`.dll` import, refresh, enable, command use). |
+| 0.7 | 0.0.4a | P0 | In progress | Expand core parity command families into explicit command-family surfaces. | `App launch`, `browser`, `system`, `dictation`, and `file` routes all route through policy + audit. | Smoke matrix command-family execution and policy tests, including verified session routing for built-in parity families. |
+| 0.8 | 0.0.5a | P0 | Not started | Close reliability gaps in wake/session and install/update flows before public packaging. | Wake/restart behavior and manifest-triggered update splash are deterministic. | Manual session stability and update check/reinstall pass. |
+| 0.9 | 0.0.01a | P1 | Not started | Urgent hotfix rail with visible release-note updates. | Micro fixes patch open regressions without changing roadmap scope. | `git` + smoke verification log. |
+| 0.10 | 0.1.0a | P0 | Not started | Major pre-`v1.0` consolidation milestone before public alpha. | All `v1.0` release criteria are in evidence and installer is reproducible. | Release checklist + installer/site validation. |
+| 0.11 | 1.0.0a | P0 | Not started | First public alpha parity milestone with `0`-to-`100` planning evidence in place. | All parity categories in `VOICE_ACCESS_PARITY_MATRIX.md` are complete, with automated evidence and smoke walkthroughs. | Full matrix evidence review + final installer/site comparison.
+
 ## Phase 1: v1.0 installer and runtime ownership
 
 | ID | Release | Priority | Status | Work item | Acceptance criteria | Verification |
 |---:|---|---|---|---|---|---|
 | 1.1 | v1.0 | P0 | Done | Build a single setup executable. | `Callsign-Setup.exe` exists after build. | `.\buildcallsign.ps1` |
 | 1.2 | v1.0 | P0 | Done | Package configuration manager and service runtime. | Installed app folder contains UI and service binaries. | Manual install inspect. |
-| 1.3 | v1.0 | P0 | In progress | Ensure exactly one authoritative user runtime owns microphone capture. | Duplicate runtimes exit or mark themselves non-authoritative. | Troubleshooting report plus Session tab. |
-| 1.4 | v1.0 | P0 | In progress | Prove runtime can hear audio. | Session tab shows active mic, packet age, and `CanHearAudio`. | Speak and inspect Session tab. |
+| 1.3 | v1.0 | P0 | Done | Ensure exactly one authoritative user runtime owns microphone capture. | Duplicate `--user-runtime` launches exit through `Local\Callsign.UserRuntime`, and the Session tab shows runtime owner, role, PID, process count, freshness, and authority. | Runtime ownership smoke test plus Session tab owner proof. |
+| 1.4 | v1.0 | P0 | Done | Prove runtime can hear audio. | Session tab has a dedicated Runtime proof line showing active mic, packet age, packet freshness, runtime authority, and `CanHearAudio`; alpha smoke covers hearing and silent packet states. | `dotnet run --project .\tests\Callsign.AlphaSmoke\Callsign.AlphaSmoke.csproj -c Release --no-build` |
 | 1.5 | v1.0 | P0 | In progress | Cache build and deploy steps. | Unchanged builds reuse prior outputs and private runtime bundles. | `.\buildcallsign.ps1` twice. |
 
 ## Phase 2: v1.0 profile and enrollment
@@ -44,19 +57,19 @@ Future Pro and Advanced features may ship as closed-source extension libraries, 
 | 2.1 | v1.0 | P0 | Done | Create, save, load, select, and delete local profiles. | Profile survives restart and blank first-run cannot crash. | Smoke test. |
 | 2.2 | v1.0 | P0 | Done | Press-and-hold voice sample recording. | Recording is visibly live only while held. | Manual recording test. |
 | 2.3 | v1.0 | P0 | Done | Play back processed voice samples. | User hears the sample Callsign will use. | Manual playback test. |
-| 2.4 | v1.0 | P0 | In progress | Enroll at least three fresh biometric samples. | Enrollment metadata reports three distinct samples. | Train Voice Identity flow. |
-| 2.5 | v1.0 | P0 | In progress | Explain mic/runtime/model failures clearly. | UI says whether failure is mic, wake runtime, identity runtime, model, or service. | Manual negative tests. |
+| 2.4 | v1.0 | P0 | Done | Enroll at least three fresh biometric samples. | Enrollment writes `voice-identity/enrollment-samples.json` with sample count, distinct hash count, byte lengths, timestamps, freshness, and SHA-256 hashes; duplicate paths or duplicate audio content are rejected. | Multi-sample enrollment smoke test. |
+| 2.5 | v1.0 | P0 | Done | Explain mic/runtime/model/sample failures clearly. | Voice tab and Train Voice Identity classify microphone, identity runtime, model cache, duplicate/invalid sample proof, timeout, and service failures with targeted next actions. | Voice tab and identity-training smoke tests. |
 
 ## Phase 3: v1.0 wake, overlay, identity, and command flow
 
 | ID | Release | Priority | Status | Work item | Acceptance criteria | Verification |
 |---:|---|---|---|---|---|---|
-| 3.1 | v1.0 | P0 | In progress | Use openWakeWord/audio detection as the wake event source. | Transcript text alone cannot wake the service. | Smoke and live wake tests. |
-| 3.2 | v1.0 | P0 | In progress | Recognize `Callsign` and `call sign` reliably enough for public alpha. | Live wake score crosses threshold in normal room audio. | `testopenwakeword.ps1` against live segments. |
-| 3.3 | v1.0 | P0 | In progress | Show `callsign.gif` immediately on wake. | Overlay appears above all windows and does not steal focus. | Manual wake test. |
-| 3.4 | v1.0 | P0 | In progress | Show live text below the overlay animation. | Overlay updates during identity, command, and launch. | Manual service flow. |
-| 3.5 | v1.0 | P0 | In progress | Treat post-wake utterance as identity-only. | `Callsign womprat open Notepad` cannot execute in one utterance. | Session tests. |
-| 3.6 | v1.0 | P0 | In progress | Require callsign text and biometric identity before command capture. | Wrong, stale, missing, or weak identity cannot launch. | Manual negative tests. |
+| 3.1 | v1.0 | P0 | Done | Use openWakeWord/audio detection as the wake event source. | Runtime snapshots expose `LastWakeTransitionSource`; live wake events use `audio-wake-detector`, scripted/dev control is labeled separately, and transcript text alone cannot wake the service. | Wake transition source smoke test and service-worker transcript guard. |
+| 3.2 | v1.0 | P0 | In progress | Recognize `Callsign` and `call sign` reliably enough for public alpha. | Live wake score crosses the app-matched effective threshold in normal room audio, with score margin reported. | `testopenwakeword.ps1` against live segments; helper now reports sensitivity, effective threshold, score, margin, and detection result. |
+| 3.3 | v1.0 | P0 | Done | Show `callsign.gif` immediately on wake. | Overlay loads the bundled `callsign.gif`, is topmost, and uses no-activate/click-through tool-window styles so it appears without stealing focus. | Wake overlay smoke test plus wake-event source guard. |
+| 3.4 | v1.0 | P0 | Done | Show live text below the overlay animation. | Overlay readout/caption/history/activity surfaces update through identity, command, ready, launching, transcript, authority, and mic activity states. | Overlay readout formatter and WakeOverlay smoke tests. |
+| 3.5 | v1.0 | P0 | Done | Treat post-wake utterance as identity-only. | `Callsign womprat open Notepad` is rejected during identity, even with accepted biometric proof; the runtime identity handler cannot execute commands and command capture requires a separate turn. | Identity-turn smoke test and service-worker source guard. |
+| 3.6 | v1.0 | P0 | Done | Require callsign text and biometric identity before command capture. | The service advances to command capture only through a result-aware identity gate; missing, rejected, stale, and weak near-match biometric proof stays in identity phase, while accepted biometric proof opens command capture. | Session biometric identity smoke test. |
 
 ## Phase 4: v1.0 visible Start menu launch
 
@@ -64,15 +77,17 @@ Future Pro and Advanced features may ship as closed-source extension libraries, 
 |---:|---|---|---|---|---|---|
 | 4.1 | v1.0 | P0 | Done | Restrict launch scope to installed app names and safe shell-backed destinations. | Paths, URLs, shells, WSL, separators, and unsafe text are rejected. | Smoke test. |
 | 4.2 | v1.0 | P0 | Done | Resolve installed apps from Start menu entries. | Notepad, Calculator, browser, and VS Code resolve when installed. | Smoke/manual test. |
-| 4.3 | v1.0 | P0 | In progress | Launch through visible Start menu flow. | User can see the desktop action. | Live launch Notepad. |
-| 4.4 | v1.0 | P0 | Not started | Confirm ambiguous app matches. | Wrong app is not silently launched. | Ambiguous app manual test. |
-| 4.5 | v1.0 | P0 | Not started | Complete clean-install release walkthrough. | Fresh user completes wake, identity, overlay, transcript, and launch. | Manual release checklist. |
+| 4.3 | v1.0 | P0 | Done | Launch through visible Start menu flow. | User can see the desktop action; live probe reports `LaunchPath=start-menu-search`, `StartMenuOpened=True`, and `ShellFallbackUsed=False` for common installed apps. | `--live-launch Notepad` and `--live-launch Calculator`; launcher telemetry shows Start/Search opened, search text typed, Enter pressed, and no shell fallback used. |
+| 4.4 | v1.0 | P0 | Done | Confirm ambiguous app matches. | Wrong app is not silently launched; ambiguous candidates are shown in the Session tab and require explicit selection before launch; spoken choices such as `choose app 1`, `select option five`, and `use result three` are parsed only for pending choices. | Smoke resolver, candidate-selection parser, and command-discovery tests. |
+| 4.5 | v1.0 | P0 | In progress | Complete clean-install release walkthrough. | Fresh user sees the first-run walkthrough, completes wake, identity, overlay, transcript, and launch, and can jump between the Account, Voice, Session, and Packs setup surfaces. | Walkthrough UI smoke test plus `.\scripts\alpha_v1_checklist.ps1 -Verify`; public clean-install/manual voice pass still required. |
 
-## Phase 5: Alpha v1 extension line
+## Phase 5: Alpha v1 Voice Access parity line
 
 | ID | Release | Priority | Status | Work item | Acceptance criteria | Verification |
 |---:|---|---|---|---|---|---|
-| 5.1 | v1.1 | P1 | Deferred | Dictation with visible review. | Text is reviewed before insertion/copy/paste. | Future dictation tests. |
-| 5.2 | v1.2 | P1 | Deferred | Browser control. | Open/search/navigation are visible and external side effects require approval. | Future browser tests. |
-| 5.3 | v1.3 | P1 | Deferred | System control, WSL/Linux, and file search. | Results/actions are visible, policy-gated, and audited. | Future system/file tests. |
-| 5.4 | Beta+ | P1 | Deferred | Pro/Advanced closed-source extension libraries. | Free remains independent and extensions cannot bypass safety gates. | Future extension tests. |
+| 5.1 | v1.1 | P0 | In progress | Dictation with visible review, text editing, formatting, symbols, and correction alternatives. | Text is reviewed before insertion/copy/paste; select/delete/replace/case-format/punctuation/symbol commands and numbered correction alternatives are covered. | Dictation smoke tests and Notepad manual walkthrough. |
+| 5.2 | v1.2 | P0 | Done | Visible controls, command discovery, and browser control. | `show numbers` can inspect foreground-app UIA controls or Callsign controls; visible activation, browser open/search/navigation, and `what can I say` are usable. | UIA label tests, UI overlay tests, browser tests, and manual walkthrough. |
+| 5.3 | v1.3 | P0 | In progress | Desktop/system/file parity commands. | Window management including snap layouts, app switching with Task View and virtual desktop navigation, safe keyboard/mouse/media commands including Space, letter keys, number-row keys, symbol keys, modifier chords (allowlisted), Delete, Insert, Windows key, context menu key, Caps Lock, F1-F12, natural editing/formatting/document/zoom shortcuts, pointer nudges, mouse hold/release drag, direct mouse drag, safe Windows Settings page surfaces, numbered file result select/open/reveal, and Explorer-backed file search are policy-gated and audited. | System/file/settings/media/window-layout/keyboard tests and manual walkthrough. |
+| 5.4 | v1.4 | P0 | Done | Close the Voice Access parity matrix. | Every category in `VOICE_ACCESS_PARITY_MATRIX.md` is `Done`, with automated and manual evidence. | Matrix review plus `.\scripts\voice_access_parity_evidence.ps1`; release candidates use `-RequireManualEvidence`. |
+| 5.5 | v1.4 | P0 | Done | Community extension import and update splash. | Community DLLs import disabled by default; manifests list new commands/features for the splash screen. | Pack import tests and manifest parsing tests. |
+| 5.6 | Beta+ | P1 | Deferred | Pro/Advanced closed-source extension libraries. | Free parity remains independent and paid extensions cannot bypass safety gates. | Future entitlement, signature, rollback, and policy tests. |

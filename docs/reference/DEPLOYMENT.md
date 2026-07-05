@@ -6,7 +6,7 @@ Callsign currently ships as a Windows-first alpha with a setup/onboarding app an
 
 The public package is the Free open-source core. Future paid Pro and Advanced capabilities may ship as closed-source extension libraries, but those libraries are not required for the current Free install path.
 
-The update server and its Docker/Compose deployment now live in the separate local repo at `update-server-repo/`.
+The update server and its Docker/Compose deployment now live in the separate local repo at `update-server-repo/`, along with the WinForms Update Manager used to publish release manifests and deploy the stack.
 
 The public website can also run as a Dockerized static site on port `8085`. The website image serves generated docs from `docs/` and the offline installer at `/downloads/Callsign-Setup.exe`.
 
@@ -87,7 +87,7 @@ From the Windows workstation, the helper script can copy only the generated webs
 .\deploy\website\deploy-pi.ps1
 ```
 
-The script starts the Compose stack remotely and verifies the installer endpoint without storing SSH credentials in the repository.
+The script rebuilds the website image on the Pi with `--no-cache`, starts the Compose stack remotely, and verifies the installer endpoint without storing SSH credentials in the repository.
 
 The default remote path is `/home/aryns/callsign/website`, which avoids requiring sudo on the Pi.
 

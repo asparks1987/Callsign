@@ -96,6 +96,7 @@ public sealed class CallsignRuntimeWorker : BackgroundService
             RefreshActiveProfile();
             EnsureVoiceRuntime();
             ConsumeClearActionHistoryRequest();
+            ConsumeClearTranscriptHistoryRequest();
             ConsumeScriptedTranscriptRequest();
             _session.Tick();
             WriteSnapshot();
@@ -194,7 +195,7 @@ public sealed class CallsignRuntimeWorker : BackgroundService
 
             if (_session.State is AlphaSessionState.Idle or AlphaSessionState.Completed)
             {
-                _session.DetectWakeWord();
+                _session.DetectWakeWord(AlphaSessionStateMachine.AudioWakeDetectorSource);
             }
 
             WriteSnapshot();
@@ -225,7 +226,7 @@ public sealed class CallsignRuntimeWorker : BackgroundService
             }
 
             if (_session.State is AlphaSessionState.Idle or AlphaSessionState.Completed)
-                _session.DetectWakeWord();
+                _session.DetectWakeWord(AlphaSessionStateMachine.ScriptedTranscriptControlSource);
         }
 
         VoiceTranscriptReceived(
@@ -248,6 +249,23 @@ public sealed class CallsignRuntimeWorker : BackgroundService
             _lastServiceActionUtc = null;
             PersistRecentServiceActions();
             _statusMessage = "Service action history cleared for verification.";
+            WriteSnapshot();
+        }
+    }
+
+    private void ConsumeClearTranscriptHistoryRequest()
+    {
+        if (!RuntimeControlFiles.TryConsumeClearTranscriptHistoryRequest())
+            return;
+
+        lock (_gate)
+        {
+            _recentTranscriptHistory.Clear();
+            _lastTranscriptText = null;
+            _lastTranscriptConfidence = null;
+            _lastTranscriptUpdatedUtc = null;
+            _overlayReadout = FormatOverlayReadout(_session.State);
+            _statusMessage = "Recent speech history cleared.";
             WriteSnapshot();
         }
     }
@@ -395,7 +413,7 @@ public sealed class CallsignRuntimeWorker : BackgroundService
         _lastIdentityResult = result;
         if (result.Accepted)
         {
-            _session.TryVerifyIdentity(profile.Callsign, profile.Callsign, IsVoiceReady(profile.Settings), out _statusMessage);
+            _session.TryVerifyIdentity(result, profile.Callsign, IsVoiceReady(profile.Settings), profile.Settings.VoiceBiometricRequired, out _statusMessage);
             _overlayReadout = FormatOverlayReadout(
                 _session.State,
                 result.MatchedVariant ?? profile.Callsign,
@@ -412,7 +430,7 @@ public sealed class CallsignRuntimeWorker : BackgroundService
 
         if (string.Equals(result.RejectReason, "identity_mismatch", StringComparison.OrdinalIgnoreCase))
         {
-            _session.TryVerifyIdentity(transcript, profile.Callsign, IsVoiceReady(profile.Settings), out _statusMessage);
+            _session.TryVerifyIdentity(result, profile.Callsign, IsVoiceReady(profile.Settings), profile.Settings.VoiceBiometricRequired, out _statusMessage);
             _overlayReadout = FormatOverlayReadout(
                 _session.State,
                 transcript,
@@ -666,7 +684,12 @@ public sealed class CallsignRuntimeWorker : BackgroundService
             DateTimeOffset.UtcNow,
             CancellationToken.None);
 
-        if (!CallsignCommandRegistry.Shared.TryExecute(context, out result))
+        if (!CallsignCommandRegistry.Shared.TryExecute(
+            context,
+            out result,
+            identityVerified: true,
+            freshIdentityVerified: true,
+            approvalGranted: false))
         {
             result = new CallsignCommandExecutionResult(false, "No extension pack command matched the spoken phrase.");
             return true;
@@ -840,6 +863,7 @@ public sealed class CallsignRuntimeWorker : BackgroundService
             LastWakeWordEngine: _lastWakeWordDetection?.Engine,
             LastWakeWordScore: _lastWakeWordDetection?.Score,
             WakeWordThreshold: _lastWakeWordDetection?.Threshold,
+            LastWakeTransitionSource: _session.LastWakeTransitionSource,
             WakeWordAudioQualityWarnings: _lastWakeWordDetection?.AudioQualityWarnings,
             IsSpeechActive: _voiceCommandService.IsSpeechActive,
             LastSpeechActivityUtc: _voiceCommandService.LastSpeechActivityUtc,

@@ -8,10 +8,11 @@ public sealed record FileSearchResult(
     string FullPath,
     bool IsDirectory,
     string RootPath,
-    DateTime LastWriteTimeUtc)
+    DateTime LastWriteTimeUtc,
+    int Rank = 0)
 {
     public override string ToString() =>
-        $"{(IsDirectory ? "[Folder]" : "[File]")} {Name} - {FullPath}";
+        $"{(Rank > 0 ? $"{Rank}. " : string.Empty)}{(IsDirectory ? "[Folder]" : "[File]")} {Name} - {FullPath}";
 }
 
 public sealed record FileSearchReport(
@@ -59,22 +60,34 @@ internal sealed record SearchCandidate(
 
 public sealed class FileSearchService
 {
+    public static string DescribeResult(FileSearchResult result, int? totalCount = null)
+    {
+        var kind = result.IsDirectory ? "folder" : "file";
+        var rankText = result.Rank > 0
+            ? totalCount.HasValue && totalCount.Value > 0
+                ? $"Result {result.Rank} of {totalCount.Value}"
+                : $"Result {result.Rank}"
+            : "Selected result";
+        var modified = result.LastWriteTimeUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
+        return $"{rankText}: {kind} '{result.Name}' in '{result.RootPath}'. Modified {modified}.";
+    }
+
     public FileSearchReport Search(string query, IEnumerable<string>? roots = null, int maxResults = 50)
     {
         var trimmed = query.Trim();
         if (string.IsNullOrWhiteSpace(trimmed))
             return new FileSearchReport(Array.Empty<FileSearchResult>(), ["Enter a file name or folder name to search for."]);
 
-        var searchRoots = (roots ?? GetDefaultRoots())
+        var warnings = new List<string>();
+        var searchRoots = FilterAllowedSearchRoots(roots ?? GetDefaultRoots(), warnings)
             .Where(root => !string.IsNullOrWhiteSpace(root))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        var warnings = new List<string>();
         var candidates = EnumerateCandidates(searchRoots, maxResults * 100, warnings);
 
         if (TrySearchWithFzf(candidates, trimmed, maxResults, warnings, out var fzfResults))
-            return new FileSearchReport(fzfResults, warnings, "fzf");
+            return new FileSearchReport(NumberResults(fzfResults), warnings, "fzf");
 
         var normalizedQuery = Normalize(trimmed);
         var fallbackResults = candidates
@@ -82,6 +95,7 @@ public sealed class FileSearchService
                 Normalize(candidate.Name).Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase) ||
                 Normalize(candidate.FullPath).Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase))
             .Select(candidate => candidate.ToResult())
+            .Select((result, index) => result with { Rank = index + 1 })
             .Take(maxResults)
             .ToArray();
 
@@ -89,6 +103,35 @@ public sealed class FileSearchService
     }
 
     public bool TryOpen(FileSearchResult result, out string message)
+    {
+        if (result.IsDirectory)
+            return TryReveal(result, out message);
+
+        if (IsBlockedOpenTarget(result.FullPath))
+        {
+            message = $"Opening executable or script-like results is blocked. Reveal the result in Explorer instead: '{result.FullPath}'.";
+            return false;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = result.FullPath,
+                UseShellExecute = true
+            });
+
+            message = $"Opened file result visibly: '{result.FullPath}'.";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            message = $"Unable to open the selected file: {ex.Message}";
+            return false;
+        }
+    }
+
+    public bool TryReveal(FileSearchResult result, out string message)
     {
         var explorerTarget = result.IsDirectory
             ? $"\"{result.FullPath}\""
@@ -115,6 +158,13 @@ public sealed class FileSearchService
         }
     }
 
+    public static bool IsBlockedOpenTarget(string path)
+    {
+        var extension = Path.GetExtension(path);
+        return !string.IsNullOrWhiteSpace(extension)
+            && BlockedOpenExtensions.Contains(extension);
+    }
+
     public static IReadOnlyList<string> GetDefaultRoots()
     {
         var roots = new[]
@@ -129,6 +179,59 @@ public sealed class FileSearchService
         };
 
         return roots.Where(Directory.Exists).ToArray();
+    }
+
+    public static IReadOnlyList<string> FilterAllowedSearchRoots(IEnumerable<string> roots, List<string>? warnings = null)
+    {
+        var allowed = new List<string>();
+        foreach (var root in roots)
+        {
+            if (string.IsNullOrWhiteSpace(root))
+                continue;
+
+            if (!TryNormalizeSearchRoot(root, out var normalizedRoot, out var reason))
+            {
+                warnings?.Add(reason);
+                continue;
+            }
+
+            if (!IsAllowedSearchRoot(normalizedRoot))
+            {
+                warnings?.Add($"Search root was blocked by Callsign file-search policy: {normalizedRoot}");
+                continue;
+            }
+
+            allowed.Add(normalizedRoot);
+        }
+
+        return allowed;
+    }
+
+    public static bool IsAllowedSearchRoot(string root)
+    {
+        if (string.IsNullOrWhiteSpace(root))
+            return false;
+
+        if (!TryNormalizeSearchRoot(root, out var normalizedRoot, out _))
+            return false;
+
+        var allowedRoots = new[]
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
+            Environment.GetFolderPath(Environment.SpecialFolder.MyMusic),
+            Environment.GetFolderPath(Environment.SpecialFolder.MyVideos),
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            Path.GetTempPath()
+        };
+
+        return allowedRoots
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(NormalizeDirectoryBoundary)
+            .Any(allowedRoot => normalizedRoot.Equals(allowedRoot.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase)
+                || normalizedRoot.StartsWith(allowedRoot, StringComparison.OrdinalIgnoreCase));
     }
 
     private static List<SearchCandidate> EnumerateCandidates(
@@ -268,7 +371,7 @@ public sealed class FileSearchService
             if (ranked.Count == 0)
                 return false;
 
-            results = ranked;
+            results = NumberResults(ranked);
             return true;
         }
         catch (Exception ex)
@@ -277,6 +380,11 @@ public sealed class FileSearchService
             return false;
         }
     }
+
+    private static IReadOnlyList<FileSearchResult> NumberResults(IReadOnlyList<FileSearchResult> results) =>
+        results
+            .Select((result, index) => result with { Rank = index + 1 })
+            .ToArray();
 
     private static string? LocateFzfExecutable()
     {
@@ -318,4 +426,62 @@ public sealed class FileSearchService
 
     private static string Normalize(string value) =>
         string.Join(' ', value.ToLowerInvariant().Split([' ', '_', '-', '.'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
+    private static bool TryNormalizeSearchRoot(string root, out string normalizedRoot, out string reason)
+    {
+        normalizedRoot = string.Empty;
+        reason = string.Empty;
+
+        try
+        {
+            normalizedRoot = Path.GetFullPath(Environment.ExpandEnvironmentVariables(root))
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            if (string.IsNullOrWhiteSpace(normalizedRoot))
+            {
+                reason = "Search root was empty after normalization.";
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            reason = $"Search root could not be normalized: {root} ({ex.Message})";
+            return false;
+        }
+    }
+
+    private static string NormalizeDirectoryBoundary(string path)
+    {
+        var normalized = Path.GetFullPath(Environment.ExpandEnvironmentVariables(path))
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return normalized + Path.DirectorySeparatorChar;
+    }
+
+    private static readonly HashSet<string> BlockedOpenExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".appref-ms",
+        ".bat",
+        ".cmd",
+        ".com",
+        ".cpl",
+        ".exe",
+        ".hta",
+        ".inf",
+        ".ins",
+        ".jar",
+        ".js",
+        ".jse",
+        ".lnk",
+        ".msc",
+        ".msi",
+        ".msp",
+        ".ps1",
+        ".reg",
+        ".scr",
+        ".vbe",
+        ".vbs",
+        ".wsf"
+    };
 }

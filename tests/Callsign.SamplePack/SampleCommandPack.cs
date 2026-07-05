@@ -14,7 +14,12 @@ public sealed class SampleCommandPack : ICallsignCommandPack
             Kind: CallsignCommandKind.Extension,
             Tier: CallsignPackTier.Free,
             RiskTier: CallsignCommandRiskTier.Observe,
-            VisibleAction: true)
+            VisibleAction: true,
+            Category: "Sample",
+            PrivacyImpact: CallsignCommandPrivacyImpact.None,
+            HelpText: "Echoes the text spoken after the sample command.",
+            Examples: new[] { "sample pack echo hello" },
+            VerificationStrategy: CallsignCommandVerificationStrategy.VisibleStatus)
     ];
 
     public CallsignPackDescriptor Descriptor { get; } = new(
@@ -23,7 +28,9 @@ public sealed class SampleCommandPack : ICallsignCommandPack
         Version: "1.0.0",
         Tier: CallsignPackTier.Free,
         Description: "Sample smoke-test extension pack.",
-        SignatureStatus: "dev");
+        SignatureStatus: "dev",
+        IsCommunity: true,
+        RequiresSignature: false);
 
     public IReadOnlyList<CallsignCommandDefinition> Commands => SampleCommands;
 

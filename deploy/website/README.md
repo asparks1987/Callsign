@@ -43,7 +43,7 @@ Or deploy from this Windows workstation with:
 .\deploy\website\deploy-pi.ps1
 ```
 
-The script regenerates the site, copies only the website assets and installer, starts Compose on the Pi, and checks the installer URL. It intentionally does not store SSH passwords.
+The script regenerates the site, copies only the website assets and installer, rebuilds the website image on the Pi with `--no-cache`, starts Compose, and checks the installer URL. It intentionally does not store SSH passwords.
 
 The remote deployment uses `docker-compose.remote.yml`, which builds from the copied website folder on the Pi.
 

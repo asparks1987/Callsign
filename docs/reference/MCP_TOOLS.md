@@ -37,6 +37,8 @@ Every tool must include:
 - Audit requirements.
 - Verification behavior.
 
+Command packs use the same metadata shape for voice-exposed actions. At minimum, every command definition must describe risk tier, visibility requirement, reversibility, privacy impact, approval requirement, help/examples, and verification strategy before it can be treated as part of the parity command surface.
+
 ## Risk tiers
 
 | Tier | Name | Meaning |
@@ -46,6 +48,18 @@ Every tool must include:
 | 2 | `local_state_change` | Changes local files, documents, or settings |
 | 3 | `external_side_effect` | Sends, uploads, submits, posts, or otherwise affects external systems |
 | 4 | `dangerous_or_blocked` | Credentials, shell, admin, deletion, payment, security settings |
+
+## Policy decisions
+
+Policy evaluation returns one of:
+
+| Decision | Meaning |
+|---|---|
+| `allow` | The verified session may run the command. |
+| `deny` | The command is denied in the current context. |
+| `require_approval` | The user must explicitly approve before execution. |
+| `require_fresh_identity` | The user must repeat callsign identity verification. |
+| `blocked_dangerous_action` | The command is blocked by Callsign safety policy. |
 
 ## Standard result envelope
 

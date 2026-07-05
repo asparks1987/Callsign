@@ -3,12 +3,37 @@ param(
     [string]$WavPath,
     [string]$ModelPath = "$env:LOCALAPPDATA\Callsign\Models\callsign.onnx",
     [string]$PythonPath = "$env:LOCALAPPDATA\Callsign\Runtime\openwakeword\venv\Scripts\python.exe",
-    [double]$Threshold = 0.55,
+    [double]$Threshold = 0,
+    [ValidateSet("More responsive", "Balanced", "Fewer false wakes")]
+    [string]$Sensitivity = "More responsive",
     [string]$PythonCommand,
     [string[]]$PythonArgs = @()
 )
 
 $ErrorActionPreference = "Stop"
+
+function Resolve-CallsignWakeThreshold {
+    param(
+        [double]$RequestedThreshold,
+        [string]$WakeSensitivity
+    )
+
+    $sensitivityThreshold = switch ($WakeSensitivity.ToLowerInvariant()) {
+        "balanced" { 0.02; break }
+        "fewer false wakes" { 0.04; break }
+        default { 0.01; break }
+    }
+
+    if ($RequestedThreshold -le 0 `
+        -or [Math]::Abs($RequestedThreshold - 0.55) -lt 0.0001 `
+        -or [Math]::Abs($RequestedThreshold - 0.50) -lt 0.0001 `
+        -or [Math]::Abs($RequestedThreshold - 0.35) -lt 0.0001 `
+        -or [Math]::Abs($RequestedThreshold - 0.42) -lt 0.0001) {
+        return $sensitivityThreshold
+    }
+
+    return [Math]::Min(0.95, [Math]::Max(0.01, $RequestedThreshold))
+}
 
 function Find-BundledPythonOpenWakeWord {
     if (Test-Path -LiteralPath $PythonPath) {
@@ -57,6 +82,8 @@ if (-not (Test-Path -LiteralPath $WavPath)) {
 if (-not (Test-Path -LiteralPath $ModelPath)) {
     throw "The installed Callsign wake model was not found: $ModelPath"
 }
+
+$effectiveThreshold = Resolve-CallsignWakeThreshold -RequestedThreshold $Threshold -WakeSensitivity $Sensitivity
 
 $python = Find-BundledPythonOpenWakeWord
 if ($null -eq $python) {
@@ -142,10 +169,14 @@ try {
     }
 
     $result = $output | ConvertFrom-Json
-    $detected = [double]$result.Score -ge $Threshold
+    $detected = [double]$result.Score -ge $effectiveThreshold
+    $margin = [double]$result.Score - $effectiveThreshold
     Write-Host "openWakeWord score: $($result.Score)"
     Write-Host "Label: $($result.Label)"
-    Write-Host "Threshold: $Threshold"
+    Write-Host "Sensitivity: $Sensitivity"
+    Write-Host "Requested threshold: $Threshold"
+    Write-Host "Effective threshold: $effectiveThreshold"
+    Write-Host "Margin: $margin"
     Write-Host "Detected: $detected"
 
     if (-not $detected) {

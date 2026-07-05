@@ -31,11 +31,13 @@ internal sealed class InstallerForm : Form
         _discovery = workflow.Detect();
 
         Text = "Callsign Installer";
-        Width = 860;
-        Height = 620;
-        MinimumSize = new Size(760, 560);
+        Width = 900;
+        Height = 640;
+        MinimumSize = new Size(800, 580);
         StartPosition = FormStartPosition.CenterScreen;
-        Font = new Font("Segoe UI", 10);
+        BackColor = Color.FromArgb(248, 250, 253);
+        ForeColor = Color.FromArgb(15, 23, 42);
+        Font = new Font("Segoe UI", 9.75f);
 
         BuildUi();
         UpdateDiscoveryUi();
@@ -47,7 +49,7 @@ internal sealed class InstallerForm : Form
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            Padding = new Padding(14),
+            Padding = new Padding(16),
             ColumnCount = 1,
             RowCount = 4
         };
@@ -60,7 +62,7 @@ internal sealed class InstallerForm : Form
         {
             Dock = DockStyle.Top,
             AutoSize = true,
-            Font = new Font(Font.FontFamily, 16, FontStyle.Bold),
+            Font = new Font("Segoe UI Semibold", 18, FontStyle.Bold),
             Text = "Callsign Setup"
         };
 
@@ -76,7 +78,7 @@ internal sealed class InstallerForm : Form
             Dock = DockStyle.Top,
             AutoSize = true,
             MaximumSize = new Size(760, 0),
-            ForeColor = Color.DimGray
+            ForeColor = Color.FromArgb(71, 85, 105)
         };
 
         var actionsPanel = new FlowLayoutPanel
@@ -84,19 +86,21 @@ internal sealed class InstallerForm : Form
             Dock = DockStyle.Top,
             AutoSize = true,
             FlowDirection = FlowDirection.LeftToRight,
-            WrapContents = false
+            WrapContents = false,
+            Padding = Padding.Empty,
+            Margin = new Padding(0, 6, 0, 0)
         };
 
-        _installButton = new Button { Width = 140, Height = 40, Text = "Install" };
+        _installButton = CreateActionButton("Install", 144);
         _installButton.Click += async (_, _) => await RunActionAsync(InstallerAction.Install);
 
-        _repairButton = new Button { Width = 140, Height = 40, Text = "Repair" };
+        _repairButton = CreateActionButton("Repair", 144);
         _repairButton.Click += async (_, _) => await RunActionAsync(InstallerAction.Repair);
 
-        _uninstallButton = new Button { Width = 140, Height = 40, Text = "Uninstall" };
+        _uninstallButton = CreateActionButton("Uninstall", 144);
         _uninstallButton.Click += async (_, _) => await RunActionAsync(InstallerAction.Uninstall);
 
-        _refreshButton = new Button { Width = 120, Height = 40, Text = "Refresh" };
+        _refreshButton = CreateActionButton("Refresh", 120);
         _refreshButton.Click += (_, _) =>
         {
             _discovery = _workflow.Detect();
@@ -104,7 +108,8 @@ internal sealed class InstallerForm : Form
             FocusDefaultAction();
         };
 
-        _cancelButton = new Button { Width = 120, Height = 40, Text = "Cancel", Enabled = false };
+        _cancelButton = CreateActionButton("Cancel", 120);
+        _cancelButton.Enabled = false;
         _cancelButton.Click += (_, _) => _cancelSource.Cancel();
 
         _launchAfterInstallCheckBox = new CheckBox
@@ -133,26 +138,32 @@ internal sealed class InstallerForm : Form
         {
             Dock = DockStyle.Top,
             AutoSize = true,
-            ForeColor = Color.DimGray,
+            ForeColor = Color.FromArgb(71, 85, 105),
             Text = "Ready."
         };
 
         _readoutList = new ListBox
         {
             Dock = DockStyle.Fill,
-            HorizontalScrollbar = true
+            HorizontalScrollbar = true,
+            BorderStyle = BorderStyle.FixedSingle,
+            BackColor = Color.FromArgb(252, 253, 255),
+            ForeColor = Color.FromArgb(15, 23, 42),
+            Font = new Font("Segoe UI", 9.25f)
         };
 
         var readoutPanel = new GroupBox
         {
             Dock = DockStyle.Fill,
-            Text = "File readout / progress log"
+            Text = "Progress readout",
+            ForeColor = Color.FromArgb(15, 23, 42)
         };
         readoutPanel.Controls.Add(_readoutList);
         _readoutList.BringToFront();
 
         root.Controls.Add(_bannerLabel, 0, 0);
         var topPanel = new Panel { Dock = DockStyle.Top, AutoSize = true };
+        topPanel.Padding = new Padding(0, 0, 0, 6);
         topPanel.Controls.Add(_actionLabel);
         topPanel.Controls.Add(_detailsLabel);
         root.Controls.Add(topPanel, 0, 1);
@@ -284,6 +295,23 @@ internal sealed class InstallerForm : Form
         _readoutLines.Add(text);
         _readoutList.Items.Add(text);
         _readoutList.TopIndex = Math.Max(0, _readoutList.Items.Count - 1);
+    }
+
+    private Button CreateActionButton(string text, int width)
+    {
+        var button = new Button
+        {
+            Width = width,
+            Height = 40,
+            Text = text,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.FromArgb(252, 253, 255),
+            ForeColor = Color.FromArgb(15, 23, 42),
+            Margin = new Padding(0, 0, 8, 0)
+        };
+        button.FlatAppearance.BorderColor = Color.FromArgb(210, 218, 230);
+        button.FlatAppearance.BorderSize = 1;
+        return button;
     }
 
     private void LaunchInstalledCallsign()

@@ -10,6 +10,7 @@ public static class RuntimeControlFiles
     public static string StopUserRuntimeRequestPath => Path.Combine(RuntimeDir, "stop-user-runtime.request");
     public static string ScriptedTranscriptRequestPath => Path.Combine(RuntimeDir, "scripted-transcript.request");
     public static string ClearActionHistoryRequestPath => Path.Combine(RuntimeDir, "clear-action-history.request");
+    public static string ClearTranscriptHistoryRequestPath => Path.Combine(RuntimeDir, "clear-transcript-history.request");
 
     public static string RuntimeControlLogPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -122,6 +123,31 @@ public static class RuntimeControlFiles
         catch
         {
             WriteControlLog("User-runtime could not consume action history clear request cleanly.");
+            return false;
+        }
+    }
+
+    public static void RequestClearTranscriptHistory()
+    {
+        Directory.CreateDirectory(RuntimeDir);
+        File.WriteAllText(ClearTranscriptHistoryRequestPath, DateTime.UtcNow.ToString("O"));
+        WriteControlLog("Requested user-runtime transcript history clear.");
+    }
+
+    public static bool TryConsumeClearTranscriptHistoryRequest()
+    {
+        if (!File.Exists(ClearTranscriptHistoryRequestPath))
+            return false;
+
+        try
+        {
+            File.Delete(ClearTranscriptHistoryRequestPath);
+            WriteControlLog("User-runtime consumed transcript history clear request.");
+            return true;
+        }
+        catch
+        {
+            WriteControlLog("User-runtime could not consume transcript history clear request cleanly.");
             return false;
         }
     }

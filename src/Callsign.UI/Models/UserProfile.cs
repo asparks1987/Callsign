@@ -39,6 +39,10 @@ public sealed class UserSettings
     public bool UseVoiceActivityDetection { get; set; } = true;
     public bool UseNoiseSuppression { get; set; }
     public string? LastLaunchedApp { get; set; }
+    public List<string> DictationVocabulary { get; set; } = [];
+    public bool DictationFluidModeEnabled { get; set; }
+    public bool DictationAutomaticPunctuationEnabled { get; set; } = true;
+    public bool DictationProfanityFilterEnabled { get; set; } = true;
 }
 
 public sealed class UserProfile

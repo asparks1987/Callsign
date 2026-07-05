@@ -26,7 +26,7 @@ Write-Host "Copying website deployment files to the Pi..." -ForegroundColor Cyan
 Invoke-Checked { scp -r docs Dockerfile.website .dockerignore Callsign-Setup.exe deploy/website/docker-compose.remote.yml "${RemoteHost}:$RemoteRoot/" }
 
 Write-Host "Starting Dockerized website on the Pi..." -ForegroundColor Cyan
-Invoke-Checked { ssh $RemoteHost "cd '$RemoteRoot' && mv docker-compose.remote.yml docker-compose.yml && docker compose -f docker-compose.yml up -d --build" }
+Invoke-Checked { ssh $RemoteHost "cd '$RemoteRoot' && mv docker-compose.remote.yml docker-compose.yml && docker compose -f docker-compose.yml build --no-cache && docker compose -f docker-compose.yml up -d" }
 
 Write-Host "Verifying remote website..." -ForegroundColor Cyan
 Invoke-Checked { ssh $RemoteHost "curl -fsSI http://localhost:8085/downloads/Callsign-Setup.exe | head" }

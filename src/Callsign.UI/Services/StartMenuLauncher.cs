@@ -2,11 +2,55 @@ using System.Windows.Forms;
 using System.Threading;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
+using System.Windows.Automation;
 
 namespace Callsign.UI.Services;
 
+public sealed record StartMenuAppCandidate(string DisplayName, double Score, string MatchKind);
+
+public sealed record StartMenuAppResolution(
+    string RequestedName,
+    string NormalizedName,
+    bool IsResolved,
+    bool IsAmbiguous,
+    string? SelectedName,
+    IReadOnlyList<StartMenuAppCandidate> Candidates,
+    string Message);
+
+public sealed record StartMenuLaunchResult(
+    bool Succeeded,
+    string RequestedName,
+    string TargetName,
+    string LaunchPath,
+    bool StartMenuOpened,
+    bool ShellFallbackUsed,
+    IReadOnlyList<string> Steps,
+    string Message)
+{
+    public bool IsVisibleStartMenuPath =>
+        Succeeded
+        && StartMenuOpened
+        && !ShellFallbackUsed
+        && LaunchPath.Contains("start-menu", StringComparison.OrdinalIgnoreCase);
+}
+
 public sealed class StartMenuLauncher
 {
+    private static readonly string[] AppCandidateBareNumberPrefixes =
+    [
+        "click ",
+        "tap ",
+        "open ",
+        "launch ",
+        "use ",
+        "pick ",
+        "choose ",
+        "select ",
+        "go with ",
+        "take "
+    ];
+
     private static readonly string[] StartMenuRoots =
     [
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.StartMenu), "Programs"),
@@ -15,37 +59,71 @@ public sealed class StartMenuLauncher
 
     public bool Launch(string appName, out string message)
     {
-        var target = ResolveAppName(appName);
-        if (TryResolveInstalledAppName(target, out var installed))
-            target = installed;
+        var result = LaunchWithResult(appName);
+        message = result.Message;
+        return result.Succeeded;
+    }
+
+    public StartMenuLaunchResult LaunchWithResult(string appName)
+    {
+        var requestedName = appName?.Trim() ?? string.Empty;
+        var steps = new List<string>();
+        var target = ResolveAppName(requestedName);
+        steps.Add($"normalized:{target}");
+        var resolution = ResolveInstalledAppName(target);
+        if (resolution.IsAmbiguous)
+        {
+            steps.Add("blocked:ambiguous");
+            return CreateLaunchResult(false, requestedName, target, "blocked-ambiguous", false, false, steps, resolution.Message);
+        }
+
+        if (resolution.IsResolved && !string.IsNullOrWhiteSpace(resolution.SelectedName))
+        {
+            target = resolution.SelectedName;
+            steps.Add($"resolved:{target}");
+        }
 
         if (string.IsNullOrWhiteSpace(target))
         {
-            message = "Enter an app name first.";
-            return false;
+            steps.Add("blocked:empty");
+            return CreateLaunchResult(false, requestedName, target, "blocked-empty", false, false, steps, "Enter an app name first.");
         }
 
         if (!ValidateAppName(target, out var safetyMessage))
         {
-            message = safetyMessage;
-            return false;
+            steps.Add("blocked:validation");
+            return CreateLaunchResult(false, requestedName, target, "blocked-validation", false, false, steps, safetyMessage);
         }
 
         try
         {
             if (TryResolveTrustedSystemSurface(target, out var trustedSurface))
             {
+                steps.Add("launch:trusted-system-surface");
                 Process.Start(trustedSurface);
-                message = $"Opened {target}.";
-                return true;
+                return CreateLaunchResult(true, requestedName, target, "trusted-system-surface", false, false, steps, $"Opened {target}.");
             }
 
-            if (!TryPressWindowsKey())
-                SendKeys.SendWait("^{ESC}");
-            Thread.Sleep(600);
-            SendKeys.SendWait(EscapeSendKeysText(target));
-            Thread.Sleep(600);
-            SendKeys.SendWait("{ENTER}");
+            var openedStartMenu = TryOpenStartMenu(steps);
+            steps.Add(openedStartMenu ? "start-menu:opened" : "start-menu:not-opened");
+            if (openedStartMenu)
+            {
+                Thread.Sleep(600);
+                if (!TryTypeSearchText(target, steps))
+                    throw new InvalidOperationException($"The Start search box could not receive '{target}'.");
+
+                Thread.Sleep(600);
+                if (!TryPressEnter(out var enterDetail))
+                {
+                    steps.Add($"start-menu:press-enter-failed:{enterDetail}");
+                    throw new InvalidOperationException("The Start search could not be confirmed.");
+                }
+
+                steps.Add($"start-menu:pressed-enter:{enterDetail}");
+            }
+
+            var launched = false;
+            var launchPath = openedStartMenu ? "start-menu-search" : "shell-backed-fallback";
             if (TryResolveInstalledShortcut(target, out var shortcutPath))
             {
                 Thread.Sleep(800);
@@ -54,6 +132,8 @@ public sealed class StartMenuLauncher
                     FileName = shortcutPath,
                     UseShellExecute = true
                 });
+                launched = true;
+                steps.Add("launch:installed-shortcut");
             }
             else if (TryResolveTrustedInstalledAlias(target, out var appAlias))
             {
@@ -63,17 +143,49 @@ public sealed class StartMenuLauncher
                     FileName = appAlias,
                     UseShellExecute = true
                 });
+                launched = true;
+                steps.Add("launch:trusted-installed-alias");
             }
 
-            message = $"Opened Start menu search for '{target}'.";
-            return true;
+            if (!launched)
+            {
+                steps.Add("blocked:no-launch-target");
+                return CreateLaunchResult(false, requestedName, target, "blocked-no-launch-target", openedStartMenu, !openedStartMenu, steps, $"No shell-backed launch target was available for '{target}'.");
+            }
+
+            if (openedStartMenu)
+            {
+                return CreateLaunchResult(true, requestedName, target, launchPath, true, false, steps, $"Opened Start menu search for '{target}'.");
+            }
+
+            return CreateLaunchResult(true, requestedName, target, launchPath, false, true, steps, $"Opened '{target}' through a shell-backed fallback because the Start menu could not be opened.");
         }
         catch (Exception ex)
         {
-            message = $"Unable to open Start menu search: {ex.Message}";
-            return false;
+            steps.Add($"error:{ex.GetType().Name}");
+            var startMenuOpened = steps.Any(step => step.Equals("start-menu:opened", StringComparison.OrdinalIgnoreCase));
+            return CreateLaunchResult(false, requestedName, target, "error", startMenuOpened, false, steps, $"Unable to open Start menu search: {ex.Message}");
         }
     }
+
+    private static StartMenuLaunchResult CreateLaunchResult(
+        bool succeeded,
+        string requestedName,
+        string targetName,
+        string launchPath,
+        bool startMenuOpened,
+        bool shellFallbackUsed,
+        IReadOnlyList<string> steps,
+        string message) =>
+        new(
+            succeeded,
+            requestedName,
+            targetName,
+            launchPath,
+            startMenuOpened,
+            shellFallbackUsed,
+            steps.ToArray(),
+            message);
 
     public IReadOnlyList<string> GetInstalledAppNames()
     {
@@ -191,69 +303,378 @@ public sealed class StartMenuLauncher
 
     public bool TryResolveInstalledAppName(string input, out string resolvedName)
     {
-        resolvedName = ResolveAppName(input);
-        if (string.IsNullOrWhiteSpace(resolvedName))
-            return false;
+        var resolution = ResolveInstalledAppName(input);
+        resolvedName = resolution.SelectedName ?? resolution.NormalizedName;
+        return resolution is { IsResolved: true, IsAmbiguous: false }
+            && !string.IsNullOrWhiteSpace(resolvedName);
+    }
 
-        var candidates = GetInstalledAppNames();
-        if (TryResolveCommonSpeechAlias(resolvedName, candidates, out var aliasMatch))
+    public StartMenuAppResolution ResolveInstalledAppName(string input, int maxCandidates = 5) =>
+        ResolveInstalledAppName(input, GetInstalledAppNames(), maxCandidates);
+
+    public static StartMenuAppResolution ResolveInstalledAppName(
+        string input,
+        IReadOnlyList<string> installedAppNames,
+        int maxCandidates = 5)
+    {
+        var requestedName = input?.Trim() ?? string.Empty;
+        var normalizedName = ResolveAppName(requestedName);
+        if (string.IsNullOrWhiteSpace(normalizedName))
         {
-            resolvedName = aliasMatch;
-            return true;
+            return new StartMenuAppResolution(
+                requestedName,
+                normalizedName,
+                IsResolved: false,
+                IsAmbiguous: false,
+                SelectedName: null,
+                Candidates: Array.Empty<StartMenuAppCandidate>(),
+                Message: "Enter an app name first.");
         }
 
-        var normalizedInput = NormalizeAppName(resolvedName);
+        if (TryResolveTrustedSystemSurface(normalizedName, out _))
+        {
+            return new StartMenuAppResolution(
+                requestedName,
+                normalizedName,
+                IsResolved: true,
+                IsAmbiguous: false,
+                SelectedName: normalizedName,
+                Candidates: [new StartMenuAppCandidate(normalizedName, 1.0, "trusted-system-surface")],
+                Message: $"Resolved trusted Windows surface '{normalizedName}'.");
+        }
+
+        var candidates = installedAppNames
+            .Where(candidate => !string.IsNullOrWhiteSpace(candidate))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(candidate => candidate, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (TryResolveCommonSpeechAlias(normalizedName, candidates, out var aliasMatch))
+        {
+            var aliasKind = candidates.Any(candidate => string.Equals(candidate, aliasMatch, StringComparison.OrdinalIgnoreCase))
+                ? "speech-alias-installed"
+                : "speech-alias";
+            return new StartMenuAppResolution(
+                requestedName,
+                normalizedName,
+                IsResolved: true,
+                IsAmbiguous: false,
+                SelectedName: aliasMatch,
+                Candidates: [new StartMenuAppCandidate(aliasMatch, 1.0, aliasKind)],
+                Message: $"Resolved speech alias '{requestedName}' to '{aliasMatch}'.");
+        }
+
+        var normalizedInput = NormalizeAppName(normalizedName);
         var compactInput = CompactAppName(normalizedInput);
 
         var exact = candidates.FirstOrDefault(candidate =>
             string.Equals(NormalizeAppName(candidate), normalizedInput, StringComparison.OrdinalIgnoreCase));
         if (!string.IsNullOrWhiteSpace(exact))
         {
-            resolvedName = exact;
-            return true;
+            return new StartMenuAppResolution(
+                requestedName,
+                normalizedName,
+                IsResolved: true,
+                IsAmbiguous: false,
+                SelectedName: exact,
+                Candidates: [new StartMenuAppCandidate(exact, 1.0, "exact")],
+                Message: $"Resolved '{requestedName}' to '{exact}'.");
         }
 
         var compact = candidates.FirstOrDefault(candidate =>
             string.Equals(CompactAppName(NormalizeAppName(candidate)), compactInput, StringComparison.OrdinalIgnoreCase));
         if (!string.IsNullOrWhiteSpace(compact))
         {
-            resolvedName = compact;
-            return true;
+            return new StartMenuAppResolution(
+                requestedName,
+                normalizedName,
+                IsResolved: true,
+                IsAmbiguous: false,
+                SelectedName: compact,
+                Candidates: [new StartMenuAppCandidate(compact, 1.0, "compact-exact")],
+                Message: $"Resolved '{requestedName}' to '{compact}'.");
         }
 
-        var fuzzyMatch = candidates
-            .Select(candidate => new { Candidate = candidate, Score = ScoreAppNameMatch(normalizedInput, NormalizeAppName(candidate)) })
-            .OrderByDescending(match => match.Score)
-            .FirstOrDefault();
-
-        if (fuzzyMatch != null && fuzzyMatch.Score >= 0.78)
+        var ranked = RankInstalledAppCandidates(normalizedName, candidates, maxCandidates);
+        var launchable = ranked.Where(candidate => candidate.Score >= 0.78).ToArray();
+        if (launchable.Length == 0)
         {
-            resolvedName = fuzzyMatch.Candidate;
-            return true;
+            return new StartMenuAppResolution(
+                requestedName,
+                normalizedName,
+                IsResolved: false,
+                IsAmbiguous: false,
+                SelectedName: normalizedName,
+                Candidates: ranked,
+                Message: $"No installed app confidently matched '{requestedName}'.");
         }
 
-        return false;
+        var top = launchable[0];
+        var tied = launchable
+            .Where(candidate => candidate.Score >= top.Score - 0.05)
+            .Take(Math.Max(1, maxCandidates))
+            .ToArray();
+        if (tied.Length > 1)
+        {
+            return new StartMenuAppResolution(
+                requestedName,
+                normalizedName,
+                IsResolved: false,
+                IsAmbiguous: true,
+                SelectedName: null,
+                Candidates: tied,
+                Message: $"Multiple installed apps match '{requestedName}'. Choose one before Callsign launches anything.");
+        }
+
+        return new StartMenuAppResolution(
+            requestedName,
+            normalizedName,
+            IsResolved: true,
+            IsAmbiguous: false,
+            SelectedName: top.DisplayName,
+            Candidates: [top],
+            Message: $"Resolved '{requestedName}' to '{top.DisplayName}'.");
+    }
+
+    public static IReadOnlyList<StartMenuAppCandidate> RankInstalledAppCandidates(
+        string input,
+        IReadOnlyList<string> installedAppNames,
+        int maxCandidates = 5)
+    {
+        var normalizedInput = NormalizeAppName(ResolveAppName(input));
+        return installedAppNames
+            .Where(candidate => !string.IsNullOrWhiteSpace(candidate))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(candidate =>
+            {
+                var normalizedCandidate = NormalizeAppName(candidate);
+                var score = ScoreAppNameMatch(normalizedInput, normalizedCandidate);
+                var matchKind = score switch
+                {
+                    >= 1.0 => "exact",
+                    >= 0.94 => "contains",
+                    >= 0.78 => "fuzzy",
+                    _ => "weak"
+                };
+                return new StartMenuAppCandidate(candidate, score, matchKind);
+            })
+            .OrderByDescending(candidate => candidate.Score)
+            .ThenBy(candidate => candidate.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .Take(Math.Max(1, maxCandidates))
+            .ToArray();
+    }
+
+    public static bool TryParseAppCandidateSelectionNumber(string transcript, out int candidateNumber)
+    {
+        candidateNumber = 0;
+        var normalized = NormalizeAppName(transcript);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        if (TryParseDirectAppCandidateNumber(normalized, out candidateNumber))
+            return true;
+
+        var candidateText = normalized;
+        foreach (var prefix in AppCandidateBareNumberPrefixes)
+        {
+            if (!candidateText.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            candidateText = candidateText[prefix.Length..].Trim();
+            break;
+        }
+
+        foreach (var marker in new[]
+                 {
+                     "app ",
+                     "choice ",
+                     "option ",
+                     "result ",
+                     "candidate ",
+                     "number "
+                 })
+        {
+            if (!candidateText.StartsWith(marker, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            candidateText = candidateText[marker.Length..].Trim();
+            break;
+        }
+
+        if (!TryParseDirectAppCandidateNumber(candidateText, out candidateNumber))
+            return false;
+
+        return candidateNumber is >= 1 and <= 5;
+    }
+
+    public static bool IsConfirmAppCandidateCommand(string transcript)
+    {
+        var normalized = NormalizeAppName(transcript);
+        return normalized is "confirm app"
+            or "confirm choice"
+            or "confirm result"
+            or "confirm selection"
+            or "open selected app"
+            or "launch selected app"
+            or "open selected result"
+            or "launch selected result";
+    }
+
+    public static bool IsClearAppCandidateCommand(string transcript)
+    {
+        var normalized = NormalizeAppName(transcript);
+        return normalized is "cancel"
+            or "clear app choices"
+            or "clear app choice"
+            or "clear choices"
+            or "clear choice"
+            or "dismiss app choices"
+            or "dismiss app choice"
+            or "cancel app choices"
+            or "cancel app choice"
+            or "hide app choices"
+            or "hide app choice"
+            or "close app choices"
+            or "close app choice";
+    }
+
+    public static bool IsNextAppCandidateCommand(string transcript)
+    {
+        var normalized = NormalizeAppName(transcript);
+        return normalized is "next app choice"
+            or "next choice"
+            or "next option"
+            or "next result"
+            or "move to next app choice"
+            or "move to next choice";
+    }
+
+    public static bool IsPreviousAppCandidateCommand(string transcript)
+    {
+        var normalized = NormalizeAppName(transcript);
+        return normalized is "previous app choice"
+            or "previous choice"
+            or "previous option"
+            or "previous result"
+            or "move to previous app choice"
+            or "move to previous choice"
+            or "last app choice"
+            or "last choice";
     }
 
     public static string ResolveAppName(string value) =>
         NormalizeAppName(value).Length == 0 ? string.Empty : NormalizeCommonSpeechAlias(value.Trim());
 
-    private static string EscapeSendKeysText(string value)
+    private static bool TryOpenStartMenu(ICollection<string> steps)
     {
-        return string.Concat(value.Select(character => character switch
+        if (TryPressWindowsKey(out var windowsKeyDetail))
         {
-            '{' => "{{}",
-            '}' => "{}}",
-            '+' => "{+}",
-            '^' => "{^}",
-            '%' => "{%}",
-            '~' => "{~}",
-            '(' => "{(}",
-            ')' => "{)}",
-            '[' => "{[}",
-            ']' => "{]}",
-            _ => character.ToString()
-        }));
+            steps.Add($"start-open:sendinput-windows-key:{windowsKeyDetail}");
+            if (WaitForStartMenuOrSearchSurface())
+                return true;
+        }
+        else
+        {
+            steps.Add($"start-open:sendinput-windows-key-failed:{windowsKeyDetail}");
+        }
+
+        if (TryPressCtrlEscape(out var ctrlEscapeDetail))
+        {
+            steps.Add($"start-open:sendinput-ctrl-escape:{ctrlEscapeDetail}");
+            if (WaitForStartMenuOrSearchSurface())
+                return true;
+        }
+        else
+        {
+            steps.Add($"start-open:sendinput-ctrl-escape-failed:{ctrlEscapeDetail}");
+        }
+
+        TryPressWindowsKeyWithKeybdEvent();
+        steps.Add("start-open:keybd-event-windows-key:sent");
+        if (WaitForStartMenuOrSearchSurface())
+            return true;
+
+        if (TryPressCtrlEscapeWithSendKeys(out var sendKeysDetail))
+        {
+            steps.Add($"start-open:sendkeys-ctrl-escape:{sendKeysDetail}");
+            if (WaitForStartMenuOrSearchSurface())
+                return true;
+        }
+        else
+        {
+            steps.Add($"start-open:sendkeys-ctrl-escape-failed:{sendKeysDetail}");
+        }
+
+        if (TryInvokeStartButton(out var invokeDetail))
+        {
+            steps.Add($"start-open:uia-start-button:{invokeDetail}");
+            if (WaitForStartMenuOrSearchSurface())
+                return true;
+        }
+        else
+        {
+            steps.Add($"start-open:uia-start-button-failed:{invokeDetail}");
+        }
+
+        return false;
+    }
+
+    private static bool TryTypeSearchText(string value, ICollection<string> steps)
+    {
+        var trimmed = value.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+            return false;
+
+        var inputs = new List<INPUT>(trimmed.Length * 2);
+        foreach (var character in trimmed)
+        {
+            inputs.Add(new INPUT
+            {
+                type = InputKeyboard,
+                U = new InputUnion
+                {
+                    ki = new KEYBDINPUT
+                    {
+                        wVk = 0,
+                        wScan = character,
+                        dwFlags = KeyEventUnicode
+                    }
+                }
+            });
+            inputs.Add(new INPUT
+            {
+                type = InputKeyboard,
+                U = new InputUnion
+                {
+                    ki = new KEYBDINPUT
+                    {
+                        wVk = 0,
+                        wScan = character,
+                        dwFlags = KeyEventUnicode | KeyEventKeyUp
+                    }
+                }
+            });
+        }
+
+        var sent = SendInput((uint)inputs.Count, inputs.ToArray(), Marshal.SizeOf<INPUT>());
+        if (sent == inputs.Count)
+        {
+            steps.Add($"start-menu:type-search-sendinput:sent={sent}");
+            return true;
+        }
+
+        steps.Add($"start-menu:type-search-sendinput-failed:sent={sent};lastError={Marshal.GetLastWin32Error()}");
+        try
+        {
+            SendKeys.SendWait(EscapeSendKeysText(trimmed));
+            steps.Add("start-menu:type-search-sendkeys:sent");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            steps.Add($"start-menu:type-search-sendkeys-failed:{ex.GetType().Name}:{ex.Message}");
+            return false;
+        }
     }
 
     public static bool ValidateAppName(string value, out string message)
@@ -302,6 +723,19 @@ public sealed class StartMenuLauncher
     private static string NormalizeAppName(string value) =>
         string.Join(' ', value.ToLowerInvariant().Split([' ', '_', '-'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
+    private static string NormalizeAutomationText(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        return string.Join(' ', value
+            .ToLowerInvariant()
+            .Replace("&", " and ", StringComparison.Ordinal)
+            .Replace("_", " ", StringComparison.Ordinal)
+            .Replace("-", " ", StringComparison.Ordinal)
+            .Split([' ', '\t', '\r', '\n', '.', ',', ':', ';', '(', ')', '[', ']'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+    }
+
     private static string CompactAppName(string value) =>
         string.Concat(value.Where(char.IsLetterOrDigit)).ToLowerInvariant();
 
@@ -332,6 +766,22 @@ public sealed class StartMenuLauncher
 
         var overlap = inputTokens.Intersect(candidateTokens, StringComparer.OrdinalIgnoreCase).Count();
         return (double)overlap / Math.Max(inputTokens.Length, candidateTokens.Length);
+    }
+
+    private static bool TryParseDirectAppCandidateNumber(string value, out int candidateNumber)
+    {
+        candidateNumber = NormalizeAppName(value) switch
+        {
+            "one" or "first" => 1,
+            "two" or "second" => 2,
+            "three" or "third" => 3,
+            "four" or "fourth" => 4,
+            "five" or "fifth" => 5,
+            var numberText when int.TryParse(numberText, out var parsed) => parsed,
+            _ => 0
+        };
+
+        return candidateNumber is >= 1 and <= 5;
     }
 
     private static bool TryResolveCommonSpeechAlias(string input, IReadOnlyList<string> candidates, out string resolvedName)
@@ -383,7 +833,7 @@ public sealed class StartMenuLauncher
         };
     }
 
-    private static bool TryPressWindowsKey()
+    private static bool TryPressWindowsKey(out string detail)
     {
         var inputs = new INPUT[]
         {
@@ -391,15 +841,226 @@ public sealed class StartMenuLauncher
             new() { type = InputKeyboard, U = new InputUnion { ki = new KEYBDINPUT { wVk = VirtualKeyLeftWindows, dwFlags = KeyEventKeyUp } } }
         };
 
-        return SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>()) == inputs.Length;
+        var sent = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+        detail = sent == inputs.Length
+            ? $"sent={sent}"
+            : $"sent={sent};lastError={Marshal.GetLastWin32Error()}";
+        return sent == inputs.Length;
+    }
+
+    private static bool TryPressCtrlEscape(out string detail)
+    {
+        var inputs = new INPUT[]
+        {
+            new() { type = InputKeyboard, U = new InputUnion { ki = new KEYBDINPUT { wVk = VirtualKeyLeftCtrl } } },
+            new() { type = InputKeyboard, U = new InputUnion { ki = new KEYBDINPUT { wVk = VirtualKeyEscape } } },
+            new() { type = InputKeyboard, U = new InputUnion { ki = new KEYBDINPUT { wVk = VirtualKeyEscape, dwFlags = KeyEventKeyUp } } },
+            new() { type = InputKeyboard, U = new InputUnion { ki = new KEYBDINPUT { wVk = VirtualKeyLeftCtrl, dwFlags = KeyEventKeyUp } } }
+        };
+
+        var sent = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+        detail = sent == inputs.Length
+            ? $"sent={sent}"
+            : $"sent={sent};lastError={Marshal.GetLastWin32Error()}";
+        return sent == inputs.Length;
+    }
+
+    private static bool TryPressEnter(out string detail)
+    {
+        var inputs = new INPUT[]
+        {
+            new() { type = InputKeyboard, U = new InputUnion { ki = new KEYBDINPUT { wVk = VirtualKeyEnter } } },
+            new() { type = InputKeyboard, U = new InputUnion { ki = new KEYBDINPUT { wVk = VirtualKeyEnter, dwFlags = KeyEventKeyUp } } }
+        };
+
+        var sent = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+        if (sent == inputs.Length)
+        {
+            detail = $"sendinput;sent={sent}";
+            return true;
+        }
+
+        var error = Marshal.GetLastWin32Error();
+        try
+        {
+            SendKeys.SendWait("{ENTER}");
+            detail = $"sendkeys;sendinputSent={sent};lastError={error}";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            detail = $"sendinputSent={sent};lastError={error};sendkeys={ex.GetType().Name}:{ex.Message}";
+            return false;
+        }
+    }
+
+    private static string EscapeSendKeysText(string value)
+    {
+        var builder = new System.Text.StringBuilder(value.Length);
+        foreach (var character in value)
+        {
+            builder.Append(character switch
+            {
+                '+' or '^' or '%' or '~' or '(' or ')' or '[' or ']' => $"{{{character}}}",
+                '{' => "{{}",
+                '}' => "{}}",
+                _ => character
+            });
+        }
+
+        return builder.ToString();
+    }
+
+    private static void TryPressWindowsKeyWithKeybdEvent()
+    {
+        keybd_event((byte)VirtualKeyLeftWindows, 0, KeyEventExtendedKey, UIntPtr.Zero);
+        keybd_event((byte)VirtualKeyLeftWindows, 0, KeyEventExtendedKey | KeyEventKeyUp, UIntPtr.Zero);
+    }
+
+    private static bool TryPressCtrlEscapeWithSendKeys(out string detail)
+    {
+        try
+        {
+            SendKeys.SendWait("^{ESC}");
+            detail = "sent";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            detail = $"{ex.GetType().Name}:{ex.Message}";
+            return false;
+        }
+    }
+
+    private static bool TryInvokeStartButton(out string detail)
+    {
+        try
+        {
+            var root = AutomationElement.RootElement;
+            if (root == null)
+            {
+                detail = "root-unavailable";
+                return false;
+            }
+
+            var buttons = root.FindAll(
+                TreeScope.Descendants,
+                new AndCondition(
+                    new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button),
+                    new PropertyCondition(AutomationElement.IsControlElementProperty, true)));
+
+            for (var index = 0; index < buttons.Count; index++)
+            {
+                var button = buttons[index];
+                if (!string.Equals(NormalizeAutomationText(button.Current.Name), "start", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (!button.TryGetCurrentPattern(InvokePattern.Pattern, out var invokePattern))
+                    continue;
+
+                ((InvokePattern)invokePattern).Invoke();
+                Thread.Sleep(250);
+                detail = "invoked";
+                return true;
+            }
+
+            detail = "start-button-not-found";
+        }
+        catch (Exception ex)
+        {
+            detail = $"{ex.GetType().Name}:{ex.Message}";
+            return false;
+        }
+
+        return false;
+    }
+
+    private static bool WaitForStartMenuOrSearchSurface()
+    {
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            Thread.Sleep(100);
+            if (IsStartMenuOrSearchSurfaceVisible())
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsStartMenuOrSearchSurfaceVisible()
+    {
+        try
+        {
+            var hwnd = GetForegroundWindow();
+            if (hwnd != IntPtr.Zero)
+            {
+                _ = GetWindowThreadProcessId(hwnd, out var processId);
+                if (processId != 0)
+                {
+                    using var process = Process.GetProcessById((int)processId);
+                    if (process.ProcessName.Contains("StartMenuExperienceHost", StringComparison.OrdinalIgnoreCase)
+                        || process.ProcessName.Contains("SearchHost", StringComparison.OrdinalIgnoreCase)
+                        || process.ProcessName.Contains("ShellExperienceHost", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // UIA fallback below may still identify the surface.
+        }
+
+        try
+        {
+            var root = AutomationElement.RootElement;
+            if (root == null)
+                return false;
+
+            var windows = root.FindAll(
+                TreeScope.Children,
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Window));
+
+            for (var index = 0; index < windows.Count; index++)
+            {
+                var window = windows[index];
+                var name = NormalizeAutomationText(window.Current.Name);
+                if (name.Contains("start", StringComparison.OrdinalIgnoreCase)
+                    || name.Contains("search", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+        }
+        catch
+        {
+            // Best-effort verification only.
+        }
+
+        return false;
     }
 
     private const int InputKeyboard = 1;
+    private const ushort VirtualKeyEnter = 0x0D;
+    private const ushort VirtualKeyEscape = 0x1B;
+    private const ushort VirtualKeyLeftCtrl = 0xA2;
     private const ushort VirtualKeyLeftWindows = 0x5B;
+    private const uint KeyEventExtendedKey = 0x0001;
     private const uint KeyEventKeyUp = 0x0002;
+    private const uint KeyEventUnicode = 0x0004;
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct INPUT

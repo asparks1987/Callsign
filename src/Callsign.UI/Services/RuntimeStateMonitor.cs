@@ -4,17 +4,21 @@ namespace Callsign.UI.Services;
 
 public sealed class RuntimeStateMonitor : IDisposable
 {
-    private readonly string _statePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "Callsign",
-        "Runtime",
-        "state.json");
+    private readonly string _statePath;
 
     private readonly JsonSerializerOptions _jsonOptions = new();
     private readonly FileSystemWatcher? _watcher;
 
-    public RuntimeStateMonitor()
+    public RuntimeStateMonitor(string? statePath = null)
     {
+        _statePath = string.IsNullOrWhiteSpace(statePath)
+            ? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Callsign",
+                "Runtime",
+                "state.json")
+            : statePath;
+
         var directory = Path.GetDirectoryName(_statePath);
         if (string.IsNullOrWhiteSpace(directory))
             return;

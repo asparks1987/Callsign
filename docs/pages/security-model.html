@@ -11,6 +11,7 @@
     <a class="brand" href="../index.html">Callsign</a>
     <nav><a href="canon.html">Canon</a>
 <a href="product-spec.html">Product Spec</a>
+<a href="voice-access-parity.html">Voice Access Parity</a>
 <a href="tier-architecture.html">Tier Architecture</a>
 <a href="architecture.html">Architecture</a>
 <a href="windows-automation.html">Windows Automation</a>
@@ -29,6 +30,7 @@
       <strong>Docs</strong>
       <a href="canon.html">Canon</a>
 <a href="product-spec.html">Product Spec</a>
+<a href="voice-access-parity.html">Voice Access Parity</a>
 <a href="tier-architecture.html">Tier Architecture</a>
 <a href="architecture.html">Architecture</a>
 <a href="windows-automation.html">Windows Automation</a>
@@ -64,10 +66,10 @@
 <p>Profile data should stay minimal:</p>
 <ul><li>Callsign.</li><li>Display name.</li><li>Optional contact fields.</li><li>Notes.</li><li>Voice enrollment status.</li><li>Last launch/session metadata when useful.</li></ul>
 <h3>Sensitive desktop observations</h3>
-<p>Treat process names, window titles, UI text, screenshots, clipboard contents, file paths, and file contents as sensitive.</p>
+<p>Treat process names, window titles, UI text, screenshots, clipboard contents, clipboard history surfaces, file paths, and file contents as sensitive.</p>
 <p>Do not send them to cloud models unless the user explicitly opts in.</p>
 <h2>Blocked alpha behaviors</h2>
-<ul><li>Password or 2FA handling.</li><li>Payments or money movement.</li><li>Account deletion.</li><li>Security setting changes.</li><li>Hidden-window automation.</li><li>Arbitrary shell execution.</li><li>Silent email, message, upload, or external submission actions.</li><li>Remote desktop control.</li></ul>
+<ul><li>Password or 2FA handling.</li><li>Payments or money movement.</li><li>Account deletion.</li><li>Security setting changes.</li><li>Hidden-window automation.</li><li>Arbitrary shell execution.</li><li>Silent email, message, upload, or external submission actions.</li><li>Remote desktop control.</li><li>Direct opening of executable or script-like file-search results.</li></ul>
 <h2>Visibility and stop rules</h2>
 <p>The alpha must provide:</p>
 <ul><li>a clear cancel path,</li><li>a clear reset path,</li><li>obvious session status text,</li><li>overlay/readout while listening,</li><li>visible terminal states,</li><li>and no silent completion of external side effects.</li></ul>
@@ -75,9 +77,16 @@
 <p>Private paid-tier material belongs in <code>/closed-source/</code>, which is ignored by git.</p>
 <p>Future closed-source Pro and Advanced extension libraries must still respect the open-core safety model:</p>
 <ul><li>no identity bypass</li><li>no policy bypass</li><li>no suppressed audit</li><li>no hidden action by default</li><li>no private dependency for Free</li></ul>
+<p>Command audit records include a correlation id and verification summary. This lets visible command execution be traced from the spoken intent through policy and execution without relying on screenshots, clipboard capture, or cloud-side state. Built-in command policy records explicitly mark <code>policy_evaluation</code> verification, and app-launch audit records preserve the actual launch path and mark visible Start menu verification separately from fallback execution. Browser, dictation, extension-pack UI, file-search, help discovery, visible UI, voice control, update splash, and system execution records mark <code>visible_status</code> verification so browser navigation, dictation review/correction/copy/paste, extension import/enable/disable/remove, file search/open/reveal, command palette/help walkthroughs, visible control overlays, mouse-grid targeting, start/stop listening, mode switches, session cancel/reset, update-manifest splash details, keyboard, mouse, media, approval-gated clipboard history, approval-gated snipping toolbar, settings, app-switching, and window-management requests can be traced to the visible Callsign status surface after policy authorization. Extension command records use one correlation id across registry resolution, policy or approval decisions, and pack execution. Unmatched extension phrases record <code>registry_resolution</code>, policy blocks record <code>policy_evaluation</code>, approval denials record <code>user_approval</code>, and executed packs record <code>pack_execution</code> with the command&#x27;s declared verification strategy.</p>
 <h2>Future safety model</h2>
 <p>Later browser, file, WSL, Linux, dictation, and system control features require stronger approvals, policy checks, and audit trails than v1.0 app launch.</p>
 <p>The safety model should grow before the command surface grows.</p>
+<h2>Command pack policy metadata</h2>
+<p>Every built-in, community, or future paid command pack must describe each command with:</p>
+<ul><li>command id, display name, category, description, voice phrases, help text, and examples,</li><li>risk tier,</li><li>visibility requirement,</li><li>reversibility,</li><li>privacy impact,</li><li>approval requirement,</li><li>and verification strategy.</li></ul>
+<p>The command registry validates this metadata before a pack can route commands. Packs with missing required descriptor fields, missing command metadata, duplicate command ids, empty voice phrases, or duplicate voice phrases are marked <code>InvalidPack</code>, remain visible for review, and cannot route or execute commands until fixed.</p>
+<p>Policy evaluation decides whether a command is allowed, denied, requires approval, requires fresh identity, or is blocked as dangerous. Entitlement can only decide whether a paid pack may load and whether a paid-tier command may route; it cannot authorize execution. A paid command remains gated by its declared command tier even if it is packaged inside a Free pack. The command registry enforces policy again at the pack execution boundary: direct <code>TryExecute</code> calls fail closed without identity proof, approval-required commands fail until explicit approval is supplied, and service-runtime extension execution cannot silently run approval-required commands. Registry policy blocks return structured execution metadata (<code>PolicyDecision</code>, <code>PolicyApprovalRequirement</code>, and <code>PolicyRiskTier</code>) in addition to the audit event string, so callers can audit policy outcomes without parsing free-form messages. The visibility requirement is authoritative: commands that declare <code>VisibleRequired</code> require a visible surface even if their legacy <code>VisibleAction</code> flag is false. Commands that declare <code>BackgroundAllowedWithApproval</code> are approval-gated by policy even after identity and entitlement checks pass, so background-capable workflows still require a visible approval surface. High-impact privacy metadata is also authoritative: commands that declare <code>Clipboard</code>, <code>FileContents</code>, <code>ScreenshotOrOcr</code>, or <code>ExternalData</code> require approval even if the command author forgot to set <code>RequireApproval</code>.</p>
+<p>Community packs imported through the UI (including drag-and-drop imports) start disabled by default. Disabled imported DLLs remain unloaded until explicitly enabled, and users can remove/unregister packs through the UI to rollback.</p>
     </article>
   </main>
   <script src="../assets/site.js"></script>

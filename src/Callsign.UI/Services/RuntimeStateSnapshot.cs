@@ -22,6 +22,7 @@ public sealed record RuntimeStateSnapshot(
     string? LastWakeWordEngine = null,
     double? LastWakeWordScore = null,
     double? WakeWordThreshold = null,
+    string? LastWakeTransitionSource = null,
     IReadOnlyList<string>? WakeWordAudioQualityWarnings = null,
     bool? IsSpeechActive = null,
     DateTime? LastSpeechActivityUtc = null,

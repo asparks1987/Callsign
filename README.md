@@ -23,9 +23,9 @@ The current repo is focused on the Alpha v1 line. v1.0 is the first public MVP:
 - launch installed apps through a visible Start menu flow
 - expose stop, cancel, timeout, lockout, and runtime status states
 
-The codebase also contains early surfaces for the broader Alpha v1 direction, including browser launch helpers, system control helpers, file search, visible-control routing, and richer command parsing. Those are part of the v1.x path, not a reason to weaken the v1.0 release gate.
+The codebase also contains early surfaces for the broader Alpha v1 direction, including browser launch helpers, system control helpers, file search, visible-control routing, richer command parsing, and extension packs. Those are part of the v1.x path toward practical Windows Voice Access parity, not a reason to weaken the v1.0 release gate.
 
-The update server now lives in the separate local repo at `update-server-repo/`, which owns the Dockerized server, manifests, and deployment docs.
+The update server now lives in the separate local repo at `update-server-repo/`, which owns the Dockerized server, manifests, deployment docs, and the WinForms Update Manager used to publish and deploy releases.
 
 ## Open-source promise
 
@@ -33,6 +33,7 @@ Callsign is Free-first.
 
 - The Free tier is MIT-licensed and useful on its own.
 - The public repo contains the setup app, service runtime, visible overlay, profile/enrollment flow, command-routing contracts, docs, and tests for the open core.
+- Stable Windows 11 Voice Access parity belongs in the Free core and is tracked in `docs/reference/VOICE_ACCESS_PARITY_MATRIX.md`.
 - Alpha v1 features remain free until at least beta.
 - The Free core must not depend on private code or paid entitlement.
 
@@ -53,12 +54,18 @@ That boundary is intentional:
 
 ## Alpha v1 release ladder
 
+The repository tracks two release numbering lanes:
+
+- **Major milestones**: `0.0.3a`, `0.0.4a`, `0.0.5a`, `0.1.0a`, and `1.0.0a`.
+- **Micro patches**: `0.0.01a`, `0.0.02a`, etc., for focused stabilization between majors.
+
 | Release | Scope |
 |---|---|
 | `v1.0 alpha` | Background service wake detection, callsign identity verification, `callsign.gif` wake overlay with live text readout, and visible Start menu app launch. |
 | `v1.1 alpha` | Dictation with visible review before insertion, copy, paste, or other text actions. |
 | `v1.2 alpha` | Browser control for visible open, search, navigation, and safe bounded browser tasks. |
 | `v1.3 alpha` | System control for Windows, WSL, and Linux, including file search results shown or opened through Explorer. |
+| `v1.4 alpha` | Parity hardening: close the Voice Access matrix, polish overlays, expand tests, and produce a release-candidate installer/site update. |
 | `Beta or later` | Revisit Pro and Advanced packaging, entitlement, signed extension libraries, and continuously updated command catalogs. |
 
 ## Product structure
@@ -67,6 +74,7 @@ That boundary is intentional:
 - `src/Callsign.Service` is the background runtime for wake, identity, session orchestration, runtime status, and visible launch flow.
 - `tests/Callsign.AlphaSmoke` contains the current alpha smoke coverage.
 - `docs/reference` contains the canonical markdown used to generate the public website.
+- `docs/reference/VOICE_ACCESS_PARITY_MATRIX.md` tracks the 100% Windows Voice Access parity target.
 - `docs/index.html` is the generated public landing page.
 - `CANON.md` is the root product canon, mirrored in `docs/reference/CANON.md`.
 
@@ -90,6 +98,9 @@ From a fresh checkout:
 .\buildcallsign.ps1
 dotnet run --project tests/Callsign.AlphaSmoke/Callsign.AlphaSmoke.csproj
 python scripts/build_site.py
+.\scripts\prepare-release-packet.ps1
+.\scripts\voice_access_parity_evidence.ps1 -WriteManualEvidenceTemplate
+.\scripts\verify-release-readiness.ps1 -WebsiteDownloadUrl "http://your-host/downloads/Callsign-Setup.exe" -RequireWebsiteVerification
 ```
 
 Preview the public site locally:

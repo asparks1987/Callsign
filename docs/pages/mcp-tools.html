@@ -11,6 +11,7 @@
     <a class="brand" href="../index.html">Callsign</a>
     <nav><a href="canon.html">Canon</a>
 <a href="product-spec.html">Product Spec</a>
+<a href="voice-access-parity.html">Voice Access Parity</a>
 <a href="tier-architecture.html">Tier Architecture</a>
 <a href="architecture.html">Architecture</a>
 <a href="windows-automation.html">Windows Automation</a>
@@ -29,6 +30,7 @@
       <strong>Docs</strong>
       <a href="canon.html">Canon</a>
 <a href="product-spec.html">Product Spec</a>
+<a href="voice-access-parity.html">Voice Access Parity</a>
 <a href="tier-architecture.html">Tier Architecture</a>
 <a href="architecture.html">Architecture</a>
 <a href="windows-automation.html">Windows Automation</a>
@@ -61,8 +63,12 @@ workflow.stop</code></pre>
 <h2>Tool metadata</h2>
 <p>Every tool must include:</p>
 <ul><li>Name.</li><li>Description.</li><li>Input schema.</li><li>Output schema.</li><li>Risk tier.</li><li>Privacy impact.</li><li>Reversibility.</li><li>Required approval behavior.</li><li>Audit requirements.</li><li>Verification behavior.</li></ul>
+<p>Command packs use the same metadata shape for voice-exposed actions. At minimum, every command definition must describe risk tier, visibility requirement, reversibility, privacy impact, approval requirement, help/examples, and verification strategy before it can be treated as part of the parity command surface.</p>
 <h2>Risk tiers</h2>
 <table><thead><tr><th>Tier</th><th>Name</th><th>Meaning</th></tr></thead><tbody><tr><td>0</td><td><code>observe</code></td><td>Reads state only</td></tr><tr><td>1</td><td><code>local_reversible</code></td><td>Performs visible local action that is usually reversible</td></tr><tr><td>2</td><td><code>local_state_change</code></td><td>Changes local files, documents, or settings</td></tr><tr><td>3</td><td><code>external_side_effect</code></td><td>Sends, uploads, submits, posts, or otherwise affects external systems</td></tr><tr><td>4</td><td><code>dangerous_or_blocked</code></td><td>Credentials, shell, admin, deletion, payment, security settings</td></tr></tbody></table>
+<h2>Policy decisions</h2>
+<p>Policy evaluation returns one of:</p>
+<table><thead><tr><th>Decision</th><th>Meaning</th></tr></thead><tbody><tr><td><code>allow</code></td><td>The verified session may run the command.</td></tr><tr><td><code>deny</code></td><td>The command is denied in the current context.</td></tr><tr><td><code>require_approval</code></td><td>The user must explicitly approve before execution.</td></tr><tr><td><code>require_fresh_identity</code></td><td>The user must repeat callsign identity verification.</td></tr><tr><td><code>blocked_dangerous_action</code></td><td>The command is blocked by Callsign safety policy.</td></tr></tbody></table>
 <h2>Standard result envelope</h2>
 <pre><code class="language-json">{
   &quot;ok&quot;: true,

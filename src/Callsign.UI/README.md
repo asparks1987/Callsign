@@ -33,6 +33,7 @@ The alpha audit file records only the callsign, requested app name, timestamp, a
 - Account tab: create, edit, and delete accounts.
 - Voice tab: rehearse sample phrases and activate voice control for the selected callsign.
 - Session tab: wake, verify identity, capture the command, and launch the app.
+- Getting Started: reopen the walkthrough from the Account tab.
 - Storage path label: shows exactly where each callsign profile is stored.
 
 ## Alpha v1 MVP happy path
@@ -45,6 +46,7 @@ The alpha audit file records only the callsign, requested app name, timestamp, a
 6. Callsign should show the wake overlay, show the recognized identity and command, verify the callsign, and open the requested app through Start search.
 7. The overlay should stay visible until the voice session completes, cancels, times out, or locks out.
 8. The Dictation, Browser, and Files tabs are follow-on alpha surfaces, not the `v1.0` launch MVP.
+9. Getting Started reopens the walkthrough from the Account tab if you want the setup flow again.
 
 If microphone recognition is unavailable, use `Launch test phrase` and `Test Phrase Launch` with the same phrase to exercise the same alpha state machine and Start menu launcher. This is a real launch test and can open the requested app. Passing this test proves the account, callsign, parser, policy boundary, audit, and Start menu launch path; it does not prove microphone recognition. You can also test the two-step flow by first entering `Callsign Alpha`, then entering `Notepad` after identity is verified.
 
@@ -74,6 +76,7 @@ Before calling the UI alpha ready, verify:
 10. Path, URL, WSL, terminal, and shell-like command requests are rejected.
 11. `%LOCALAPPDATA%\Callsign\Profiles\Alpha\alpha-audit.jsonl` records the Start menu launch event.
 12. The Dictation, Browser, and Files tabs remain usable as follow-on alpha surfaces.
+13. The Getting Started action reopens the walkthrough from the Account tab.
 
 ## Troubleshooting alpha launch
 

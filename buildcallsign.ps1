@@ -720,6 +720,22 @@ function Invoke-CachedDotnetPublishStage {
     $runtimeId = $Runtime
     $configurationName = $Configuration
     $noRestore = $NoRestore
+    $publishRetried = $false
+
+    $invokePublish = {
+        dotnet publish $ProjectPathToPublish `
+            -c $configurationName `
+            -r $runtimeId `
+            @RestoreArguments `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:IncludeAllContentForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            -o $OutputDirectory
+    }.GetNewClosure()
 
     $buildAction = {
         if (Test-Path -LiteralPath $OutputDirectory) {
@@ -734,18 +750,19 @@ function Invoke-CachedDotnetPublishStage {
             }
         }
 
-        dotnet publish $ProjectPathToPublish `
-            -c $configurationName `
-            -r $runtimeId `
-            @RestoreArguments `
-            --self-contained true `
-            -p:PublishSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
-            -p:IncludeAllContentForSelfExtract=true `
-            -p:EnableCompressionInSingleFile=true `
-            -p:DebugType=None `
-            -p:DebugSymbols=false `
-            -o $OutputDirectory
+        & $invokePublish
+
+        if ($LASTEXITCODE -ne 0) {
+            if ($noRestore -and -not $publishRetried) {
+                $publishRetried = $true
+                Write-Host "dotnet publish failed with exit code $LASTEXITCODE for $StageName. Running a targeted runtime restore and retrying once."
+                dotnet restore $ProjectPathToPublish --runtime $runtimeId
+                if ($LASTEXITCODE -eq 0) {
+                    & $invokePublish
+                }
+            }
+
+        }
 
         if ($LASTEXITCODE -ne 0) {
             $fallbackExecutable = $null
@@ -921,7 +938,7 @@ if ((Test-Path -LiteralPath $fzfRepoDir) -and $goCommand) {
                 Remove-Item -LiteralPath $fzfBuildOutput -Force
             }
 
-            & $goCommand.Source build -o $fzfBuildOutput .
+            & $goCommand.Source build -buildvcs=false -o $fzfBuildOutput .
             if ($LASTEXITCODE -ne 0) {
                 throw "fzf build failed with exit code $LASTEXITCODE"
             }

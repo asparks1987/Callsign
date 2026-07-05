@@ -192,6 +192,21 @@ When adding or changing a tool, update:
 - `docs/reference/TEST_PLAN.md` if test coverage changes
 - The GitHub Pages HTML by running `python scripts/build_site.py`
 
+## Finish-of-run release hygiene
+
+When finishing an implementation run, Callsign should be left in a usable release-ready state unless the user explicitly asked for analysis-only work or a blocker prevents it.
+
+- Build Callsign before declaring the run complete by running `.\buildcallsign.ps1` from the repo root.
+- Treat the newest successful installer artifact as the canonical public installer and keep `Callsign-Setup.exe` in the repo root updated to that build.
+- If source docs, generated website files, installer links, deployment docs, or website copy changed, regenerate the website with `python scripts/build_site.py`.
+- Rebuild and redeploy the Dockerized website when the installer or public site changes. The current Pi website deployment path is `.\deploy\website\deploy-pi.ps1`.
+- Verify the public website is reachable at the current deployment target and that `/downloads/Callsign-Setup.exe` downloads the newest installer.
+- Compare the downloadable installer with the local `Callsign-Setup.exe` by size, hash, or another deterministic check before calling the run complete.
+- If build, packaging, deployment, or download verification cannot be completed, state the exact blocker in the final response and do not claim the website has the newest installer.
+- Never commit deployment secrets, registry credentials, SSH passwords, signing keys, or private release material while performing release hygiene.
+- Run `.\scripts\verify-release-readiness.ps1` when closing a run to automate the checks above.
+- If you pass `-WebsiteDownloadUrl`, that script verifies the public `Callsign-Setup.exe` download hash against the local installer and fails hard when `-RequireWebsiteVerification` is set.
+
 ## Default development posture
 
 ## Alpha interaction contract (v1)

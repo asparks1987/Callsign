@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Callsign.UI.Models;
 using NAudio.Wave;
@@ -35,6 +36,24 @@ public sealed record VoiceBiometricEnrollmentResult(
     int SamplesEnrolled,
     string Message);
 
+public sealed record VoiceEnrollmentSampleMetadata(
+    string Path,
+    string FileName,
+    long ByteLength,
+    DateTime LastWriteUtc,
+    double AgeSeconds,
+    string Sha256);
+
+public sealed record VoiceEnrollmentSampleProof(
+    DateTime UpdatedUtc,
+    bool Accepted,
+    string? RejectReason,
+    string Message,
+    int RequiredSamples,
+    int SampleCount,
+    int DistinctHashCount,
+    IReadOnlyList<VoiceEnrollmentSampleMetadata> Samples);
+
 public sealed class VoiceBiometricVerificationService : IVoiceBiometricVerifier
 {
     public const double DefaultThreshold = 0.72;
@@ -50,24 +69,52 @@ public sealed class VoiceBiometricVerificationService : IVoiceBiometricVerifier
 
     public VoiceBiometricEnrollmentResult EnrollFreshSamples(ProfileStore profileStore, UserProfile profile, IEnumerable<string> samplePaths)
     {
-        var resolvedSamples = ResolveDistinctEnrollmentSamples(samplePaths).ToArray();
-        if (resolvedSamples.Length < 3)
+        var sampleProof = BuildEnrollmentSampleProof(samplePaths, accepted: false, rejectReason: null, message: "Validating voice identity samples.");
+        WriteEnrollmentSampleProof(profileStore, profile, sampleProof);
+        if (sampleProof.SampleCount < 3)
         {
+            sampleProof = sampleProof with
+            {
+                RejectReason = "pyannote_sample_set_too_small",
+                Message = "Collect at least 3 fresh voice samples before enrolling."
+            };
+            WriteEnrollmentSampleProof(profileStore, profile, sampleProof);
             return new VoiceBiometricEnrollmentResult(
                 false,
                 PyannoteEngineName,
                 "pyannote_sample_set_too_small",
                 GetEnrollmentEmbeddingPath(profileStore, profile),
-                resolvedSamples.Length,
+                sampleProof.SampleCount,
                 "Collect at least 3 fresh voice samples before enrolling.");
         }
 
-        var embeddings = new List<double[]>();
-        string? modelId = null;
-        foreach (var samplePath in resolvedSamples)
+        if (sampleProof.DistinctHashCount < sampleProof.SampleCount)
         {
-            if (ValidateEnrollmentSample(samplePath, out var validationError) != null)
+            sampleProof = sampleProof with
             {
+                RejectReason = "pyannote_sample_set_not_distinct",
+                Message = "Record 3 different fresh voice samples before enrolling."
+            };
+            WriteEnrollmentSampleProof(profileStore, profile, sampleProof);
+            return new VoiceBiometricEnrollmentResult(
+                false,
+                PyannoteEngineName,
+                "pyannote_sample_set_not_distinct",
+                GetEnrollmentEmbeddingPath(profileStore, profile),
+                sampleProof.SampleCount,
+                "Record 3 different fresh voice samples before enrolling.");
+        }
+
+        foreach (var sample in sampleProof.Samples)
+        {
+            if (ValidateEnrollmentSample(sample.Path, out var validationError) != null)
+            {
+                sampleProof = sampleProof with
+                {
+                    RejectReason = "pyannote_sample_invalid",
+                    Message = validationError!
+                };
+                WriteEnrollmentSampleProof(profileStore, profile, sampleProof);
                 return new VoiceBiometricEnrollmentResult(
                     false,
                     PyannoteEngineName,
@@ -76,8 +123,21 @@ public sealed class VoiceBiometricVerificationService : IVoiceBiometricVerifier
                     0,
                     validationError!);
             }
+        }
 
-            if (!TryEmbedWithPyannote(samplePath, out var embedding, out var sampleModelId, out var error))
+        sampleProof = sampleProof with
+        {
+            Accepted = true,
+            RejectReason = null,
+            Message = $"Validated {sampleProof.SampleCount} fresh distinct voice sample(s)."
+        };
+        WriteEnrollmentSampleProof(profileStore, profile, sampleProof);
+
+        var embeddings = new List<double[]>();
+        string? modelId = null;
+        foreach (var sample in sampleProof.Samples)
+        {
+            if (!TryEmbedWithPyannote(sample.Path, out var embedding, out var sampleModelId, out var error))
             {
                 return new VoiceBiometricEnrollmentResult(
                     false,
@@ -118,6 +178,48 @@ public sealed class VoiceBiometricVerificationService : IVoiceBiometricVerifier
     public VoiceBiometricEnrollmentResult EnrollLatestSample(ProfileStore profileStore, UserProfile profile, string samplePath)
     {
         return EnrollFreshSamples(profileStore, profile, new[] { samplePath });
+    }
+
+    public static bool IsSampleProofRejectReason(string? rejectReason) =>
+        !string.IsNullOrWhiteSpace(rejectReason)
+        && (rejectReason.StartsWith("pyannote_sample_", StringComparison.OrdinalIgnoreCase)
+            || rejectReason.StartsWith("sample_proof_", StringComparison.OrdinalIgnoreCase));
+
+    public static string DescribeEnrollmentFailureType(string? rejectReason, string? message, VoiceEnrollmentSampleProof? proof = null)
+    {
+        if (string.Equals(rejectReason, "pyannote_runtime_not_ready", StringComparison.OrdinalIgnoreCase))
+        {
+            return (message ?? string.Empty).Contains("model cache", StringComparison.OrdinalIgnoreCase)
+                ? "Failure type: model cache."
+                : "Failure type: identity runtime or model cache.";
+        }
+
+        if (string.Equals(rejectReason, "pyannote_enrollment_missing", StringComparison.OrdinalIgnoreCase))
+            return "Failure type: identity runtime.";
+
+        if (string.Equals(rejectReason, "pyannote_sample_set_too_small", StringComparison.OrdinalIgnoreCase))
+            return "Failure type: not enough samples yet.";
+
+        if (string.Equals(rejectReason, "pyannote_sample_set_not_distinct", StringComparison.OrdinalIgnoreCase))
+            return "Failure type: duplicate voice samples; re-record 3 different fresh samples.";
+
+        if (string.Equals(rejectReason, "pyannote_sample_invalid", StringComparison.OrdinalIgnoreCase))
+            return "Failure type: sample quality or freshness.";
+
+        if (proof is { Accepted: false } && IsSampleProofRejectReason(proof.RejectReason))
+            return DescribeEnrollmentFailureType(proof.RejectReason, proof.Message, null);
+
+        var text = message ?? string.Empty;
+        if (text.Contains("timed out", StringComparison.OrdinalIgnoreCase))
+            return "Failure type: service timeout.";
+
+        if (text.Contains("microphone", StringComparison.OrdinalIgnoreCase))
+            return "Failure type: microphone.";
+
+        if (text.Contains("model cache", StringComparison.OrdinalIgnoreCase))
+            return "Failure type: model cache.";
+
+        return "Failure type: service.";
     }
 
     public VoiceBiometricVerificationResult Verify(
@@ -271,10 +373,30 @@ public sealed class VoiceBiometricVerificationService : IVoiceBiometricVerifier
     public static string GetIdentityMetadataPath(ProfileStore profileStore, UserProfile profile) =>
         Path.Combine(GetIdentityFolder(profileStore, profile), "voice-identity.json");
 
+    public static string GetEnrollmentSampleProofPath(ProfileStore profileStore, UserProfile profile) =>
+        Path.Combine(GetIdentityFolder(profileStore, profile), "enrollment-samples.json");
+
     public static void ResetEnrollmentArtifacts(ProfileStore profileStore, UserProfile profile)
     {
         DeleteFolderIfExists(GetEnrollmentSampleFolder(profileStore, profile));
         DeleteFolderIfExists(GetIdentityFolder(profileStore, profile));
+    }
+
+    public static VoiceEnrollmentSampleProof ReadEnrollmentSampleProof(ProfileStore profileStore, UserProfile profile)
+    {
+        var path = GetEnrollmentSampleProofPath(profileStore, profile);
+        if (!File.Exists(path))
+            return new VoiceEnrollmentSampleProof(DateTime.UtcNow, false, "sample_proof_missing", "No enrollment sample proof has been written.", 3, 0, 0, []);
+
+        try
+        {
+            return JsonSerializer.Deserialize<VoiceEnrollmentSampleProof>(File.ReadAllText(path), JsonOptions)
+                ?? new VoiceEnrollmentSampleProof(DateTime.UtcNow, false, "sample_proof_invalid", "Enrollment sample proof could not be read.", 3, 0, 0, []);
+        }
+        catch
+        {
+            return new VoiceEnrollmentSampleProof(DateTime.UtcNow, false, "sample_proof_invalid", "Enrollment sample proof could not be read.", 3, 0, 0, []);
+        }
     }
 
     private VoiceBiometricVerificationResult VerifyPyannoteIdentity(
@@ -426,6 +548,7 @@ public sealed class VoiceBiometricVerificationService : IVoiceBiometricVerifier
         var folder = GetIdentityFolder(profileStore, profile);
         Directory.CreateDirectory(folder);
         File.WriteAllText(GetEnrollmentEmbeddingPath(profileStore, profile), JsonSerializer.Serialize(identity, JsonOptions));
+        var sampleProof = ReadEnrollmentSampleProof(profileStore, profile);
         var metadata = new
         {
             identity.Engine,
@@ -434,9 +557,62 @@ public sealed class VoiceBiometricVerificationService : IVoiceBiometricVerifier
             identity.UpdatedUtc,
             identity.SamplesEnrolled,
             identity.Threshold,
-            identity.NearMatchThreshold
+            identity.NearMatchThreshold,
+            SampleProof = sampleProof
         };
         File.WriteAllText(GetIdentityMetadataPath(profileStore, profile), JsonSerializer.Serialize(metadata, JsonOptions));
+    }
+
+    private static VoiceEnrollmentSampleProof BuildEnrollmentSampleProof(
+        IEnumerable<string> samplePaths,
+        bool accepted,
+        string? rejectReason,
+        string message)
+    {
+        var samples = new List<VoiceEnrollmentSampleMetadata>();
+        foreach (var samplePath in ResolveDistinctEnrollmentSamples(samplePaths))
+        {
+            if (!File.Exists(samplePath))
+                continue;
+
+            var info = new FileInfo(samplePath);
+            var lastWriteUtc = info.LastWriteTimeUtc;
+            var ageSeconds = Math.Max(0, (DateTime.UtcNow - lastWriteUtc).TotalSeconds);
+            samples.Add(new VoiceEnrollmentSampleMetadata(
+                Path.GetFullPath(samplePath),
+                info.Name,
+                info.Length,
+                lastWriteUtc,
+                ageSeconds,
+                ComputeSha256(samplePath)));
+        }
+
+        var distinctHashCount = samples
+            .Select(sample => sample.Sha256)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+        return new VoiceEnrollmentSampleProof(
+            DateTime.UtcNow,
+            accepted,
+            rejectReason,
+            message,
+            3,
+            samples.Count,
+            distinctHashCount,
+            samples);
+    }
+
+    private static void WriteEnrollmentSampleProof(ProfileStore profileStore, UserProfile profile, VoiceEnrollmentSampleProof proof)
+    {
+        var folder = GetIdentityFolder(profileStore, profile);
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(GetEnrollmentSampleProofPath(profileStore, profile), JsonSerializer.Serialize(proof, JsonOptions));
+    }
+
+    private static string ComputeSha256(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexString(SHA256.HashData(stream));
     }
 
     private static double[] AverageEmbeddings(double[]? existing, IReadOnlyList<double[]> nextEmbeddings)

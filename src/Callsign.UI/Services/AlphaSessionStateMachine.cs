@@ -13,6 +13,10 @@ public enum AlphaSessionState
 
 public sealed class AlphaSessionStateMachine
 {
+    public const string AudioWakeDetectorSource = "audio-wake-detector";
+    public const string ManualUiSource = "manual-ui";
+    public const string ScriptedTranscriptControlSource = "scripted-transcript-control";
+
     private readonly TimeSpan _commandTimeout;
     private readonly TimeSpan _lockoutDuration;
 
@@ -26,8 +30,10 @@ public sealed class AlphaSessionStateMachine
     public AlphaSessionState State { get; private set; }
     public string StatusMessage { get; private set; } = "Idle.";
     public string? VerifiedCallsign { get; private set; }
+    public DateTimeOffset? VerifiedCallsignUtc { get; private set; }
     public string? PendingCommand { get; private set; }
     public string? PendingApp { get; private set; }
+    public string? LastWakeTransitionSource { get; private set; }
     public DateTime StateEnteredUtc { get; private set; }
     public DateTime? LockedUntilUtc { get; private set; }
 
@@ -36,13 +42,15 @@ public sealed class AlphaSessionStateMachine
         State = AlphaSessionState.Idle;
         StatusMessage = "Idle.";
         VerifiedCallsign = null;
+        VerifiedCallsignUtc = null;
         PendingCommand = null;
         PendingApp = null;
+        LastWakeTransitionSource = null;
         StateEnteredUtc = DateTime.UtcNow;
         LockedUntilUtc = null;
     }
 
-    public void DetectWakeWord()
+    public void DetectWakeWord(string? source = AudioWakeDetectorSource)
     {
         Tick();
         if (State == AlphaSessionState.LockedOut)
@@ -53,6 +61,7 @@ public sealed class AlphaSessionStateMachine
 
         State = AlphaSessionState.WaitingForIdentity;
         StateEnteredUtc = DateTime.UtcNow;
+        LastWakeTransitionSource = NormalizeWakeTransitionSource(source);
         StatusMessage = "Wake word detected. Say your callsign to continue.";
     }
 
@@ -92,9 +101,61 @@ public sealed class AlphaSessionStateMachine
         }
 
         VerifiedCallsign = enrolled;
+        VerifiedCallsignUtc = DateTimeOffset.UtcNow;
         State = AlphaSessionState.WaitingForCommand;
         StateEnteredUtc = DateTime.UtcNow;
         StatusMessage = $"Identity verified for {enrolled}. Speak the task.";
+        message = StatusMessage;
+        return true;
+    }
+
+    public bool TryVerifyIdentity(CallsignIdentityResult identity, string enrolledCallsign, bool voiceEnrolled, bool requireBiometric, out string message)
+    {
+        Tick();
+        if (State != AlphaSessionState.WaitingForIdentity)
+        {
+            message = "Wake word first.";
+            return false;
+        }
+
+        if (!voiceEnrolled)
+        {
+            message = "Voice is not enrolled for this profile.";
+            Cancel(message);
+            return false;
+        }
+
+        if (!identity.Accepted)
+        {
+            if (string.Equals(identity.RejectReason, "identity_mismatch", StringComparison.OrdinalIgnoreCase))
+            {
+                LockedUntilUtc = DateTime.UtcNow.Add(_lockoutDuration);
+                State = AlphaSessionState.LockedOut;
+                StateEnteredUtc = DateTime.UtcNow;
+                StatusMessage = $"Identity mismatch. Locked out for {_lockoutDuration.TotalSeconds:0} seconds.";
+                message = StatusMessage;
+                return false;
+            }
+
+            StatusMessage = identity.RetryPrompt ?? "Say your callsign again.";
+            message = StatusMessage;
+            return false;
+        }
+
+        if (requireBiometric && identity.Biometric?.Accepted != true)
+        {
+            StatusMessage = identity.Biometric == null
+                ? "Voice biometric proof is required before command capture."
+                : $"Voice biometric rejected: {identity.Biometric.RejectReason ?? "biometric_mismatch"}";
+            message = StatusMessage;
+            return false;
+        }
+
+        VerifiedCallsign = Normalize(identity.MatchedVariant ?? enrolledCallsign);
+        VerifiedCallsignUtc = DateTimeOffset.UtcNow;
+        State = AlphaSessionState.WaitingForCommand;
+        StateEnteredUtc = DateTime.UtcNow;
+        StatusMessage = $"Identity verified for {VerifiedCallsign}. Speak the task.";
         message = StatusMessage;
         return true;
     }
@@ -173,6 +234,8 @@ public sealed class AlphaSessionStateMachine
         PendingCommand = null;
         PendingApp = null;
         VerifiedCallsign = null;
+        VerifiedCallsignUtc = null;
+        LastWakeTransitionSource = null;
     }
 
     public void Tick()
@@ -205,6 +268,17 @@ public sealed class AlphaSessionStateMachine
         return remaining <= TimeSpan.Zero ? TimeSpan.Zero : remaining;
     }
 
+    public bool HasFreshIdentity(TimeSpan freshness)
+    {
+        if (string.IsNullOrWhiteSpace(VerifiedCallsign) || !VerifiedCallsignUtc.HasValue)
+            return false;
+
+        if (freshness <= TimeSpan.Zero)
+            return true;
+
+        return DateTimeOffset.UtcNow - VerifiedCallsignUtc.Value <= freshness;
+    }
+
     private static string Normalize(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -214,6 +288,14 @@ public sealed class AlphaSessionStateMachine
             ' ',
             value.ToLowerInvariant()
                 .Split([' ', '_', '-'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+    }
+
+    private static string NormalizeWakeTransitionSource(string? source)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+            return AudioWakeDetectorSource;
+
+        return source.Trim();
     }
 
     private string GetLockedOutMessage()

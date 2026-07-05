@@ -20,6 +20,8 @@ public sealed class VoiceIdentityTrainingForm : Form
     private readonly Label _sampleLabel;
     private readonly Label _wakeSampleLabel;
     private readonly Label _qualityLabel;
+    private readonly Label _nextStepLabel;
+    private readonly Label _failureLabel;
     private readonly Label[] _sampleStatusLabels = new Label[3];
     private readonly ProgressBar _progress;
     private readonly Button _recordButton;
@@ -117,9 +119,17 @@ public sealed class VoiceIdentityTrainingForm : Form
         layout.Controls.Add(new Label { AutoSize = true, Text = "Audio quality" }, 0, 6);
         layout.Controls.Add(_qualityLabel, 1, 6);
 
+        _nextStepLabel = new Label { AutoSize = true, MaximumSize = new Size(540, 0), Text = "Next step: record 3 fresh samples before enrollment." };
+        layout.Controls.Add(new Label { AutoSize = true, Text = "Next step" }, 0, 7);
+        layout.Controls.Add(_nextStepLabel, 1, 7);
+
+        _failureLabel = new Label { AutoSize = true, MaximumSize = new Size(540, 0), Text = "Failure type: none yet." };
+        layout.Controls.Add(new Label { AutoSize = true, Text = "Failure type" }, 0, 8);
+        layout.Controls.Add(_failureLabel, 1, 8);
+
         _statusLabel = new Label { AutoSize = true, MaximumSize = new Size(540, 0), Text = "Ready to record." };
-        layout.Controls.Add(new Label { AutoSize = true, Text = "Status" }, 0, 7);
-        layout.Controls.Add(_statusLabel, 1, 7);
+        layout.Controls.Add(new Label { AutoSize = true, Text = "Status" }, 0, 9);
+        layout.Controls.Add(_statusLabel, 1, 9);
 
         _recordButton = new Button
         {
@@ -130,7 +140,9 @@ public sealed class VoiceIdentityTrainingForm : Form
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
             Font = new Font(Font, FontStyle.Bold),
-            Cursor = Cursors.Hand
+            Cursor = Cursors.Hand,
+            AccessibleName = "Voice identity record sample",
+            AccessibleDescription = "Voice phrase: record voice identity sample."
         };
         _recordButton.FlatAppearance.BorderSize = 0;
         _recordButton.MouseDown += RecordButtonMouseDown;
@@ -150,7 +162,9 @@ public sealed class VoiceIdentityTrainingForm : Form
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
             Font = new Font(Font, FontStyle.Bold),
-            Cursor = Cursors.Hand
+            Cursor = Cursors.Hand,
+            AccessibleName = "Voice identity record wake sample",
+            AccessibleDescription = "Voice phrase: record wake sample."
         };
         _recordWakeButton.FlatAppearance.BorderSize = 0;
         _recordWakeButton.MouseDown += RecordWakeButtonMouseDown;
@@ -161,19 +175,19 @@ public sealed class VoiceIdentityTrainingForm : Form
                 _recordWakeButton.Capture = true;
         };
 
-        _playButton = new Button { Text = "Play Sample", Width = 120, Height = 44 };
+        _playButton = new Button { Text = "Play Sample", Width = 120, Height = 44, AccessibleName = "Voice identity play sample", AccessibleDescription = "Voice phrase: play voice identity sample." };
         _playButton.Click += (_, _) => PlayLatestSample();
 
-        _enrollButton = new Button { Text = "Enroll Voice Identity", Width = 170, Height = 44 };
+        _enrollButton = new Button { Text = "Enroll Voice Identity", Width = 170, Height = 44, AccessibleName = "Voice identity enroll", AccessibleDescription = "Voice phrase: enroll voice identity." };
         _enrollButton.Click += async (_, _) => await EnrollIdentityAsync();
 
-        _calibrateButton = new Button { Text = "Calibrate Mic", Width = 130, Height = 44 };
+        _calibrateButton = new Button { Text = "Calibrate Mic", Width = 130, Height = 44, AccessibleName = "Voice identity calibrate microphone", AccessibleDescription = "Voice phrase: calibrate microphone." };
         _calibrateButton.Click += (_, _) => CalibrateMicrophone();
 
-        _wakeCalibrateButton = new Button { Text = "Calibrate Wakeword", Width = 180, Height = 44 };
+        _wakeCalibrateButton = new Button { Text = "Calibrate Wakeword", Width = 180, Height = 44, AccessibleName = "Voice identity calibrate wakeword", AccessibleDescription = "Voice phrase: calibrate wakeword." };
         _wakeCalibrateButton.Click += async (_, _) => await CalibrateWakewordAsync();
 
-        _repairRuntimeButton = new Button { Text = "Repair Identity Runtime", Width = 180, Height = 44 };
+        _repairRuntimeButton = new Button { Text = "Repair Identity Runtime", Width = 180, Height = 44, AccessibleName = "Voice identity repair runtime", AccessibleDescription = "Voice phrase: repair identity runtime." };
         _repairRuntimeButton.Click += (_, _) => RepairIdentityRuntime();
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
@@ -184,11 +198,12 @@ public sealed class VoiceIdentityTrainingForm : Form
         buttons.Controls.Add(_calibrateButton);
         buttons.Controls.Add(_wakeCalibrateButton);
         buttons.Controls.Add(_repairRuntimeButton);
-        layout.Controls.Add(buttons, 1, 8);
+        layout.Controls.Add(buttons, 1, 10);
 
-        _closeButton = new Button { Text = "Close", Width = 100 };
+        _closeButton = new Button { Text = "Close", Width = 100, AccessibleName = "Voice identity close", AccessibleDescription = "Voice phrase: close voice identity training." };
         _closeButton.Click += (_, _) => Close();
-        layout.Controls.Add(_closeButton, 1, 9);
+        CancelButton = _closeButton;
+        layout.Controls.Add(_closeButton, 1, 11);
 
         Controls.Add(layout);
         _levelTimer.Tick += (_, _) => RefreshLiveLevel();
@@ -215,6 +230,7 @@ public sealed class VoiceIdentityTrainingForm : Form
         if (string.IsNullOrWhiteSpace(nextSamplePath))
         {
             _statusLabel.Text = "Collect 3 fresh samples or reset the identity before recording more.";
+            _failureLabel.Text = "Failure type: sample quota reached.";
             return;
         }
 
@@ -234,6 +250,7 @@ public sealed class VoiceIdentityTrainingForm : Form
             _recordButton.Capture = false;
             _currentSamplePath = null;
             _statusLabel.Text = $"Microphone error: {ex.Message}";
+            _failureLabel.Text = $"Failure type: microphone. {GetFailureHint(ex.Message)}";
         }
     }
 
@@ -254,6 +271,7 @@ public sealed class VoiceIdentityTrainingForm : Form
         if (string.IsNullOrWhiteSpace(nextSamplePath))
         {
             _statusLabel.Text = "Collect 3 wake samples or clear wake calibration before recording more.";
+            _failureLabel.Text = "Failure type: wake sample quota reached.";
             return;
         }
 
@@ -275,6 +293,7 @@ public sealed class VoiceIdentityTrainingForm : Form
             _currentSamplePath = null;
             _recordingWakeSample = false;
             _statusLabel.Text = $"Microphone error: {ex.Message}";
+            _failureLabel.Text = $"Failure type: microphone. {GetFailureHint(ex.Message)}";
         }
     }
 
@@ -320,6 +339,7 @@ public sealed class VoiceIdentityTrainingForm : Form
         {
             TryDelete(samplePath);
             _statusLabel.Text = "Sample rejected. Record again with a clear microphone signal.";
+            _failureLabel.Text = "Failure type: microphone.";
             _currentSamplePath = null;
             _recordingWakeSample = false;
             RefreshState();
@@ -339,6 +359,7 @@ public sealed class VoiceIdentityTrainingForm : Form
         _statusLabel.Text = _recordingWakeSample
             ? "Wake sample saved. Record another wake sample or calibrate the wakeword."
             : "Sample saved. Play it back or record another sample.";
+        _failureLabel.Text = "Failure type: none.";
         _currentSamplePath = null;
         _recordingWakeSample = false;
         RefreshState();
@@ -387,11 +408,12 @@ public sealed class VoiceIdentityTrainingForm : Form
         }
 
         var quality = AnalyzeSample(samplePath);
-        if (!quality.Accepted)
-        {
-            _statusLabel.Text = $"Microphone calibration needs a cleaner sample: {quality.Message}";
-            return;
-        }
+            if (!quality.Accepted)
+            {
+                _statusLabel.Text = $"Microphone calibration needs a cleaner sample: {quality.Message}";
+                _failureLabel.Text = "Failure type: microphone.";
+                return;
+            }
 
         var targetRms = Math.Max(0.01, _profile.Settings.VoiceTargetRms);
         var recommendedGain = 20.0 * Math.Log10(targetRms / Math.Max(quality.Rms, 0.001));
@@ -401,6 +423,7 @@ public sealed class VoiceIdentityTrainingForm : Form
         _profileStore.Save(_profile);
         _qualityLabel.Text = $"Calibration used {quality.LevelState}: peak {quality.Peak:0.00}, RMS {quality.Rms:0.000}, recommended gain {recommendedGain:0.0} dB.";
         _statusLabel.Text = "Microphone calibration saved to this profile.";
+        _failureLabel.Text = "Failure type: none.";
         RefreshState();
     }
 
@@ -447,6 +470,7 @@ public sealed class VoiceIdentityTrainingForm : Form
             if (wakeScores.Count == 0)
             {
                 _statusLabel.Text = "Wake calibration could not score the sample set. Repair Wakeword or record a clearer Callsign sample.";
+                _failureLabel.Text = "Failure type: wake runtime or model.";
                 return;
             }
 
@@ -456,6 +480,7 @@ public sealed class VoiceIdentityTrainingForm : Form
             {
                 _qualityLabel.Text = $"Wake calibration scored {wakeScores.Count} wake sample(s); best score {bestWakeSample.Score:0.000}, which is below the trusted calibration floor.";
                 _statusLabel.Text = "Wake samples are too weak to calibrate yet. Record a clearer Callsign wake sample close to the mic, then calibrate again.";
+                _failureLabel.Text = "Failure type: wake model confidence.";
                 return;
             }
 
@@ -467,11 +492,13 @@ public sealed class VoiceIdentityTrainingForm : Form
             _profileStore.Save(_profile);
             _qualityLabel.Text = $"Wake calibration used {wakeScores.Count} wake sample(s); best score {bestWakeSample.Score:0.000}. Threshold now {_profile.Settings.VoiceWakeThreshold:0.000}.";
             _statusLabel.Text = $"Wakeword calibrated from {Path.GetFileName(bestWakeSample.Path)}.";
+            _failureLabel.Text = "Failure type: none.";
             RefreshState();
         }
         catch (Exception ex)
         {
             _statusLabel.Text = $"Wake calibration failed: {ex.Message}";
+            _failureLabel.Text = $"Failure type: service. {GetFailureHint(ex.Message)}";
         }
         finally
         {
@@ -486,6 +513,7 @@ public sealed class VoiceIdentityTrainingForm : Form
         if (samplePaths.Count < required)
         {
             _statusLabel.Text = $"Collect {required - samplePaths.Count} more fresh sample(s) before enrolling.";
+            _failureLabel.Text = "Failure type: not enough samples.";
             return;
         }
 
@@ -495,13 +523,16 @@ public sealed class VoiceIdentityTrainingForm : Form
             var result = await Task.Run(() => _biometricService.EnrollFreshSamples(_profileStore, _profile, samplePaths));
             if (!result.Accepted)
             {
-                _profile.Settings.VoiceEnrollmentStatus = "pyannote setup required";
+                _profile.Settings.VoiceEnrollmentStatus = VoiceBiometricVerificationService.IsSampleProofRejectReason(result.RejectReason)
+                    ? result.Message
+                    : "pyannote setup required";
                 _profile.Settings.VoiceEnrolledUtc = null;
                 _profileStore.Save(_profile);
                 _statusLabel.Text = result.Message;
                 _qualityLabel.Text = result.RejectReason == "pyannote_runtime_not_ready"
                     ? "Identity runtime is missing or still repairing."
                     : result.Message;
+                _failureLabel.Text = DescribeEnrollmentFailure(result.RejectReason, result.Message);
                 RefreshState();
                 return;
             }
@@ -512,12 +543,14 @@ public sealed class VoiceIdentityTrainingForm : Form
             _profileStore.Save(_profile);
             _statusLabel.Text = $"Voice identity enrolled with {result.SamplesEnrolled} fresh sample(s).";
             _qualityLabel.Text = "Enrollment completed successfully.";
+            _failureLabel.Text = "Failure type: none.";
             RefreshState();
         }
         catch (Exception ex)
         {
             _statusLabel.Text = $"Enrollment failed: {ex.Message}";
             _qualityLabel.Text = "Enrollment did not complete.";
+            _failureLabel.Text = $"Failure type: service. {GetFailureHint(ex.Message)}";
         }
         finally
         {
@@ -574,6 +607,8 @@ public sealed class VoiceIdentityTrainingForm : Form
         _sampleLabel.Text = _profile.Settings.VoiceSamplesRecorded < required
             ? $"{_profile.Settings.VoiceSamplesRecorded} / {required} samples. Voice fingerprint is weak: collect 3 fresh samples."
             : $"{_profile.Settings.VoiceSamplesRecorded} / {required} samples. Status: {_profile.Settings.VoiceEnrollmentStatus}";
+        _nextStepLabel.Text = BuildNextStepText(required);
+        _failureLabel.Text = BuildFailureText(required);
         UpdateSampleRows();
         _playButton.Enabled = (File.Exists(GetLatestSamplePath()) || GetRecordedSamplePaths().Count > 0) && !_sampleCapture.IsRecording;
         _enrollButton.Enabled = _profile.Settings.VoiceSamplesRecorded >= required && !_sampleCapture.IsRecording && !_busy;
@@ -645,6 +680,67 @@ public sealed class VoiceIdentityTrainingForm : Form
 
         if (samplePaths.Count == 0)
             _qualityLabel.Text = "No fresh voice samples have been recorded yet.";
+    }
+
+    public string NextStepText => _nextStepLabel.Text;
+    public string FailureText => _failureLabel.Text;
+
+    private string BuildNextStepText(int required)
+    {
+        if (_busy)
+            return "Next step: wait for enrollment or calibration to finish.";
+
+        var recordedCount = _profile.Settings.VoiceSamplesRecorded;
+        if (recordedCount < required)
+            return $"Next step: record {required - recordedCount} more fresh sample(s).";
+
+        if (_profile.Settings.VoiceEnrolledUtc.HasValue)
+            return "Next step: voice identity is enrolled and ready.";
+
+        return "Next step: enroll voice identity.";
+    }
+
+    private string BuildFailureText(int required)
+    {
+        if (_busy)
+            return "Failure type: service.";
+
+        if (_profile.Settings.VoiceSamplesRecorded < required)
+            return "Failure type: not enough samples yet.";
+
+        if (_profile.Settings.VoiceEnrolledUtc.HasValue)
+            return "Failure type: none.";
+
+        var proof = VoiceBiometricVerificationService.ReadEnrollmentSampleProof(_profileStore, _profile);
+        if (proof is { Accepted: false } && proof.SampleCount >= required && VoiceBiometricVerificationService.IsSampleProofRejectReason(proof.RejectReason))
+            return VoiceBiometricVerificationService.DescribeEnrollmentFailureType(proof.RejectReason, proof.Message, proof);
+
+        if (string.Equals(_profile.Settings.VoiceEnrollmentStatus, "pyannote setup required", StringComparison.OrdinalIgnoreCase))
+            return "Failure type: identity runtime or model cache.";
+
+        if ((_profile.Settings.VoiceEnrollmentStatus ?? string.Empty).Contains("collecting sample", StringComparison.OrdinalIgnoreCase))
+            return "Failure type: sample collection in progress.";
+
+        return "Failure type: identity runtime, model cache, or service.";
+    }
+
+    private static string DescribeEnrollmentFailure(string? rejectReason, string message)
+    {
+        return VoiceBiometricVerificationService.DescribeEnrollmentFailureType(rejectReason, message);
+    }
+
+    private static string GetFailureHint(string message)
+    {
+        if (message.Contains("microphone", StringComparison.OrdinalIgnoreCase))
+            return "Check microphone permissions and device selection.";
+
+        if (message.Contains("timeout", StringComparison.OrdinalIgnoreCase))
+            return "Try again after the service finishes starting.";
+
+        if (message.Contains("runtime", StringComparison.OrdinalIgnoreCase))
+            return "Use Repair Identity Runtime or Repair Wakeword if prompted.";
+
+        return "Check the status text and retry.";
     }
 
     private int GetRecordedSampleCount() =>

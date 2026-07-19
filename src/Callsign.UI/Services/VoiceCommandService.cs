@@ -19,6 +19,7 @@ public sealed class VoiceCommandService : IDisposable
     private const int MinimumSegmentMilliseconds = 200;
     private const int DefaultSegmentSilenceMilliseconds = 200;
     private const double DefaultWakeDetectionThreshold = 0.01;
+    private static readonly TimeSpan TemporaryAudioRetention = TimeSpan.FromHours(2);
 
     private readonly object _gate = new();
     private readonly SemaphoreSlim _segmentSignal = new(0);
@@ -138,6 +139,7 @@ public sealed class VoiceCommandService : IDisposable
         _segmentSilenceMilliseconds = Math.Clamp(segmentSilenceMilliseconds ?? DefaultSegmentSilenceMilliseconds, 150, 2000);
         _lastMicrophoneSnapshot = _microphoneProcessor.LastSnapshot;
         _startupWarning = null;
+        PruneStaleTemporaryAudioFiles(DateTime.UtcNow, TemporaryAudioRetention);
         if (OpenWakeWordPythonWakeWordDetector.TryCreate(_openWakeWordModelPath, _openWakeWordRuntimePythonPath, out var openWakeWordDetector, out var wakeWarning))
         {
             _wakeWordDetector = openWakeWordDetector;
@@ -489,11 +491,7 @@ public sealed class VoiceCommandService : IDisposable
 
     private static async Task<string?> WriteWakeWarmupSampleAsync(CancellationToken cancellationToken)
     {
-        var directory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Callsign",
-            "Runtime",
-            "wake-warmup");
+        var directory = GetWakeWarmupDirectory();
         Directory.CreateDirectory(directory);
 
         var path = Path.Combine(directory, $"wake-warmup-{Guid.NewGuid():N}.wav");
@@ -570,11 +568,7 @@ public sealed class VoiceCommandService : IDisposable
         if (wakeWindowSnapshot.Length < wakeWindowBytes / 16)
             return null;
 
-        var directory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Callsign",
-            "Runtime",
-            "wake-window");
+        var directory = GetWakeWindowDirectory();
         Directory.CreateDirectory(directory);
 
         var path = Path.Combine(directory, $"wake-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}.wav");
@@ -660,11 +654,7 @@ public sealed class VoiceCommandService : IDisposable
 
     private void StartCurrentSegment(DateTime nowUtc)
     {
-        var directory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Callsign",
-            "Logs",
-            "segments");
+        var directory = GetSegmentDirectory();
         Directory.CreateDirectory(directory);
 
         var path = Path.Combine(directory, $"segment-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Interlocked.Increment(ref _segmentId)}.wav");
@@ -804,6 +794,31 @@ public sealed class VoiceCommandService : IDisposable
         return Math.Clamp(score * 0.30, 0.01, 0.06);
     }
 
+    public static double? ComputeTrustedWakeCalibrationScore(IReadOnlyList<double> scores)
+    {
+        if (scores is null || scores.Count == 0)
+            return null;
+
+        var trustedScores = scores
+            .Where(score => !double.IsNaN(score) && !double.IsInfinity(score) && score >= 0.05)
+            .OrderBy(score => score)
+            .ToArray();
+
+        if (trustedScores.Length == 0)
+            return null;
+
+        var takeCount = Math.Max(1, (trustedScores.Length + 3) / 4);
+        return trustedScores.Take(takeCount).Average();
+    }
+
+    public static double? ComputeCalibratedWakeThreshold(IReadOnlyList<double> scores)
+    {
+        var trustedScore = ComputeTrustedWakeCalibrationScore(scores);
+        return trustedScore.HasValue
+            ? ComputeCalibratedWakeThreshold(trustedScore.Value)
+            : null;
+    }
+
     public static void ApplyWakeCalibration(UserSettings settings, double score, int sampleCount, string? sourceSampleName = null)
     {
         var calibratedThreshold = ComputeCalibratedWakeThreshold(score);
@@ -814,6 +829,20 @@ public sealed class VoiceCommandService : IDisposable
         settings.VoiceWakeSensitivity = "More responsive";
         settings.VoiceWakeCalibrationVersion = "streaming-frame-v1";
         settings.VoiceWakeCalibrationSampleCount = Math.Max(1, sampleCount);
+        settings.VoiceWakeCalibratedUtc = DateTime.UtcNow;
+        settings.VoiceWakeCalibrationSource = string.IsNullOrWhiteSpace(sourceSampleName) ? null : sourceSampleName;
+    }
+
+    public static void ApplyWakeCalibration(UserSettings settings, IReadOnlyList<double> scores, string? sourceSampleName = null)
+    {
+        var calibratedThreshold = ComputeCalibratedWakeThreshold(scores);
+        if (!calibratedThreshold.HasValue)
+            throw new ArgumentException("Wake calibration score set is too small to trust.", nameof(scores));
+
+        settings.VoiceWakeThreshold = calibratedThreshold.Value;
+        settings.VoiceWakeSensitivity = "More responsive";
+        settings.VoiceWakeCalibrationVersion = "streaming-frame-v1";
+        settings.VoiceWakeCalibrationSampleCount = Math.Max(1, scores.Count(score => !double.IsNaN(score) && !double.IsInfinity(score) && score >= 0.05));
         settings.VoiceWakeCalibratedUtc = DateTime.UtcNow;
         settings.VoiceWakeCalibrationSource = string.IsNullOrWhiteSpace(sourceSampleName) ? null : sourceSampleName;
     }
@@ -917,6 +946,72 @@ public sealed class VoiceCommandService : IDisposable
         {
             // Best-effort cleanup only.
         }
+    }
+
+    public static int PruneStaleTemporaryAudioFiles(DateTime utcNow, TimeSpan retention, string? localAppDataRoot = null)
+    {
+        var root = string.IsNullOrWhiteSpace(localAppDataRoot)
+            ? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
+            : localAppDataRoot;
+        var cutoff = utcNow - retention;
+        var deleted = 0;
+        foreach (var directory in GetTemporaryAudioDirectories(root))
+            deleted += PruneStaleWaveFiles(directory, cutoff);
+
+        return deleted;
+    }
+
+    private static IEnumerable<string> GetTemporaryAudioDirectories(string localAppDataRoot)
+    {
+        yield return GetSegmentDirectory(localAppDataRoot);
+        yield return GetWakeWindowDirectory(localAppDataRoot);
+        yield return GetWakeWarmupDirectory(localAppDataRoot);
+    }
+
+    private static string GetSegmentDirectory(string? localAppDataRoot = null) =>
+        Path.Combine(
+            localAppDataRoot ?? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Callsign",
+            "Logs",
+            "segments");
+
+    private static string GetWakeWindowDirectory(string? localAppDataRoot = null) =>
+        Path.Combine(
+            localAppDataRoot ?? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Callsign",
+            "Runtime",
+            "wake-window");
+
+    private static string GetWakeWarmupDirectory(string? localAppDataRoot = null) =>
+        Path.Combine(
+            localAppDataRoot ?? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Callsign",
+            "Runtime",
+            "wake-warmup");
+
+    private static int PruneStaleWaveFiles(string directory, DateTime cutoffUtc)
+    {
+        if (!Directory.Exists(directory))
+            return 0;
+
+        var deleted = 0;
+        foreach (var path in Directory.EnumerateFiles(directory, "*.wav", SearchOption.TopDirectoryOnly))
+        {
+            try
+            {
+                if (File.GetLastWriteTimeUtc(path) >= cutoffUtc)
+                    continue;
+
+                File.Delete(path);
+                deleted++;
+            }
+            catch
+            {
+                // Temporary audio cleanup is best-effort only.
+            }
+        }
+
+        return deleted;
     }
 
     private void ClearWakeWindow()
@@ -1060,7 +1155,7 @@ internal sealed class OpenWakeWordPythonWakeWordDetector : IWakeWordDetector
         detector = new OpenWakeWordUnavailableWakeWordDetector("openWakeWord wake detection is not initialized.");
         if (!File.Exists(modelPath))
         {
-            warning = "openWakeWord wake detection is required, but the installed Callsign wake model is missing. Use Repair Wakeword to restore it.";
+            warning = "openWakeWord wake detection is required, but the installed Callsign wake model is missing. Next: choose Repair Wakeword on the Account tab to restore it.";
             return false;
         }
 
@@ -1176,7 +1271,7 @@ internal sealed class OpenWakeWordPythonWakeWordDetector : IWakeWordDetector
 
         pythonCommand = string.Empty;
         prefixArgs = [];
-        warning = "openWakeWord wake detection is required, but the installed Python runtime or openWakeWord feature models were not ready. Use Repair Wakeword to restore the local environment.";
+        warning = "openWakeWord wake detection is required, but the installed Python runtime or openWakeWord feature models were not ready. Next: choose Repair Wakeword on the Account tab to restore the local environment.";
         return false;
     }
 

@@ -53,7 +53,7 @@
 <h2>Product thesis</h2>
 <p>Desktop voice control should be powerful enough for real work and visible enough to trust.</p>
 <p>Callsign solves for that by combining:</p>
-<ul><li>an MIT-licensed Free core,</li><li>local profile and voice enrollment,</li><li>audio-path wake detection,</li><li>callsign identity verification,</li><li>animated wake overlay with live readout,</li><li>visible action execution,</li><li>and a strict boundary for future paid extension libraries.</li></ul>
+<ul><li>an MIT-licensed Free core,</li><li>local profile and voice enrollment,</li><li>audio-path wake detection,</li><li>callsign identity verification,</li><li>animated wake overlay with live readout,</li><li>visible action execution,</li><li>and a strict boundary for paid extension libraries.</li></ul>
 <h2>Current alpha boundary</h2>
 <p>The current public release gate is <code>v1.0 alpha</code>.</p>
 <p>v1.0 is complete only when a fresh user can install Callsign, create a profile, enroll voice, say the wake word, verify their callsign, see the overlay/readout, and launch an installed app through a visible Start menu flow.</p>
@@ -66,7 +66,7 @@
 <p>All Alpha v1 capabilities are free and remain free until at least beta.</p>
 <p>Alpha versioning starts at <code>0.0.3a</code> and uses two tracks:</p>
 <ul><li>Major milestones: <code>0.0.3a</code>, <code>0.0.4a</code>, <code>0.0.5a</code>, <code>0.1.0a</code>, and <code>1.0.0a</code>.</li><li><code>0.0.01a</code> and higher for micro stabilizing patches between milestones</li><li><code>1.0.0a</code> for the first public Alpha parity release</li></ul>
-<table><thead><tr><th>Release</th><th>Scope</th></tr></thead><tbody><tr><td><code>v1.0 alpha</code></td><td>Service wake detection, callsign verification, overlay + live readout, and visible Start menu app launch.</td></tr><tr><td><code>v1.1 alpha</code></td><td>Dictation with visible review before insertion, copy, paste, or other text action.</td></tr><tr><td><code>v1.2 alpha</code></td><td>Browser control for visible open, search, navigation, and bounded browser workflows.</td></tr><tr><td><code>v1.3 alpha</code></td><td>System control for Windows, WSL, and Linux, including file search results shown or opened through Explorer.</td></tr><tr><td><code>v1.4 alpha</code></td><td>Voice Access parity hardening, command discovery, update splash, manual walkthroughs, and release-candidate installer/site verification.</td></tr></tbody></table>
+<table><thead><tr><th>Release</th><th>Scope</th></tr></thead><tbody><tr><td><code>v1.0 alpha</code></td><td>Service wake detection, callsign verification, overlay + live readout, and visible Start menu app launch.</td></tr><tr><td><code>v1.1 alpha</code></td><td>Dictation with visible review before insertion, copy, paste, or other text action.</td></tr><tr><td><code>v1.2 alpha</code></td><td>Browser control for visible open, search, navigation, and bounded browser workflows.</td></tr><tr><td><code>v1.3 alpha</code></td><td>System control for Windows, WSL, and Linux, including file search results shown or opened through Explorer.</td></tr><tr><td><code>v1.4 alpha</code></td><td>Voice Access parity hardening, command discovery, update splash, import splash replay, manual walkthroughs, and release-candidate installer/site verification.</td></tr></tbody></table>
 <p>The 100% parity target for <code>VOICE_ACCESS_PARITY_MATRIX.md</code> is the release gating criterion for <code>1.0.0a</code>; all earlier versions keep the flow intentionally additive.</p>
 <h2>Free tier requirements</h2>
 <p>The Free tier is the public open-source product.</p>
@@ -74,7 +74,7 @@
 <ul><li>install and run without a paid account,</li><li>keep the v1.0 wake/identity/overlay/launch path usable,</li><li>keep user profile and enrollment state local by default,</li><li>expose understandable status and failure states,</li><li>provide stop, cancel, timeout, and lockout behavior,</li><li>and remain independent from closed-source extensions.</li></ul>
 <h2>Future commercial tiers</h2>
 <p>Future Pro and Advanced capabilities may be delivered as closed-source extension libraries.</p>
-<p>The planned shape is:</p>
+<p>The shape is:</p>
 <ul><li>Pro: deeper Windows, browser, WSL, Linux, workflow, and system control.</li><li>Advanced: specialized command catalogs, recipes, diagnostics, and power-user automation.</li></ul>
 <p>These tiers must not weaken the open core. Paid code can expand what Callsign knows how to do, but it must still pass identity, policy, approval, visibility, and audit expectations.</p>
 <h2>v1.0 interaction</h2>

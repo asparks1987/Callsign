@@ -14,6 +14,14 @@ public sealed class VisibleControlsOverlayForm : Form
     private readonly Button _closeButton;
     private readonly Label _titleLabel;
     private readonly Label _subtitleLabel;
+    private readonly Label _contractLabel;
+    private readonly FlowLayoutPanel _statusStrip;
+    private readonly Label _statusStopBadge;
+    private readonly Label _statusTargetsBadge;
+    private readonly Label _statusScopeBadge;
+    private readonly Label _statusFocusBadge;
+    private readonly Label _statusCueBadge;
+    private readonly Label _statusSafetyBadge;
     private readonly Label _cueLabel;
     private readonly Label _heardLabel;
     private readonly Label _hintLabel;
@@ -41,7 +49,7 @@ public sealed class VisibleControlsOverlayForm : Form
         MinimumSize = new Size(320, 240);
         Padding = Padding.Empty;
         AccessibleName = "Visible controls overlay";
-        AccessibleDescription = "Visible numbered control overlay for spoken click, double-click, and right-click commands.";
+        AccessibleDescription = "Visible numbered control overlay for spoken click, double-click, triple-click, and right-click commands.";
 
         _hudPanel = new Panel
         {
@@ -58,11 +66,13 @@ public sealed class VisibleControlsOverlayForm : Form
             Dock = DockStyle.Fill,
             BackColor = Color.Transparent,
             ColumnCount = 1,
-            RowCount = 10
+            RowCount = 12
         };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
@@ -121,11 +131,50 @@ public sealed class VisibleControlsOverlayForm : Form
             ForeColor = Color.FromArgb(71, 85, 105),
             TextAlign = ContentAlignment.MiddleLeft,
             Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
-            Text = "Say click, double click, or right click plus a number.",
+            Text = "Say click, double click, triple click, or right click plus a number.",
             AccessibleName = "Visible controls overlay subtitle",
-            AccessibleDescription = "Explains the available spoken click, double-click, and right-click commands for visible numbers."
+            AccessibleDescription = "Explains the available spoken click, double-click, triple-click, and right-click commands for visible numbers."
         };
         layout.Controls.Add(_subtitleLabel, 0, 1);
+
+        _contractLabel = new Label
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            TextAlign = ContentAlignment.MiddleLeft,
+            Font = new Font("Segoe UI Semibold", 8.8f, FontStyle.Bold),
+            Padding = new Padding(10, 0, 10, 0),
+            AutoEllipsis = true,
+            Text = "Contract: visible numbers -> choose target -> click, double click, triple click, or right click.",
+            AccessibleName = "Visible controls contract",
+            AccessibleDescription = "Summarizes the visible-controls flow from numbered targets through the voice action that activates them."
+        };
+        layout.Controls.Add(_contractLabel, 0, 2);
+
+        _statusStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            Margin = new Padding(0, 0, 0, 2),
+            Padding = Padding.Empty,
+            AccessibleName = "Visible controls status strip",
+            AccessibleDescription = "Shows the current stop state, target count, scope, focus, voice cue, and safety state in compact visible badges."
+        };
+        _statusStopBadge = CreateStatusBadge("STOP", "Shows that stop, cancel, and reset remain visible while targeting controls.", Color.FromArgb(255, 238, 235), Color.FromArgb(153, 27, 27));
+        _statusTargetsBadge = CreateStatusBadge("Targets: none", "Shows how many visible controls are numbered.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _statusScopeBadge = CreateStatusBadge("Scope: current view", "Shows what visible surface is being numbered.", Color.FromArgb(240, 249, 255), Color.FromArgb(7, 89, 133));
+        _statusFocusBadge = CreateStatusBadge("Focus: none", "Shows the currently focused target.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _statusCueBadge = CreateStatusBadge("Cue: waiting", "Shows the spoken targeting cue.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _statusSafetyBadge = CreateStatusBadge("Safety: visible", "Shows the visible-target safety boundary.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _statusStrip.Controls.Add(_statusStopBadge);
+        _statusStrip.Controls.Add(_statusTargetsBadge);
+        _statusStrip.Controls.Add(_statusScopeBadge);
+        _statusStrip.Controls.Add(_statusFocusBadge);
+        _statusStrip.Controls.Add(_statusCueBadge);
+        _statusStrip.Controls.Add(_statusSafetyBadge);
+        layout.Controls.Add(_statusStrip, 0, 3);
 
         _cueLabel = new Label
         {
@@ -138,7 +187,7 @@ public sealed class VisibleControlsOverlayForm : Form
             AccessibleName = "Visible controls voice cue",
             AccessibleDescription = "Shows the current spoken targeting cue for the numbered-control overlay."
         };
-        layout.Controls.Add(_cueLabel, 0, 2);
+        layout.Controls.Add(_cueLabel, 0, 4);
 
         _heardLabel = new Label
         {
@@ -151,7 +200,7 @@ public sealed class VisibleControlsOverlayForm : Form
             AccessibleName = "Visible controls heard transcript",
             AccessibleDescription = "Shows what Callsign heard while the visible-control overlay is active."
         };
-        layout.Controls.Add(_heardLabel, 0, 3);
+        layout.Controls.Add(_heardLabel, 0, 5);
 
         _hintLabel = new Label
         {
@@ -160,11 +209,11 @@ public sealed class VisibleControlsOverlayForm : Form
             ForeColor = Color.FromArgb(71, 85, 105),
             TextAlign = ContentAlignment.MiddleLeft,
             Font = new Font("Segoe UI", 8.75f, FontStyle.Italic),
-            Text = "Say click, double click, or right click plus a visible number.",
+            Text = "Say click, double click, triple click, or right click plus a visible number.",
             AccessibleName = "Visible controls target summary",
             AccessibleDescription = "Summarizes how many targets are numbered and how to activate them by voice."
         };
-        layout.Controls.Add(_hintLabel, 0, 4);
+        layout.Controls.Add(_hintLabel, 0, 6);
 
         _safetyLabel = new Label
         {
@@ -177,7 +226,7 @@ public sealed class VisibleControlsOverlayForm : Form
             AccessibleName = "Visible controls safety",
             AccessibleDescription = "Explains that numbered-control commands act only on visible targets, that hide or cancel exits without clicking, and that mouse grid is the fallback when a target is not numbered."
         };
-        layout.Controls.Add(_safetyLabel, 0, 5);
+        layout.Controls.Add(_safetyLabel, 0, 7);
 
         _focusLabel = new Label
         {
@@ -190,7 +239,7 @@ public sealed class VisibleControlsOverlayForm : Form
             AccessibleName = "Visible controls focused target",
             AccessibleDescription = "Identifies the currently focused numbered control target, if one is available."
         };
-        layout.Controls.Add(_focusLabel, 0, 6);
+        layout.Controls.Add(_focusLabel, 0, 8);
 
         _summaryBox = new TextBox
         {
@@ -206,7 +255,7 @@ public sealed class VisibleControlsOverlayForm : Form
             AccessibleName = "Visible controls summary",
             AccessibleDescription = "Lists the foreground app or Callsign controls that can be targeted by visible number or label."
         };
-        layout.Controls.Add(_summaryBox, 0, 7);
+        layout.Controls.Add(_summaryBox, 0, 9);
 
         _itemsList = new ListBox
         {
@@ -216,9 +265,9 @@ public sealed class VisibleControlsOverlayForm : Form
             ForeColor = Color.FromArgb(15, 23, 42),
             Font = new Font("Segoe UI", 10f, FontStyle.Regular),
             AccessibleName = "Visible controls numbered targets",
-            AccessibleDescription = "Contains the numbered targets available for click, double-click, or right-click voice commands."
+            AccessibleDescription = "Contains the numbered targets available for click, double-click, triple-click, or right-click voice commands."
         };
-        layout.Controls.Add(_itemsList, 0, 8);
+        layout.Controls.Add(_itemsList, 0, 10);
 
         ApplyHudRegion();
     }
@@ -226,6 +275,7 @@ public sealed class VisibleControlsOverlayForm : Form
     public bool IsReady => true;
     public string FocusText => _focusLabel.Text;
     public string SubtitleText => _subtitleLabel.Text;
+    public string ContractText => _contractLabel.Text;
     public string CueText => _cueLabel.Text;
     public string HeardText => _heardLabel.Text;
     public string TargetSummaryText => _hintLabel.Text;
@@ -238,6 +288,16 @@ public sealed class VisibleControlsOverlayForm : Form
     public string HudAccessibleName => _hudPanel.AccessibleName ?? string.Empty;
     public string CloseButtonAccessibleName => _closeButton.AccessibleName ?? string.Empty;
     public string CloseButtonText => _closeButton.Text;
+    public string ContractAccessibleName => _contractLabel.AccessibleName ?? string.Empty;
+    public string ContractAccessibleDescription => _contractLabel.AccessibleDescription ?? string.Empty;
+    public string StatusStripAccessibleName => _statusStrip.AccessibleName ?? string.Empty;
+    public string StatusStripTexts => string.Join(" ", _statusStrip.Controls.OfType<Control>().Select(control => control.Text));
+    public string StatusStopBadgeText => _statusStopBadge.Text;
+    public string StatusTargetsBadgeText => _statusTargetsBadge.Text;
+    public string StatusScopeBadgeText => _statusScopeBadge.Text;
+    public string StatusFocusBadgeText => _statusFocusBadge.Text;
+    public string StatusCueBadgeText => _statusCueBadge.Text;
+    public string StatusSafetyBadgeText => _statusSafetyBadge.Text;
     public string CueAccessibleName => _cueLabel.AccessibleName ?? string.Empty;
     public string CueAccessibleDescription => _cueLabel.AccessibleDescription ?? string.Empty;
     public string HeardAccessibleName => _heardLabel.AccessibleName ?? string.Empty;
@@ -293,6 +353,14 @@ public sealed class VisibleControlsOverlayForm : Form
             _itemsList.Dispose();
             _titleLabel.Dispose();
             _subtitleLabel.Dispose();
+            _contractLabel.Dispose();
+            _statusStrip.Dispose();
+            _statusStopBadge.Dispose();
+            _statusTargetsBadge.Dispose();
+            _statusScopeBadge.Dispose();
+            _statusFocusBadge.Dispose();
+            _statusCueBadge.Dispose();
+            _statusSafetyBadge.Dispose();
             _cueLabel.Dispose();
             _heardLabel.Dispose();
             _hintLabel.Dispose();
@@ -305,7 +373,7 @@ public sealed class VisibleControlsOverlayForm : Form
         base.Dispose(disposing);
     }
 
-    public void ShowOverlay(Rectangle ownerBounds, string summary, string cue, string heard, IReadOnlyList<string> numberedItems, IReadOnlyList<VisibleControlOverlayAnnotation> annotations)
+    public void ShowOverlay(Rectangle ownerBounds, string summary, string cue, string heard, IReadOnlyList<string> numberedItems, IReadOnlyList<VisibleControlOverlayAnnotation> annotations, string? scopeText = null)
     {
         if (_disposed)
             return;
@@ -313,14 +381,16 @@ public sealed class VisibleControlsOverlayForm : Form
         _annotations = annotations;
         _ownerBounds = ownerBounds;
         _summaryBox.Text = summary.Trim();
-        _cueLabel.Text = string.IsNullOrWhiteSpace(cue) ? "Voice cue: nothing heard yet." : cue.Trim();
-        _heardLabel.Text = string.IsNullOrWhiteSpace(heard) ? "Heard: nothing yet." : heard.Trim();
+        var scopeLabel = string.IsNullOrWhiteSpace(scopeText) ? "Scope: current view" : scopeText.Trim();
         var focusedAnnotation = _annotations.FirstOrDefault(item => item.IsFocused);
+        _cueLabel.Text = BuildCueText(cue, focusedAnnotation, numberedItems.Count, scopeLabel);
+        _heardLabel.Text = string.IsNullOrWhiteSpace(heard) ? "Heard: nothing yet." : heard.Trim();
         _focusLabel.Text = focusedAnnotation is null
             ? "Focused: none"
             : $"Focused: {focusedAnnotation.Number}. {focusedAnnotation.Label}";
         _subtitleLabel.Text = BuildSubtitleText(focusedAnnotation, numberedItems.Count);
         _hintLabel.Text = FormatTargetSummary(numberedItems.Count, _annotations.Count);
+        UpdateStatusStrip(numberedItems.Count, scopeLabel, focusedAnnotation, _cueLabel.Text);
         var focusedNumber = focusedAnnotation?.Number;
         _itemsList.BeginUpdate();
         try
@@ -478,6 +548,73 @@ public sealed class VisibleControlsOverlayForm : Form
         _hudPanel.Region = new Region(CreateRoundedPath(new Rectangle(Point.Empty, _hudPanel.Size), 24));
     }
 
+    private void UpdateStatusStrip(int targetCount, string scopeText, VisibleControlOverlayAnnotation? focusedAnnotation, string cueText)
+    {
+        if (_statusStrip == null || _statusTargetsBadge == null || _statusScopeBadge == null || _statusFocusBadge == null || _statusCueBadge == null || _statusSafetyBadge == null)
+            return;
+
+        _statusStopBadge.Text = "STOP";
+        _statusStopBadge.ForeColor = Color.FromArgb(153, 27, 27);
+        _statusTargetsBadge.Text = targetCount == 0
+            ? "Targets: none"
+            : targetCount == 1
+                ? "Targets: 1 visible"
+                : $"Targets: {targetCount} visible";
+        _statusScopeBadge.Text = string.IsNullOrWhiteSpace(scopeText)
+            ? "Scope: current view"
+            : scopeText.StartsWith("Scope:", StringComparison.OrdinalIgnoreCase)
+                ? scopeText
+                : $"Scope: {scopeText}";
+        _statusFocusBadge.Text = focusedAnnotation is null
+            ? "Focus: none"
+            : $"Focus: {focusedAnnotation.Number}. {focusedAnnotation.Label}";
+        _statusCueBadge.Text = string.IsNullOrWhiteSpace(cueText)
+            ? "Cue: waiting"
+            : cueText.StartsWith("Voice cue:", StringComparison.OrdinalIgnoreCase)
+                ? cueText.Replace("Voice cue:", "Cue:", StringComparison.OrdinalIgnoreCase)
+                : $"Cue: {cueText}";
+        _statusSafetyBadge.Text = "Safety: visible targets only";
+    }
+
+    private static string BuildCueText(string cue, VisibleControlOverlayAnnotation? focusedAnnotation, int targetCount, string scopeText)
+    {
+        var baseCue = string.IsNullOrWhiteSpace(cue) ? "Voice cue: nothing heard yet." : cue.Trim();
+        var targetSummary = targetCount == 0
+            ? "No visible targets yet."
+            : targetCount == 1
+                ? "1 visible target."
+                : $"{targetCount} visible targets.";
+
+        var focusSummary = focusedAnnotation is null
+            ? "No focus selected."
+            : $"Focused on {focusedAnnotation.Number}. {focusedAnnotation.Label}.";
+
+        var scopeSummary = string.IsNullOrWhiteSpace(scopeText)
+            ? "Scope: current view."
+            : scopeText.StartsWith("Scope:", StringComparison.OrdinalIgnoreCase)
+                ? $"{scopeText}."
+                : $"Scope: {scopeText}.";
+
+        return $"{baseCue} {targetSummary} {focusSummary} {scopeSummary} Say click, double click, triple click, or right click plus a visible number.";
+    }
+
+    private static Label CreateStatusBadge(string text, string description, Color backColor, Color foreColor)
+    {
+        return new Label
+        {
+            AutoSize = true,
+            Margin = new Padding(0, 0, 6, 4),
+            Padding = new Padding(10, 4, 10, 4),
+            BackColor = backColor,
+            ForeColor = foreColor,
+            BorderStyle = BorderStyle.FixedSingle,
+            Font = new Font("Segoe UI", 8.8f, FontStyle.Bold),
+            Text = text,
+            AccessibleName = text,
+            AccessibleDescription = description
+        };
+    }
+
     private static GraphicsPath CreateRoundedPath(Rectangle bounds, int radius)
     {
         var path = new GraphicsPath();
@@ -539,20 +676,20 @@ public sealed class VisibleControlsOverlayForm : Form
         return count switch
         {
             0 => "No visible controls numbered yet.",
-            1 => "1 control numbered. Say click, double click, or right click one.",
-            _ => $"{count.ToString(CultureInfo.InvariantCulture)} controls numbered. Say click, double click, or right click plus a number."
+            1 => "1 control numbered. Say click, double click, triple click, or right click one.",
+            _ => $"{count.ToString(CultureInfo.InvariantCulture)} controls numbered. Say click, double click, triple click, or right click plus a number."
         };
     }
 
     private static string BuildSubtitleText(VisibleControlOverlayAnnotation? focusedAnnotation, int numberedItemCount)
     {
         if (numberedItemCount <= 0)
-            return "Say click, double click, or right click plus a number.";
+            return "Say click, double click, triple click, or right click plus a number.";
 
         if (focusedAnnotation is null)
-            return "Say click, double click, or right click plus a number or label.";
+            return "Say click, double click, triple click, or right click plus a number or label.";
 
-        return $"Say click {focusedAnnotation.Number}, double click {focusedAnnotation.Number}, or right click {focusedAnnotation.Label}.";
+        return $"Say click {focusedAnnotation.Number}, double click {focusedAnnotation.Number}, triple click {focusedAnnotation.Number}, or right click {focusedAnnotation.Label}.";
     }
 }
 

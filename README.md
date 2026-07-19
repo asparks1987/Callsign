@@ -65,7 +65,7 @@ The repository tracks two release numbering lanes:
 | `v1.1 alpha` | Dictation with visible review before insertion, copy, paste, or other text actions. |
 | `v1.2 alpha` | Browser control for visible open, search, navigation, and safe bounded browser tasks. |
 | `v1.3 alpha` | System control for Windows, WSL, and Linux, including file search results shown or opened through Explorer. |
-| `v1.4 alpha` | Parity hardening: close the Voice Access matrix, polish overlays, expand tests, and produce a release-candidate installer/site update. |
+| `v1.4 alpha` | Parity hardening: close the Voice Access matrix, polish overlays, expand tests, replay imported-pack and update splashes, and produce a release-candidate installer/site update. |
 | `Beta or later` | Revisit Pro and Advanced packaging, entitlement, signed extension libraries, and continuously updated command catalogs. |
 
 ## Product structure

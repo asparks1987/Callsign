@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Callsign.Extensions;
 
 namespace Callsign.UI.Models;
 
@@ -43,6 +44,12 @@ public sealed class UserSettings
     public bool DictationFluidModeEnabled { get; set; }
     public bool DictationAutomaticPunctuationEnabled { get; set; } = true;
     public bool DictationProfanityFilterEnabled { get; set; } = true;
+    public string? UpdateServerUrl { get; set; }
+    public string? UpdateDeviceId { get; set; }
+    public List<string> EnabledEntitlementTiers { get; set; } = [CallsignPackTier.Free.ToString()];
+
+    public CallsignEntitlementState GetEntitlementState() =>
+        CallsignEntitlementState.FromTierNames(EnabledEntitlementTiers);
 }
 
 public sealed class UserProfile

@@ -2,10 +2,13 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
 using System.Media;
+using System.Security.Cryptography;
 using System.Runtime.InteropServices;
 using System.Speech.Synthesis;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Callsign.Extensions;
 using Callsign.UI.Models;
 using Callsign.UI.Services;
@@ -42,18 +45,22 @@ public sealed class MainForm : Form
     private readonly RuntimeStateMonitor _runtimeStateMonitor = new();
     private readonly System.Windows.Forms.Timer _sessionTimer = new() { Interval = 1000 };
     private readonly System.Windows.Forms.Timer _visibleControlsRefreshTimer = new() { Interval = 250 };
-    private readonly UpdateCheckService _updateCheckService = new();
+    private readonly UpdateCheckService _updateCheckService;
     private readonly System.Windows.Forms.Timer _updateCheckTimer;
     private SpeechSynthesizer? _dictationReadbackSynthesizer;
     private SpeechSynthesizer? _statusReadbackSynthesizer;
     private WakeOverlayForm? _wakeOverlay;
     private UpdateSplashForm? _updateSplash;
+    private CallsignUpdateManifest? _lastImportSplashManifest;
     private bool _wakeOverlayMissingLogged;
     private bool _updateCheckInProgress;
     private bool _startupWalkthroughShownThisSession;
     private string? _lastShownManifestVersion;
     private readonly string _updateSplashStatePath;
+    private readonly string _importSplashStatePath;
     private readonly string _startupWalkthroughStatePath;
+    private readonly HashSet<string> _knownPackIds = new(StringComparer.OrdinalIgnoreCase);
+    private DateTimeOffset? _lastPackRegistryChangeUtc;
 
     private readonly List<UserProfile> _profiles = [];
     private UserProfile? _activeProfile;
@@ -65,18 +72,33 @@ public sealed class MainForm : Form
     private DateTime? _lastHandledRuntimeUiRequestUtc;
     private DateTime? _lastAppliedServiceDictationUtc;
     private DateTime? _runtimeStopRequestedUtc;
+    private DateTime? _runtimeRestartRequestedUtc;
     private bool _usingLocalPreviewListener;
     private bool _voiceActivationBusy;
 
     private TabControl _tabs = null!;
+    private Label _overviewLabel = null!;
+    private FlowLayoutPanel _shellSummaryStrip = null!;
+    private Label _shellSurfaceBadge = null!;
+    private Label _shellProfileBadge = null!;
+    private Label _shellModeBadge = null!;
+    private Label _shellSessionBadge = null!;
+    private Label _shellEnrollmentBadge = null!;
+    private Label _shellStopBadge = null!;
+    private Label _shellBrowserBadge = null!;
+    private Label _shellVisualBadge = null!;
+    private Label _shellBoundaryBadge = null!;
     private ComboBox _profilePicker = null!;
     private TextBox _callsignText = null!;
     private TextBox _displayNameText = null!;
     private TextBox _emailText = null!;
     private TextBox _departmentText = null!;
     private TextBox _notesText = null!;
+    private Label _accountContractLabel = null!;
+    private Label _accountEntitlementLabel = null!;
     private Label _accountPathLabel = null!;
     private Label _accountStateLabel = null!;
+    private Label _accountSetupPathLabel = null!;
 
     private Label _voiceStateLabel = null!;
     private Label _voiceSamplesLabel = null!;
@@ -86,7 +108,29 @@ public sealed class MainForm : Form
     private Label _voicePlaybackStateLabel = null!;
     private Label _voiceNextStepLabel = null!;
     private Label _voiceFailureLabel = null!;
+    private FlowLayoutPanel _voiceStatusStrip = null!;
+    private Label _voiceStateBadge = null!;
+    private Label _voiceSamplesBadge = null!;
+    private Label _voicePlaybackBadge = null!;
+    private Label _voiceNextStepBadge = null!;
+    private FlowLayoutPanel _voiceWakeStatusStrip = null!;
+    private Label _voiceWakeThresholdBadge = null!;
+    private Label _voiceWakeSensitivityBadge = null!;
+    private Label _voiceWakeCalibrationBadge = null!;
+    private Label _voiceWakeSampleBadge = null!;
+    private Label _voiceContractLabel = null!;
     private TextBox _voiceHelpTextBox = null!;
+    private TextBox _helpTextBox = null!;
+    private TextBox _helpSearchTextBox = null!;
+    private Label _helpContractLabel = null!;
+    private FlowLayoutPanel _helpStatusStrip = null!;
+    private Label _helpScopeBadge = null!;
+    private Label _helpSurfaceBadge = null!;
+    private Label _helpDiscoveryBadge = null!;
+    private Label _helpBrowserBadge = null!;
+    private Label _helpBoundaryBadge = null!;
+    private Label _helpSelectedLabel = null!;
+    private ListBox _helpCommandsList = null!;
     private TextBox _voicePromptText = null!;
     private ProgressBar _voiceProgress = null!;
 
@@ -94,6 +138,14 @@ public sealed class MainForm : Form
     private Label _sessionPhaseLabel = null!;
     private Label _sessionNextActionLabel = null!;
     private Label _sessionHintLabel = null!;
+    private Label _sessionReadinessLabel = null!;
+    private FlowLayoutPanel _sessionStatusStrip = null!;
+    private Label _sessionListenerBadge = null!;
+    private Label _sessionIdentityBadge = null!;
+    private Label _sessionCommandBadge = null!;
+    private Label _sessionNextActionBadge = null!;
+    private Label _sessionReadinessBadge = null!;
+    private Label _sessionContractLabel = null!;
     private Label _sessionIdentityLabel = null!;
     private Label _sessionCommandLabel = null!;
     private Label _sessionCountdownLabel = null!;
@@ -101,11 +153,19 @@ public sealed class MainForm : Form
     private Label _sessionSpeechCueLabel = null!;
     private Label _sessionTranscriptHistoryLabel = null!;
     private ListBox _sessionTranscriptHistoryList = null!;
+    private FlowLayoutPanel _wakeStatusStrip = null!;
+    private Label _wakeDetectorBadge = null!;
+    private Label _wakeSummaryBadge = null!;
+    private Label _wakeQualityBadge = null!;
+    private Label _wakeScoreBadge = null!;
+    private Label _wakeMarginBadge = null!;
     private Label _listeningStateLabel = null!;
     private Label _lastHeardLabel = null!;
     private Label _wakeReliabilityLabel = null!;
+    private Label _wakeSummaryLabel = null!;
     private Label _wakeCandidateLabel = null!;
     private Label _wakeScoreLabel = null!;
+    private Label _wakeMarginLabel = null!;
     private Label _wakeQualityLabel = null!;
     private Label _runtimeOwnerLabel = null!;
     private Label _runtimeProofLabel = null!;
@@ -128,7 +188,9 @@ public sealed class MainForm : Form
     private Button _wakeButton = null!;
     private Button _startListeningButton = null!;
     private Button _stopListeningButton = null!;
+    private Button _restartListeningButton = null!;
     private Button _readStatusButton = null!;
+    private Button _readVoiceModeStatusButton = null!;
     private Button _stopStatusReadbackButton = null!;
     private Button _clearRecentSpeechButton = null!;
     private Button _rehearsePhraseButton = null!;
@@ -157,12 +219,27 @@ public sealed class MainForm : Form
 
     private TextBox _dictationTextBox = null!;
     private Label _dictationStatusLabel = null!;
+    private Label _dictationPreviewLabel = null!;
     private Label _dictationHintLabel = null!;
     private Label _dictationSafetyLabel = null!;
+    private Label _dictationContractLabel = null!;
+    private FlowLayoutPanel _dictationStatusStrip = null!;
+    private Label _dictationModeBadge = null!;
+    private Label _dictationReviewBadge = null!;
+    private Label _dictationReadbackBadge = null!;
+    private Label _dictationSafetyBadge = null!;
+    private Label _dictationBoundaryBadge = null!;
     private Label _dictationSpeechCueLabel = null!;
     private Label _dictationLastHeardLabel = null!;
     private Label _dictationHistoryLabel = null!;
     private ListBox _dictationHistoryList = null!;
+    private ComboBox _dictationCorrectionScopePicker = null!;
+    private Button _showDictationCorrectionsButton = null!;
+    private ComboBox _dictationFormatScopePicker = null!;
+    private Button _capitalizeDictationButton = null!;
+    private Button _titleCaseDictationButton = null!;
+    private Button _uppercaseDictationButton = null!;
+    private Button _lowercaseDictationButton = null!;
     private Button _startDictationButton = null!;
     private Button _stopDictationButton = null!;
     private Button _copyDictationButton = null!;
@@ -231,7 +308,15 @@ public sealed class MainForm : Form
     private TextBox _browserAddressTextInput = null!;
     private TextBox _browserFindTextInput = null!;
     private Label _browserStatusLabel = null!;
+    private Label _browserContractLabel = null!;
     private Label _browserSafetyLabel = null!;
+    private FlowLayoutPanel _browserStatusStrip = null!;
+    private Label _browserTargetBadge = null!;
+    private Label _browserCueBadge = null!;
+    private Label _browserActionBadge = null!;
+    private Label _browserNextBadge = null!;
+    private Label _browserSafetyBadge = null!;
+    private Label _browserBoundaryBadge = null!;
     private Label _browserVoiceCueLabel = null!;
     private Label _browserLastHeardLabel = null!;
     private Label _browserLastActionLabel = null!;
@@ -277,6 +362,9 @@ public sealed class MainForm : Form
     private Button _browserZoomInButton = null!;
     private Button _browserZoomOutButton = null!;
     private Button _browserZoomResetButton = null!;
+    private Button _browserShowNumbersButton = null!;
+    private Button _browserShowGridButton = null!;
+    private Button _browserHideOverlaysButton = null!;
 
     private Label _systemStatusLabel = null!;
     private Button _systemVolumeUpButton = null!;
@@ -358,12 +446,15 @@ public sealed class MainForm : Form
     private Button _systemCutButton = null!;
     private Button _systemSelectAllButton = null!;
     private Button _systemSaveButton = null!;
+    private Button _systemSaveAsButton = null!;
     private Button _systemUndoButton = null!;
     private Button _systemRedoButton = null!;
     private Button _systemBoldButton = null!;
     private Button _systemItalicButton = null!;
     private Button _systemUnderlineButton = null!;
     private Button _systemFindButton = null!;
+    private Button _systemFindNextButton = null!;
+    private Button _systemFindPreviousButton = null!;
     private Button _systemNewWindowButton = null!;
     private Button _systemNewDocumentButton = null!;
     private Button _systemOpenFileButton = null!;
@@ -409,6 +500,17 @@ public sealed class MainForm : Form
     private Button _systemDeletePreviousParagraphButton = null!;
     private Button _systemDeleteNextParagraphButton = null!;
     private Label _systemSelectedActionLabel = null!;
+    private FlowLayoutPanel _systemStatusStrip = null!;
+    private Label _systemActionBadge = null!;
+    private Label _systemSelectedBadge = null!;
+    private Label _systemNextBadge = null!;
+    private Label _systemCueBadge = null!;
+    private Label _systemSafetyBadge = null!;
+    private Label _systemWindowingBadge = null!;
+    private Label _systemKeyboardBadge = null!;
+    private Label _systemMouseBadge = null!;
+    private Label _systemMediaBadge = null!;
+    private Label _systemContractLabel = null!;
     private Label _systemSafetyLabel = null!;
     private Label _systemLastActionLabel = null!;
     private Label _systemVoiceCueLabel = null!;
@@ -418,6 +520,17 @@ public sealed class MainForm : Form
     private TextBox _fileSearchQueryText = null!;
     private Label _fileSearchStatusLabel = null!;
     private Label _fileSearchSafetyLabel = null!;
+    private Label _fileSearchContractLabel = null!;
+    private FlowLayoutPanel _fileSearchStatusStrip = null!;
+    private Label _fileSearchQueryBadge = null!;
+    private Label _fileSearchResultBadge = null!;
+    private Label _fileSearchCueBadge = null!;
+    private Label _fileSearchNextBadge = null!;
+    private Label _fileSearchSafetyBadge = null!;
+    private Label _fileSearchScopeBadge = null!;
+    private Label _fileSearchSelectionBadge = null!;
+    private Label _fileSearchBoundaryBadge = null!;
+    private Label _fileSearchReviewBadge = null!;
     private Label _fileSearchSelectionLabel = null!;
     private ListBox _fileSearchResultsList = null!;
     private Label _fileSearchVoiceCueLabel = null!;
@@ -435,19 +548,122 @@ public sealed class MainForm : Form
     private Label _updatesServerLabel = null!;
     private Label _updatesCadenceLabel = null!;
     private Label _updatesStateLabel = null!;
+    private Label _updatesCheckInLabel = null!;
     private Label _updatesPendingLabel = null!;
+    private Label _updatesDeviceLabel = null!;
+    private Label _updatesInstallerLabel = null!;
+    private Label _updatesDownloadedInstallerLabel = null!;
+    private Label _updatesWebsiteLabel = null!;
+    private Label _updatesReleaseProofLabel = null!;
+    private Label _updatesRestartLabel = null!;
+    private Label _updatesEvidenceLabel = null!;
+    private Label _updatesManualEvidenceLabel = null!;
+    private Label _updatesAutomationLabel = null!;
+    private TextBox _updateServerUrlText = null!;
+    private Button _applyUpdateServerButton = null!;
+    private FlowLayoutPanel _updatesStatusStrip = null!;
+    private Label _updatesServerBadge = null!;
+    private Label _updatesCadenceBadge = null!;
+    private Label _updatesStateBadge = null!;
+    private Label _updatesPendingBadge = null!;
+    private Label _updatesDeviceBadge = null!;
+    private Label _updatesInstallerBadge = null!;
+    private Label _updatesDownloadedInstallerBadge = null!;
+    private Label _updatesWebsiteBadge = null!;
+    private Label _updatesAutomationBadge = null!;
+    private FlowLayoutPanel _updatesManualEvidenceStrip = null!;
+    private Label _updatesManualSuppliedBadge = null!;
+    private Label _updatesManualRemainingBadge = null!;
+    private Label _updatesManualCategoriesBadge = null!;
+    private Label _updatesManualProofBadge = null!;
+    private Label _updatesManualCategoryBadge = null!;
+    private Label _updatesManualNextBadge = null!;
+    private Label _updatesReleaseGatesLabel = null!;
+    private FlowLayoutPanel _updatesReleaseGatesStrip = null!;
+    private Label _updatesGateInstalledBadge = null!;
+    private Label _updatesGateSpokenBadge = null!;
+    private Label _updatesGateFailureBadge = null!;
+    private Label _updatesGateCleanBadge = null!;
+    private Label _updatesNextProofInstructionsLabel = null!;
+    private Label _updatesProofNotesLabel = null!;
+    private Label _updatesContractLabel = null!;
     private Button _checkUpdatesButton = null!;
+    private Button _repeatUpdateSummaryButton = null!;
+    private Button _readUpdatesStatusButton = null!;
+    private Button _readCheckInStatusButton = null!;
+    private Button _readEvidenceStatusButton = null!;
+    private Button _readEvidenceHeaderButton = null!;
+    private Button _readReleaseBlockersButton = null!;
+    private Button _readNextProofButton = null!;
+    private Button _readReleaseGatesButton = null!;
+    private Button _readNextProofInstructionsButton = null!;
+    private Button _readProofNotesStatusButton = null!;
+    private Button _createNextProofNoteButton = null!;
+    private Button _createAllProofNotesButton = null!;
+    private Button _createEvidenceDraftButton = null!;
+    private Button _openEvidenceDraftButton = null!;
+    private Button _readEvidenceDraftButton = null!;
+    private Button _readRestartProofButton = null!;
+    private Button _readReleaseProofButton = null!;
+    private Button _readPlansStatusButton = null!;
+    private Button _openInstallerButton = null!;
+    private Button _openReleaseProofButton = null!;
+    private Button _openReleaseEvidenceButton = null!;
+    private Button _openProofNotesFolderButton = null!;
+    private Button _openManualEvidenceTemplateButton = null!;
+    private Button _openManualEvidenceChecklistButton = null!;
 
+    private Label _plansFreeLabel = null!;
+    private Label _plansProLabel = null!;
+    private Label _plansAdvancedLabel = null!;
+    private Label _plansBoundaryLabel = null!;
+    private Label _plansRoadmapLabel = null!;
+    private ComboBox _plansEntitlementPicker = null!;
+    private FlowLayoutPanel _plansStatusStrip = null!;
+    private FlowLayoutPanel _plansCapabilityStrip = null!;
+    private FlowLayoutPanel _plansRoadmapStrip = null!;
+    private Label _plansFreeBadge = null!;
+    private Label _plansProBadge = null!;
+    private Label _plansAdvancedBadge = null!;
+    private Label _plansBoundaryBadge = null!;
+    private Label _plansFreeCapabilityBadge = null!;
+    private Label _plansProCapabilityBadge = null!;
+    private Label _plansAdvancedCapabilityBadge = null!;
+    private Label _plansStartBadge = null!;
+    private Label _plansMicroBadge = null!;
+    private Label _plansMajorBadge = null!;
+    private Label _plansPublicAlphaBadge = null!;
+    private Label _plansFuturePaidBadge = null!;
+
+    private Label _packsContractLabel = null!;
+    private Label _packsVoiceCueLabel = null!;
     private Label _packsRootLabel = null!;
     private Label _packsStatusLabel = null!;
+    private FlowLayoutPanel _packsStatusStrip = null!;
+    private Label _packsCountBadge = null!;
+    private Label _packsFilterBadge = null!;
+    private Label _packsSelectionBadge = null!;
+    private Label _packsEnablementBadge = null!;
+    private Label _packsImportBadge = null!;
+    private Label _packsWatchBadge = null!;
+    private Label _packsWatchActivityBadge = null!;
+    private Label _packsBoundaryBadge = null!;
     private Label _packsDropZoneLabel = null!;
+    private TextBox _packsFilterText = null!;
+    private FlowLayoutPanel _packsFilterButtonsPanel = null!;
     private Label _packsSelectedSummaryLabel = null!;
     private Label _packsEnablementLabel = null!;
+    private Label _packsImportSummaryLabel = null!;
+    private Label _packsBackupLabel = null!;
     private ListBox _packsList = null!;
     private ListBox _packCommandsList = null!;
     private Button _refreshPacksButton = null!;
     private Button _importPackButton = null!;
     private Button _importPackFolderButton = null!;
+    private Button _readImportSummaryButton = null!;
+    private Button _readWatchStatusButton = null!;
+    private Button _updatePackButton = null!;
+    private Button _rollbackPackButton = null!;
     private Button _openPacksFolderButton = null!;
     private Button _enablePackButton = null!;
     private Button _disablePackButton = null!;
@@ -455,6 +671,7 @@ public sealed class MainForm : Form
 
     private Label _voiceShortcutStatusLabel = null!;
     private Label _voiceShortcutSafetyLabel = null!;
+    private Label _voiceShortcutContractLabel = null!;
     private ListBox _voiceShortcutsList = null!;
     private ListBox _voiceShortcutActionsList = null!;
     private TextBox _voiceShortcutTitleText = null!;
@@ -492,20 +709,20 @@ public sealed class MainForm : Form
 
     private Label _statusLabel = null!;
 
-    public MainForm(ProfileStore? profileStore = null)
+    public MainForm(ProfileStore? profileStore = null, UpdateCheckService? updateCheckService = null, string? stateRoot = null)
     {
         _profileStore = profileStore ?? new ProfileStore();
+        _updateCheckService = updateCheckService ?? new UpdateCheckService();
         _updateCheckTimer = new() { Interval = (int)UpdateCheckService.DefaultCheckInterval.TotalMilliseconds };
-        _updateSplashStatePath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Callsign",
-            "updates-splash-state.json");
-        _startupWalkthroughStatePath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Callsign",
-            "startup-walkthrough-state.json");
+        var stateDirectory = string.IsNullOrWhiteSpace(stateRoot)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Callsign")
+            : stateRoot.Trim();
+        _updateSplashStatePath = Path.Combine(stateDirectory, "updates-splash-state.json");
+        _importSplashStatePath = Path.Combine(stateDirectory, "import-splash-state.json");
+        _startupWalkthroughStatePath = Path.Combine(stateDirectory, "startup-walkthrough-state.json");
         _auditLog = new AlphaAuditLog(_profileStore);
         _lastShownManifestVersion = LoadLastShownUpdateManifestVersion();
+        _lastImportSplashManifest = LoadLastImportSplashManifest();
 
         Text = "Callsign Alpha Setup";
         Width = 1080;
@@ -517,6 +734,8 @@ public sealed class MainForm : Form
 
         BuildForm();
         RefreshCommandRegistry();
+        SyncKnownPackIds();
+        CallsignCommandRegistry.Shared.Changed += CommandRegistryChanged;
         PreloadWakeOverlay();
 
         _voiceCommandService.TranscriptReceived += VoiceTranscriptReceived;
@@ -545,7 +764,9 @@ public sealed class MainForm : Form
                         ? BuildLocalDictationOverlayCaptionText()
                         : BuildLocalOverlayCaptionText(_session.State, _voiceCommandService.IsSpeechActive),
                     FormatLocalWakeCandidateReadout(),
-                    BuildWakeOverlayAuthorityText());
+                    BuildWakeOverlayQualityText(),
+                    BuildWakeOverlayAuthorityText(),
+                    BuildWakeOverlayCalibrationText());
             }
         });
         _voiceCommandService.ListeningStateChanged += (_, _) => RunOnUiThread(() =>
@@ -565,14 +786,17 @@ public sealed class MainForm : Form
         _updateCheckTimer.Start();
 
         UpdateStatus("Create an account, activate voice, then launch installed apps with wake word + callsign.");
+        _ = QueueStartupUpdateCheck();
         Shown += (_, _) =>
         {
             _formReadyForListener = true;
             ShowStartupWalkthroughIfNeeded();
             TryStartListenerForActiveProfile();
-            _ = CheckForUpdatesAsync(force: true, attemptInstall: true);
         };
     }
+
+    private Task QueueStartupUpdateCheck() =>
+        Task.Run(() => CheckForUpdatesAsync(force: true, attemptInstall: true));
 
     private void BuildForm()
     {
@@ -580,11 +804,61 @@ public sealed class MainForm : Form
         {
             Dock = DockStyle.Fill,
             Padding = new Padding(16),
-            RowCount = 2,
+            RowCount = 4,
             ColumnCount = 1
         };
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        _overviewLabel = new Label
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = false,
+            Height = 44,
+            Margin = new Padding(0, 0, 0, 8),
+            Padding = new Padding(14, 8, 14, 8),
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold),
+            Text = "Callsign: wake -> identity verification -> command -> visible action. Free core stays open-source; paid packs remain gated by entitlement and policy. Browser helper discovery stays visible. Visual target: macOS Voice Control.",
+            AccessibleName = "Callsign overview",
+            AccessibleDescription = "Summarizes the app's visible voice-control contract, the Free core boundary, browser helper discovery, and the macOS Voice Control visual target."
+        };
+        root.Controls.Add(_overviewLabel, 0, 0);
+
+        _shellSummaryStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            Margin = new Padding(0, 0, 0, 8),
+            Padding = new Padding(10, 5, 10, 5),
+            BackColor = Color.FromArgb(242, 247, 253),
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AccessibleName = "Callsign shell summary strip",
+            AccessibleDescription = "Shows the active surface, profile, voice mode, session state, enrollment readiness, stop state, browser helper discovery, macOS Voice Control visual target, and Free boundary as compact visible badges."
+        };
+        _shellSurfaceBadge = CreateShellBadge("Surface: Account", "Shows the active Callsign surface.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _shellProfileBadge = CreateShellBadge("Profile: none selected", "Shows the current account profile.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _shellModeBadge = CreateShellBadge("Voice mode: Default", "Shows the current voice mode.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _shellSessionBadge = CreateShellBadge("Session: Idle", "Shows the current session state.", Color.FromArgb(255, 247, 237), Color.FromArgb(194, 65, 12));
+        _shellEnrollmentBadge = CreateShellBadge("Enrollment: none selected", "Shows the current enrollment readiness.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _shellStopBadge = CreateShellBadge("STOP", "Shows that stop, cancel, stop listening, and reset session stay visible from the main shell.", Color.FromArgb(255, 238, 235), Color.FromArgb(153, 27, 27));
+        _shellBrowserBadge = CreateShellBadge("Browser: helpers visible", "Shows that browser overlay helpers stay discoverable from the main shell.", Color.FromArgb(240, 249, 255), Color.FromArgb(2, 132, 199));
+        _shellVisualBadge = CreateShellBadge("Visual: macOS Voice Control", "Shows the compact high-contrast translucent visual target with 4.5:1 contrast, 0.86-0.99 opacity, and 20-26px HUD radius.", Color.FromArgb(238, 242, 255), Color.FromArgb(67, 56, 202));
+        _shellBoundaryBadge = CreateShellBadge("Boundary: Free open", "Shows that the Free core stays open-source while paid commands remain gated by entitlement and policy.", Color.FromArgb(255, 247, 237), Color.FromArgb(154, 52, 18));
+        _shellSummaryStrip.Controls.Add(_shellSurfaceBadge);
+        _shellSummaryStrip.Controls.Add(_shellProfileBadge);
+        _shellSummaryStrip.Controls.Add(_shellModeBadge);
+        _shellSummaryStrip.Controls.Add(_shellSessionBadge);
+        _shellSummaryStrip.Controls.Add(_shellEnrollmentBadge);
+        _shellSummaryStrip.Controls.Add(_shellStopBadge);
+        _shellSummaryStrip.Controls.Add(_shellBrowserBadge);
+        _shellSummaryStrip.Controls.Add(_shellVisualBadge);
+        _shellSummaryStrip.Controls.Add(_shellBoundaryBadge);
+        root.Controls.Add(_shellSummaryStrip, 0, 1);
 
         _tabs = new TabControl
         {
@@ -603,9 +877,11 @@ public sealed class MainForm : Form
         _tabs.TabPages.Add(BuildSessionTab());
         _tabs.TabPages.Add(BuildDictationTab());
         _tabs.TabPages.Add(BuildShortcutsTab());
+        _tabs.TabPages.Add(BuildHelpTab());
         _tabs.TabPages.Add(BuildBrowserTab());
         _tabs.TabPages.Add(BuildSystemTab());
         _tabs.TabPages.Add(BuildFileSearchTab());
+        _tabs.TabPages.Add(BuildPlansTab());
         _tabs.TabPages.Add(BuildPacksTab());
         _tabs.TabPages.Add(BuildUpdatesTab());
         foreach (TabPage page in _tabs.TabPages)
@@ -614,7 +890,8 @@ public sealed class MainForm : Form
             page.ForeColor = Color.FromArgb(15, 23, 42);
             page.Padding = new Padding(2);
         }
-        root.Controls.Add(_tabs, 0, 0);
+        _tabs.SelectedIndexChanged += (_, _) => UpdateShellSummary();
+        root.Controls.Add(_tabs, 0, 2);
 
         _statusLabel = new Label
         {
@@ -625,19 +902,36 @@ public sealed class MainForm : Form
             Padding = new Padding(10, 6, 10, 6),
             BackColor = Color.FromArgb(252, 253, 255),
             ForeColor = Color.FromArgb(71, 85, 105),
-            Font = new Font("Segoe UI", 9f, FontStyle.Regular)
+            Font = new Font("Segoe UI", 9f, FontStyle.Regular),
+            AccessibleName = "Callsign status bar",
+            AccessibleDescription = "Shows the current visible status, next action, or release/update message for the main window."
         };
-        root.Controls.Add(_statusLabel, 0, 1);
+        root.Controls.Add(_statusLabel, 0, 3);
 
         Controls.Add(root);
+        UpdateShellSummary();
     }
 
     private TabPage BuildAccountTab()
     {
         var tab = new TabPage("Account");
-        var layout = BuildTwoColumnLayout(12);
+        var layout = BuildTwoColumnLayout(14);
 
         var heading = CreateHeading("Create the user account Callsign will verify against");
+        _accountContractLabel = new Label
+        {
+            AutoSize = false,
+            Height = 36,
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 4, 0, 0),
+            Padding = new Padding(12, 7, 12, 7),
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            Font = new Font("Segoe UI Semibold", 8.9f, FontStyle.Bold),
+            Text = "Contract: create profile -> verify callsign -> prepare voice enrollment.",
+            AccessibleName = "Account contract",
+            AccessibleDescription = "Summarizes the visible account setup flow from profile creation through callsign verification and voice enrollment."
+        };
 
         _profilePicker = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "Active account" };
         _profilePicker.SelectedIndexChanged += ProfilePickerChanged;
@@ -702,16 +996,252 @@ public sealed class MainForm : Form
         showVoiceHelpButton.AccessibleDescription = "Voice phrase: voice help.";
         showVoiceHelpButton.Click += (_, _) => ShowVoiceHelp();
 
+        var showVisibleControlsButton = CreateShellButton("Visible Controls", 130);
+        showVisibleControlsButton.AccessibleName = "Account visible controls help";
+        showVisibleControlsButton.AccessibleDescription = "Voice phrase: visible controls.";
+        showVisibleControlsButton.Click += (_, _) => ShowVoiceHelp("category:Visible controls");
+
+        var showNumbersButton = CreateShellButton("Show Numbers", 120);
+        showNumbersButton.AccessibleName = "Account show numbers help";
+        showNumbersButton.AccessibleDescription = "Voice phrase: show numbers.";
+        showNumbersButton.Click += (_, _) => ShowVoiceHelp("show numbers");
+
+        var showGridButton = CreateShellButton("Show Grid", 110);
+        showGridButton.AccessibleName = "Account show grid help";
+        showGridButton.AccessibleDescription = "Voice phrase: show grid.";
+        showGridButton.Click += (_, _) => ShowVoiceHelp("show grid");
+
+        var showKeyboardButton = CreateShellButton("Show Keyboard", 130);
+        showKeyboardButton.AccessibleName = "Account show keyboard help";
+        showKeyboardButton.AccessibleDescription = "Voice phrase: show keyboard.";
+        showKeyboardButton.Click += (_, _) => ShowVoiceHelp("show keyboard");
+
+        var browserOpenButton = CreateShellButton("Browser Open", 120);
+        browserOpenButton.AccessibleName = "Account browser open";
+        browserOpenButton.AccessibleDescription = "Voice phrases: browser open, browser search, open website.";
+        browserOpenButton.Click += (_, _) => ShowVoiceHelp("browser open");
+
+        var browserFindButton = CreateShellButton("Browser Find", 115);
+        browserFindButton.AccessibleName = "Account browser find";
+        browserFindButton.AccessibleDescription = "Voice phrase: browser find.";
+        browserFindButton.Click += (_, _) => ShowVoiceHelp("browser find");
+
+        var browserShowNumbersButton = CreateShellButton("Browser Show Numbers", 150);
+        browserShowNumbersButton.AccessibleName = "Account browser show numbers";
+        browserShowNumbersButton.AccessibleDescription = "Voice phrases: browser show numbers, show numbers, show numbers here.";
+        browserShowNumbersButton.Click += (_, _) => ShowVoiceHelp("browser show numbers");
+
+        var browserShowGridButton = CreateShellButton("Browser Show Grid", 140);
+        browserShowGridButton.AccessibleName = "Account browser show grid";
+        browserShowGridButton.AccessibleDescription = "Voice phrases: browser show grid, show grid, show grid here.";
+        browserShowGridButton.Click += (_, _) => ShowVoiceHelp("browser show grid");
+
+        var browserHideOverlaysButton = CreateShellButton("Browser Hide Overlays", 160);
+        browserHideOverlaysButton.AccessibleName = "Account browser hide overlays";
+        browserHideOverlaysButton.AccessibleDescription = "Voice phrases: browser hide overlays, hide browser overlays, hide overlays.";
+        browserHideOverlaysButton.Click += (_, _) => ShowVoiceHelp("browser hide overlays");
+
         var showGettingStartedButton = CreateShellButton("Getting Started", 140);
         showGettingStartedButton.AccessibleName = "Account getting started";
         showGettingStartedButton.AccessibleDescription = "Voice phrase: getting started.";
         showGettingStartedButton.Click += (_, _) => ShowStartupWalkthrough();
 
+        var showVoiceAccessGuideButton = CreateShellButton("Open Voice Access Guide", 178);
+        showVoiceAccessGuideButton.AccessibleName = "Account voice access guide";
+        showVoiceAccessGuideButton.AccessibleDescription = "Voice phrases: open voice access guide, show voice access guide.";
+        showVoiceAccessGuideButton.Click += (_, _) => ShowStartupWalkthrough();
+
+        var showReleaseProofButton = CreateShellButton("Open Release Proof", 150);
+        showReleaseProofButton.AccessibleName = "Account release proof";
+        showReleaseProofButton.AccessibleDescription = "Voice phrase: open release proof.";
+        showReleaseProofButton.Click += (_, _) => ShowStartupWalkthrough(openReleaseProof: true);
+
+        var openVoiceButton = CreateShellButton("Voice", 70);
+        openVoiceButton.AccessibleName = "Account voice";
+        openVoiceButton.AccessibleDescription = "Voice phrase: open voice.";
+        openVoiceButton.Click += (_, _) => SelectTab("Voice");
+
+        var openSessionButton = CreateShellButton("Session", 85);
+        openSessionButton.AccessibleName = "Account session";
+        openSessionButton.AccessibleDescription = "Voice phrase: open session.";
+        openSessionButton.Click += (_, _) => SelectTab("Session");
+
+        var openShortcutsButton = CreateShellButton("Shortcuts", 95);
+        openShortcutsButton.AccessibleName = "Account shortcuts";
+        openShortcutsButton.AccessibleDescription = "Voice phrase: open shortcuts.";
+        openShortcutsButton.Click += (_, _) => SelectTab("Shortcuts");
+
+        var openSystemButton = CreateShellButton("System", 75);
+        openSystemButton.AccessibleName = "Account system";
+        openSystemButton.AccessibleDescription = "Voice phrase: open system.";
+        openSystemButton.Click += (_, _) => SelectTab("System");
+
+        var openFilesButton = CreateShellButton("Files", 70);
+        openFilesButton.AccessibleName = "Account files";
+        openFilesButton.AccessibleDescription = "Voice phrase: open files.";
+        openFilesButton.Click += (_, _) => SelectTab("Files");
+
+        var openPlansButton = CreateShellButton("Plans", 80);
+        openPlansButton.AccessibleName = "Account plans";
+        openPlansButton.AccessibleDescription = "Voice phrase: open plans.";
+        openPlansButton.Click += (_, _) => SelectTab("Plans");
+
+        var openUpdatesButton = CreateShellButton("Updates", 90);
+        openUpdatesButton.AccessibleName = "Account updates";
+        openUpdatesButton.AccessibleDescription = "Voice phrase: open updates.";
+        openUpdatesButton.Click += (_, _) => SelectTab("Updates");
+
+        var readUpdatesStatusButton = CreateShellButton("Read Updates Status", 150);
+        readUpdatesStatusButton.AccessibleName = "Account read updates status";
+        readUpdatesStatusButton.AccessibleDescription = "Voice phrase: read updates status.";
+        readUpdatesStatusButton.Click += (_, _) =>
+        {
+            SelectTab("Updates");
+            ReadUpdatesStatusAloud();
+        };
+
+        var readCheckInStatusButton = CreateShellButton("Read Check-In Status", 156);
+        readCheckInStatusButton.AccessibleName = "Account read check-in status";
+        readCheckInStatusButton.AccessibleDescription = "Voice phrase: read check-in status.";
+        readCheckInStatusButton.Click += (_, _) =>
+        {
+            SelectTab("Updates");
+            ReadCheckInStatusAloud();
+        };
+
+        var readPlansStatusButton = CreateShellButton("Read Plans Status", 144);
+        readPlansStatusButton.AccessibleName = "Account read plans status";
+        readPlansStatusButton.AccessibleDescription = "Voice phrase: read plans status.";
+        readPlansStatusButton.Click += (_, _) =>
+        {
+            SelectTab("Plans");
+            ReadPlansStatusAloud();
+        };
+
+        var readVisualStatusButton = CreateShellButton("Read Visual Status", 146);
+        readVisualStatusButton.AccessibleName = "Account read visual status";
+        readVisualStatusButton.AccessibleDescription = "Voice phrase: read visual status.";
+        readVisualStatusButton.Click += (_, _) => ReadVisualStatusAloud();
+
+        var readRestartProofButton = CreateShellButton("Restart Proof", 145);
+        readRestartProofButton.AccessibleName = "Account restart proof";
+        readRestartProofButton.AccessibleDescription = "Voice phrases: restart proof, read restart proof.";
+        readRestartProofButton.Click += (_, _) =>
+        {
+            SelectTab("Updates");
+            ReadRestartProofAloud();
+        };
+
+        var openEvidenceButton = CreateShellButton("Open Release Evidence", 170);
+        openEvidenceButton.AccessibleName = "Account open release evidence";
+        openEvidenceButton.AccessibleDescription = "Voice phrase: open release evidence.";
+        openEvidenceButton.Click += (_, _) =>
+        {
+            SelectTab("Updates");
+            OpenReleaseEvidenceFolder();
+        };
+
+        var openManualEvidenceButton = CreateShellButton("Open Manual Evidence", 170);
+        openManualEvidenceButton.AccessibleName = "Account open manual evidence";
+        openManualEvidenceButton.AccessibleDescription = "Voice phrase: open manual evidence.";
+        openManualEvidenceButton.Click += (_, _) =>
+        {
+            SelectTab("Updates");
+            OpenManualEvidenceTemplate();
+        };
+
+        var openManualEvidenceChecklistButton = CreateShellButton("Open Checklist", 160);
+        openManualEvidenceChecklistButton.AccessibleName = "Account open manual evidence checklist";
+        openManualEvidenceChecklistButton.AccessibleDescription = "Voice phrases: open manual evidence checklist, open checklist.";
+        openManualEvidenceChecklistButton.Click += (_, _) =>
+        {
+            SelectTab("Updates");
+            OpenManualEvidenceChecklist();
+        };
+
+        var openInstallerButton = CreateShellButton("Open Installer", 126);
+        openInstallerButton.AccessibleName = "Account open installer";
+        openInstallerButton.AccessibleDescription = "Voice phrase: open installer.";
+        openInstallerButton.Click += (_, _) =>
+        {
+            SelectTab("Updates");
+            OpenPendingInstallerDownload();
+        };
+
+        var readImportSummaryButton = CreateShellButton("Read Import Again", 150);
+        readImportSummaryButton.AccessibleName = "Account read import summary";
+        readImportSummaryButton.AccessibleDescription = "Voice phrase: read import summary again.";
+        readImportSummaryButton.Click += (_, _) =>
+        {
+            SelectTab("Packs");
+            RepeatUpdateSplashSummary();
+        };
+
+        var openPacksButton = CreateShellButton("Packs", 80);
+        openPacksButton.AccessibleName = "Account packs";
+        openPacksButton.AccessibleDescription = "Voice phrase: open packs.";
+        openPacksButton.Click += (_, _) => SelectTab("Packs");
+
+        var importPackButton = CreateShellButton("Import Pack", 110);
+        importPackButton.AccessibleName = "Account import pack";
+        importPackButton.AccessibleDescription = "Voice phrase: import extension pack.";
+        importPackButton.Click += (_, _) =>
+        {
+            SelectTab("Packs");
+            ImportCommunityPack();
+        };
+
+        var importPackFolderButton = CreateShellButton("Import Folder", 120);
+        importPackFolderButton.AccessibleName = "Account import folder";
+        importPackFolderButton.AccessibleDescription = "Voice phrase: import extension folder.";
+        importPackFolderButton.Click += (_, _) =>
+        {
+            SelectTab("Packs");
+            ImportCommunityPackFolder();
+        };
+
+        var dropPackFolderButton = CreateShellButton("Drop DLL Folder", 140);
+        dropPackFolderButton.AccessibleName = "Account drop dll folder";
+        dropPackFolderButton.AccessibleDescription = "Voice phrase: drop dll folder.";
+        dropPackFolderButton.Click += (_, _) =>
+        {
+            SelectTab("Packs");
+            ImportCommunityPackFolder();
+        };
+
+        var openPacksFolderButton = CreateShellButton("Open Packs Folder", 140);
+        openPacksFolderButton.AccessibleName = "Account open packs folder";
+        openPacksFolderButton.AccessibleDescription = "Voice phrase: open packs folder.";
+        openPacksFolderButton.Click += (_, _) =>
+        {
+            SelectTab("Packs");
+            OpenPacksFolder();
+        };
+
+        _accountEntitlementLabel = CreateStatusLabel("Entitlement: Free only.");
+        _accountEntitlementLabel.AccessibleName = "Account entitlement";
+        _accountEntitlementLabel.AccessibleDescription = "Shows the current profile entitlement boundary that controls paid command loading.";
         _accountPathLabel = new Label { AutoSize = true, ForeColor = Color.FromArgb(71, 85, 105), Text = "No profile selected." };
         _accountStateLabel = new Label { AutoSize = true, ForeColor = Color.FromArgb(71, 85, 105), Text = "Voice not activated." };
+        _accountSetupPathLabel = new Label
+        {
+            AutoSize = false,
+            Height = 34,
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 4, 0, 0),
+            Padding = new Padding(12, 7, 12, 7),
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            Font = new Font("Segoe UI Semibold", 8.9f, FontStyle.Bold),
+            Text = "Setup path: Account -> Voice -> Session -> Shortcuts -> System -> Files -> Plans -> Updates -> Packs.",
+            AccessibleName = "Account setup path",
+            AccessibleDescription = "Shows the recommended clean-install order for the visible setup surfaces."
+        };
 
         var row = 0;
         AddFullWidth(layout, heading, row++);
+        AddFullWidth(layout, _accountContractLabel, row++);
+        AddFullWidth(layout, _accountEntitlementLabel, row++);
         AddRow(layout, "Active account", _profilePicker, row++);
         AddRow(layout, "Callsign", _callsignText, row++);
         AddFullWidth(layout, new Label
@@ -724,6 +1254,9 @@ public sealed class MainForm : Form
         AddRow(layout, "Email", _emailText, row++);
         AddRow(layout, "Department", _departmentText, row++);
         AddRow(layout, "Notes", _notesText, row++);
+        layout.Controls.Add(_accountSetupPathLabel, 0, row);
+        layout.SetColumnSpan(_accountSetupPathLabel, 2);
+        row++;
 
         layout.Controls.Add(new Label { Text = "Profile folder", ForeColor = Color.FromArgb(71, 85, 105) }, 0, row);
         layout.Controls.Add(_accountPathLabel, 1, row++);
@@ -748,7 +1281,40 @@ public sealed class MainForm : Form
         buttons.Controls.Add(runWakeSetupButton);
         buttons.Controls.Add(runPyannoteSetupButton);
         buttons.Controls.Add(showVoiceHelpButton);
+        buttons.Controls.Add(showVisibleControlsButton);
+        buttons.Controls.Add(showNumbersButton);
+        buttons.Controls.Add(showGridButton);
+        buttons.Controls.Add(showKeyboardButton);
+        buttons.Controls.Add(browserOpenButton);
+        buttons.Controls.Add(browserFindButton);
+        buttons.Controls.Add(browserShowNumbersButton);
+        buttons.Controls.Add(browserShowGridButton);
+        buttons.Controls.Add(browserHideOverlaysButton);
         buttons.Controls.Add(showGettingStartedButton);
+        buttons.Controls.Add(showVoiceAccessGuideButton);
+        buttons.Controls.Add(showReleaseProofButton);
+        buttons.Controls.Add(openVoiceButton);
+        buttons.Controls.Add(openSessionButton);
+        buttons.Controls.Add(openShortcutsButton);
+        buttons.Controls.Add(openSystemButton);
+        buttons.Controls.Add(openFilesButton);
+        buttons.Controls.Add(openPlansButton);
+        buttons.Controls.Add(openUpdatesButton);
+        buttons.Controls.Add(readUpdatesStatusButton);
+        buttons.Controls.Add(readCheckInStatusButton);
+        buttons.Controls.Add(readPlansStatusButton);
+        buttons.Controls.Add(readVisualStatusButton);
+        buttons.Controls.Add(readRestartProofButton);
+        buttons.Controls.Add(openEvidenceButton);
+        buttons.Controls.Add(openManualEvidenceButton);
+        buttons.Controls.Add(openManualEvidenceChecklistButton);
+        buttons.Controls.Add(openInstallerButton);
+        buttons.Controls.Add(readImportSummaryButton);
+        buttons.Controls.Add(openPacksButton);
+        buttons.Controls.Add(importPackButton);
+        buttons.Controls.Add(importPackFolderButton);
+        buttons.Controls.Add(dropPackFolderButton);
+        buttons.Controls.Add(openPacksFolderButton);
         layout.Controls.Add(buttons, 1, row);
         layout.SetColumnSpan(buttons, 2);
 
@@ -759,7 +1325,7 @@ public sealed class MainForm : Form
     private TabPage BuildVoiceTab()
     {
         var tab = new TabPage("Voice");
-        var layout = BuildTwoColumnLayout(12);
+        var layout = BuildTwoColumnLayout(13);
 
         var heading = CreateHeading("Record and review the callsign that unlocks voice control");
         var description = new Label
@@ -774,6 +1340,20 @@ public sealed class MainForm : Form
             MaximumSize = new Size(900, 0),
             ForeColor = Color.FromArgb(71, 85, 105),
             Text = "The red button is press-and-hold only: keep it down while speaking so the user always knows when recording is live."
+        };
+        _voiceContractLabel = new Label
+        {
+            AutoSize = false,
+            Height = 36,
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 4, 0, 0),
+            Padding = new Padding(12, 7, 12, 7),
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            Font = new Font("Segoe UI Semibold", 8.9f, FontStyle.Bold),
+            Text = "Contract: record sample -> review voice state -> activate account.",
+            AccessibleName = "Voice contract",
+            AccessibleDescription = "Summarizes the visible voice enrollment flow from sample recording through review and activation."
         };
 
         _voicePromptText = new TextBox
@@ -793,8 +1373,47 @@ public sealed class MainForm : Form
         _voiceRecognitionModeLabel = new Label { AutoSize = true, Text = "Recognition mode: initializing..." };
         _voiceRecordingStateLabel = new Label { AutoSize = true, Text = "No sample recording in progress." };
         _voicePlaybackStateLabel = new Label { AutoSize = true, Text = "No sample available for playback." };
-        _voiceNextStepLabel = new Label { AutoSize = true, MaximumSize = new Size(900, 0), Text = "Next step: create or pick a profile." };
+        _voiceNextStepLabel = new Label { AutoSize = true, MaximumSize = new Size(900, 0), Text = "Next step: choose or create a profile." };
         _voiceFailureLabel = new Label { AutoSize = true, MaximumSize = new Size(900, 0), Text = "Failure type: none yet." };
+        _voiceStatusStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = new Padding(10, 5, 10, 5),
+            BackColor = Color.FromArgb(242, 247, 253),
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AccessibleName = "Voice status strip",
+            AccessibleDescription = "Shows the current voice enrollment state, sample count, playback state, and next step as compact visible badges."
+        };
+        _voiceStateBadge = CreateVoiceBadge("Voice: ready to enroll", "Shows whether the active profile is enrolled or ready for enrollment.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _voiceSamplesBadge = CreateVoiceBadge("Samples: 0 / 3", "Shows how many voice samples have been recorded.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _voicePlaybackBadge = CreateVoiceBadge("Playback: none", "Shows whether a sample is ready to play back.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _voiceNextStepBadge = CreateVoiceBadge("Next: create or pick profile", "Shows the current next action in the voice enrollment flow.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _voiceStatusStrip.Controls.Add(_voiceStateBadge);
+        _voiceStatusStrip.Controls.Add(_voiceSamplesBadge);
+        _voiceStatusStrip.Controls.Add(_voicePlaybackBadge);
+        _voiceStatusStrip.Controls.Add(_voiceNextStepBadge);
+        _voiceWakeStatusStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = Padding.Empty,
+            AccessibleName = "Wake calibration status strip",
+            AccessibleDescription = "Shows the current wake threshold, sensitivity, calibration timestamp, and sample count as compact visible badges."
+        };
+        _voiceWakeThresholdBadge = CreateVoiceBadge("Wake threshold: default", "Shows the active wake threshold used by the wake detector.", Color.FromArgb(255, 247, 237), Color.FromArgb(154, 52, 18));
+        _voiceWakeSensitivityBadge = CreateVoiceBadge("Sensitivity: default", "Shows the active wake sensitivity setting.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _voiceWakeCalibrationBadge = CreateVoiceBadge("Calibration: none", "Shows when the wake threshold was last calibrated.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _voiceWakeSampleBadge = CreateVoiceBadge("Samples: none", "Shows how many wake samples informed the current calibration.", Color.FromArgb(240, 249, 255), Color.FromArgb(7, 89, 133));
+        _voiceWakeStatusStrip.Controls.Add(_voiceWakeThresholdBadge);
+        _voiceWakeStatusStrip.Controls.Add(_voiceWakeSensitivityBadge);
+        _voiceWakeStatusStrip.Controls.Add(_voiceWakeCalibrationBadge);
+        _voiceWakeStatusStrip.Controls.Add(_voiceWakeSampleBadge);
         _voiceHelpTextBox = new TextBox
         {
             Dock = DockStyle.Fill,
@@ -843,6 +1462,9 @@ public sealed class MainForm : Form
         AddFullWidth(layout, heading, row++);
         AddFullWidth(layout, description, row++);
         AddFullWidth(layout, recordingTip, row++);
+        AddFullWidth(layout, _voiceContractLabel, row++);
+        AddFullWidth(layout, _voiceStatusStrip, row++);
+        AddFullWidth(layout, _voiceWakeStatusStrip, row++);
         AddRow(layout, "Sample prompt", _voicePromptText, row++);
         AddRow(layout, "Training progress", _voiceProgress, row++);
         AddRow(layout, "Voice status", _voiceStateLabel, row++);
@@ -869,6 +1491,1463 @@ public sealed class MainForm : Form
         layout.Controls.Add(buttons, 1, row);
         layout.SetColumnSpan(buttons, 2);
 
+        tab.Controls.Add(layout);
+        return tab;
+    }
+
+    private TabPage BuildHelpTab()
+    {
+        var tab = new TabPage("Help");
+        var layout = BuildTwoColumnLayout(12);
+
+        var heading = CreateHeading("Explore what Callsign can say");
+        var description = new Label
+        {
+            AutoSize = true,
+            MaximumSize = new Size(900, 0),
+            Text = "Use this surface to review command families, safety phrases, and the visible command palette. Discovery stays close to the main window so help feels like part of the product."
+        };
+        _helpContractLabel = new Label
+        {
+            AutoSize = false,
+            Height = 36,
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 4, 0, 0),
+            Padding = new Padding(12, 7, 12, 7),
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            Font = new Font("Segoe UI Semibold", 8.9f, FontStyle.Bold),
+            Text = "Contract: search commands -> review details -> open the visible palette.",
+            AccessibleName = "Help contract",
+            AccessibleDescription = "Summarizes the visible help flow from command search through review and opening the palette."
+        };
+        _helpStatusStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = new Padding(10, 5, 10, 5),
+            BackColor = Color.FromArgb(242, 247, 253),
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AccessibleName = "Help status strip",
+            AccessibleDescription = "Shows the current help scope, surface, discovery source, browser helper discovery, and Free boundary in compact visible badges."
+        };
+        _helpScopeBadge = CreateShellBadge("Scope: all commands", "Shows the current help scope.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _helpSurfaceBadge = CreateShellBadge("Surface: help", "Shows that this is the visible command-discovery surface.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _helpDiscoveryBadge = CreateShellBadge("Discovery: open core + extensions", "Shows that Help opens the visible command palette and keeps the open-core and extension command filters discoverable.", Color.FromArgb(240, 249, 255), Color.FromArgb(7, 89, 133));
+        _helpBrowserBadge = CreateShellBadge("Browser: helpers visible", "Shows that browser overlay helpers stay discoverable from Help.", Color.FromArgb(240, 249, 255), Color.FromArgb(2, 132, 199));
+        _helpBoundaryBadge = CreateShellBadge("Boundary: Free open", "Shows that the Free core stays open-source while paid commands remain gated by entitlement and policy.", Color.FromArgb(255, 247, 237), Color.FromArgb(154, 52, 18));
+        _helpStatusStrip.Controls.Add(_helpScopeBadge);
+        _helpStatusStrip.Controls.Add(_helpSurfaceBadge);
+        _helpStatusStrip.Controls.Add(_helpDiscoveryBadge);
+        _helpStatusStrip.Controls.Add(_helpBrowserBadge);
+        _helpStatusStrip.Controls.Add(_helpBoundaryBadge);
+
+        _helpSearchTextBox = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            BorderStyle = BorderStyle.FixedSingle,
+            Font = new Font("Segoe UI", 11.25f, FontStyle.Regular),
+            PlaceholderText = "Search commands, categories, tiers, source filters, safety, or extension packs",
+            AccessibleName = "Help search",
+            AccessibleDescription = "Searches the visible help text, including open-core and extension source filters, and can open the command palette filtered to the same query.",
+            BackColor = Color.White,
+            ForeColor = Color.FromArgb(15, 23, 42)
+        };
+        _helpSearchTextBox.TextChanged += (_, _) => RefreshHelpTab();
+        _helpSearchTextBox.KeyDown += (_, e) =>
+        {
+            if (e.KeyCode != Keys.Enter)
+                return;
+
+            e.SuppressKeyPress = true;
+            ShowCommandPalette(_helpSearchTextBox.Text);
+        };
+
+        _helpTextBox = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            Multiline = true,
+            ReadOnly = true,
+            ScrollBars = ScrollBars.Vertical,
+            Height = 260,
+            AccessibleName = "Command help"
+        };
+        _helpTextBox.Text = BuildVoiceHelpText();
+
+        _helpSelectedLabel = CreateStatusLabel("Selected: none");
+        _helpSelectedLabel.AccessibleName = "Help selected command";
+        _helpSelectedLabel.AccessibleDescription = "Shows the selected command or the currently focused command family in the help surface.";
+
+        _helpCommandsList = CreateShellListBox(170);
+        _helpCommandsList.AccessibleName = "Help command list";
+        _helpCommandsList.AccessibleDescription = "Shows matching commands from the help search. Select a command to review its phrase, description, tier, source, risk, approval requirement, and examples.";
+        _helpCommandsList.SelectedIndexChanged += (_, _) => RefreshHelpSelection();
+
+        var openPaletteButton = CreateShellButton("Open Palette", 120);
+        openPaletteButton.AccessibleName = "Help open palette";
+        openPaletteButton.AccessibleDescription = "Opens the command palette so you can search what Callsign can say.";
+        openPaletteButton.Click += (_, _) => ShowCommandPalette(_helpSearchTextBox?.Text);
+
+        var allCommandsButton = CreateShellButton("All Commands", 120);
+        allCommandsButton.AccessibleName = "Help all commands";
+        allCommandsButton.AccessibleDescription = "Voice phrase: show all commands.";
+        allCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = string.Empty;
+
+            ShowCommandPalette();
+        };
+
+        var freeCommandsButton = CreateShellButton("Free", 90);
+        freeCommandsButton.AccessibleName = "Help free commands";
+        freeCommandsButton.AccessibleDescription = "Voice phrase: show free commands.";
+        freeCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "free";
+
+            ShowCommandPalette("free");
+        };
+
+        var openCoreCommandsButton = CreateShellButton("Open Core", 110);
+        openCoreCommandsButton.AccessibleName = "Help open core commands";
+        openCoreCommandsButton.AccessibleDescription = "Voice phrase: show open core commands.";
+        openCoreCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "source:free";
+
+            ShowCommandPalette("source:free");
+        };
+
+        var paidCommandsButton = CreateShellButton("Paid", 90);
+        paidCommandsButton.AccessibleName = "Help paid commands";
+        paidCommandsButton.AccessibleDescription = "Voice phrase: show paid commands.";
+        paidCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "paid";
+
+            ShowCommandPalette("paid");
+        };
+
+        var proCommandsButton = CreateShellButton("Pro", 85);
+        proCommandsButton.AccessibleName = "Help pro commands";
+        proCommandsButton.AccessibleDescription = "Voice phrase: show pro commands.";
+        proCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "tier:pro";
+
+            ShowCommandPalette("tier:pro");
+        };
+
+        var advancedCommandsButton = CreateShellButton("Advanced", 110);
+        advancedCommandsButton.AccessibleName = "Help advanced commands";
+        advancedCommandsButton.AccessibleDescription = "Voice phrase: show advanced commands.";
+        advancedCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "tier:advanced";
+
+            ShowCommandPalette("tier:advanced");
+        };
+
+        var safetyCommandsButton = CreateShellButton("Safety", 95);
+        safetyCommandsButton.AccessibleName = "Help safety commands";
+        safetyCommandsButton.AccessibleDescription = "Voice phrase: show safety commands.";
+        safetyCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "safety";
+
+            ShowCommandPalette("safety");
+        };
+
+        var sessionSafetyCommandsButton = CreateShellButton("Session Safety", 130);
+        sessionSafetyCommandsButton.AccessibleName = "Help session safety commands";
+        sessionSafetyCommandsButton.AccessibleDescription = "Voice phrase: show session commands.";
+        sessionSafetyCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "category:Session safety";
+
+            ShowCommandPalette("category:Session safety");
+        };
+
+        var navigationCommandsButton = CreateShellButton("Navigation", 115);
+        navigationCommandsButton.AccessibleName = "Help navigation commands";
+        navigationCommandsButton.AccessibleDescription = "Voice phrase: show navigation commands.";
+        navigationCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "category:Navigation";
+
+            ShowCommandPalette("category:Navigation");
+        };
+
+        var gettingStartedButton = CreateShellButton("Getting Started", 135);
+        gettingStartedButton.AccessibleName = "Help getting started";
+        gettingStartedButton.AccessibleDescription = "Voice phrase: getting started.";
+        gettingStartedButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "getting started";
+
+            ShowCommandPalette("getting started");
+        };
+
+        var voiceAccessGuideButton = CreateShellButton("Open Voice Access Guide", 178);
+        voiceAccessGuideButton.AccessibleName = "Help voice access guide";
+        voiceAccessGuideButton.AccessibleDescription = "Voice phrases: open voice access guide, show voice access guide.";
+        voiceAccessGuideButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "getting started";
+
+            ShowStartupWalkthrough();
+        };
+
+        var releaseProofButton = CreateShellButton("Open Release Proof", 150);
+        releaseProofButton.AccessibleName = "Help release proof";
+        releaseProofButton.AccessibleDescription = "Voice phrase: open release proof.";
+        releaseProofButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "open release proof";
+
+            ShowStartupWalkthrough(openReleaseProof: true);
+        };
+
+        var setupCommandsButton = CreateShellButton("Setup", 85);
+        setupCommandsButton.AccessibleName = "Help setup commands";
+        setupCommandsButton.AccessibleDescription = "Voice phrase: show setup commands.";
+        setupCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "setup";
+
+            ShowCommandPalette("setup");
+        };
+
+        var accountTabButton = CreateShellButton("Account", 90);
+        accountTabButton.AccessibleName = "Help account tab";
+        accountTabButton.AccessibleDescription = "Voice phrase: open account.";
+        accountTabButton.Click += (_, _) => SelectTab("Account");
+
+        var voiceTabButton = CreateShellButton("Voice", 80);
+        voiceTabButton.AccessibleName = "Help voice tab";
+        voiceTabButton.AccessibleDescription = "Voice phrase: open voice tab.";
+        voiceTabButton.Click += (_, _) => SelectTab("Voice");
+
+        var sessionTabButton = CreateShellButton("Session", 90);
+        sessionTabButton.AccessibleName = "Help session tab";
+        sessionTabButton.AccessibleDescription = "Voice phrase: open session.";
+        sessionTabButton.Click += (_, _) => SelectTab("Session");
+
+        var plansTabButton = CreateShellButton("Plans", 85);
+        plansTabButton.AccessibleName = "Help plans tab";
+        plansTabButton.AccessibleDescription = "Voice phrase: open plans.";
+        plansTabButton.Click += (_, _) => SelectTab("Plans");
+
+        var packsTabButton = CreateShellButton("Packs", 85);
+        packsTabButton.AccessibleName = "Help packs tab";
+        packsTabButton.AccessibleDescription = "Voice phrase: open packs.";
+        packsTabButton.Click += (_, _) => SelectTab("Packs");
+
+        var importPackButton = CreateShellButton("Import Pack", 110);
+        importPackButton.AccessibleName = "Help import pack";
+        importPackButton.AccessibleDescription = "Voice phrase: import extension pack.";
+        importPackButton.Click += (_, _) =>
+        {
+            SelectTab("Packs");
+            ImportCommunityPack();
+        };
+
+        var importPackFolderButton = CreateShellButton("Import Folder", 120);
+        importPackFolderButton.AccessibleName = "Help import folder";
+        importPackFolderButton.AccessibleDescription = "Voice phrase: import extension folder.";
+        importPackFolderButton.Click += (_, _) =>
+        {
+            SelectTab("Packs");
+            ImportCommunityPackFolder();
+        };
+
+        var dropPackFolderButton = CreateShellButton("Drop DLL Folder", 140);
+        dropPackFolderButton.AccessibleName = "Help drop dll folder";
+        dropPackFolderButton.AccessibleDescription = "Voice phrase: drop dll folder.";
+        dropPackFolderButton.Click += (_, _) =>
+        {
+            SelectTab("Packs");
+            ImportCommunityPackFolder();
+        };
+
+        var openPacksFolderButton = CreateShellButton("Open Packs Folder", 140);
+        openPacksFolderButton.AccessibleName = "Help open packs folder";
+        openPacksFolderButton.AccessibleDescription = "Voice phrase: open packs folder.";
+        openPacksFolderButton.Click += (_, _) =>
+        {
+            SelectTab("Packs");
+            OpenPacksFolder();
+        };
+
+        var refreshPacksButton = CreateShellButton("Refresh Packs", 120);
+        refreshPacksButton.AccessibleName = "Help refresh packs";
+        refreshPacksButton.AccessibleDescription = "Voice phrase: refresh packs.";
+        refreshPacksButton.Click += (_, _) =>
+        {
+            SelectTab("Packs");
+            RefreshPacksPanel(forceReload: true);
+        };
+
+        var updatePackButton = CreateShellButton("Update Pack", 116);
+        updatePackButton.AccessibleName = "Help update pack";
+        updatePackButton.AccessibleDescription = "Voice phrase: update extension pack.";
+        updatePackButton.Click += (_, _) =>
+        {
+            SelectTab("Packs");
+            UpdateCommunityPack();
+        };
+
+        var rollbackPackButton = CreateShellButton("Rollback Pack", 122);
+        rollbackPackButton.AccessibleName = "Help rollback pack";
+        rollbackPackButton.AccessibleDescription = "Voice phrase: rollback extension pack.";
+        rollbackPackButton.Click += (_, _) =>
+        {
+            SelectTab("Packs");
+            RollbackSelectedPack();
+        };
+
+        var enablePackButton = CreateShellButton("Enable Pack", 106);
+        enablePackButton.AccessibleName = "Help enable pack";
+        enablePackButton.AccessibleDescription = "Voice phrase: enable selected pack.";
+        enablePackButton.Click += (_, _) =>
+        {
+            SelectTab("Packs");
+            ToggleSelectedPack(enabled: true);
+        };
+
+        var disablePackButton = CreateShellButton("Disable Pack", 110);
+        disablePackButton.AccessibleName = "Help disable pack";
+        disablePackButton.AccessibleDescription = "Voice phrase: disable selected pack.";
+        disablePackButton.Click += (_, _) =>
+        {
+            SelectTab("Packs");
+            ToggleSelectedPack(enabled: false);
+        };
+
+        var removePackButton = CreateShellButton("Remove Pack", 106);
+        removePackButton.AccessibleName = "Help remove pack";
+        removePackButton.AccessibleDescription = "Voice phrase: remove selected pack.";
+        removePackButton.Click += (_, _) =>
+        {
+            SelectTab("Packs");
+            RemoveSelectedPack();
+        };
+
+        var updatesCommandsButton = CreateShellButton("Updates", 95);
+        updatesCommandsButton.AccessibleName = "Help updates commands";
+        updatesCommandsButton.AccessibleDescription = "Voice phrase: show updates commands.";
+        updatesCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "category:Updates";
+
+            ShowCommandPalette("category:Updates");
+        };
+
+        var readUpdatesStatusButton = CreateShellButton("Read Updates Status", 150);
+        readUpdatesStatusButton.AccessibleName = "Help read updates status";
+        readUpdatesStatusButton.AccessibleDescription = "Voice phrase: read updates status.";
+        readUpdatesStatusButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "read updates status";
+
+            ShowCommandPalette("read updates status");
+        };
+
+        var readCheckInStatusButton = CreateShellButton("Read Check-In Status", 156);
+        readCheckInStatusButton.AccessibleName = "Help read check-in status";
+        readCheckInStatusButton.AccessibleDescription = "Voice phrase: read check-in status.";
+        readCheckInStatusButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "read check-in status";
+
+            ShowCommandPalette("read check-in status");
+        };
+
+        var readPlansStatusButton = CreateShellButton("Read Plans Status", 144);
+        readPlansStatusButton.AccessibleName = "Help read plans status";
+        readPlansStatusButton.AccessibleDescription = "Voice phrase: read plans status.";
+        readPlansStatusButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "read plans status";
+
+            ShowCommandPalette("read plans status");
+        };
+
+        var readVisualStatusButton = CreateShellButton("Read Visual Status", 146);
+        readVisualStatusButton.AccessibleName = "Help read visual status";
+        readVisualStatusButton.AccessibleDescription = "Voice phrase: read visual status.";
+        readVisualStatusButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "read visual status";
+
+            ShowCommandPalette("read visual status");
+        };
+
+        var readUpdateSummaryButton = CreateShellButton("Read Summary Again", 150);
+        readUpdateSummaryButton.AccessibleName = "Help read update summary";
+        readUpdateSummaryButton.AccessibleDescription = "Voice phrase: read update summary again.";
+        readUpdateSummaryButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "read update summary again";
+
+            ShowCommandPalette("read update summary again");
+        };
+
+        var readRestartProofButton = CreateShellButton("Restart Proof", 145);
+        readRestartProofButton.AccessibleName = "Help restart proof";
+        readRestartProofButton.AccessibleDescription = "Voice phrases: restart proof, read restart proof.";
+        readRestartProofButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "restart proof";
+
+            ShowCommandPalette("restart proof");
+        };
+
+        var openEvidenceButton = CreateShellButton("Open Release Evidence", 170);
+        openEvidenceButton.AccessibleName = "Help open release evidence";
+        openEvidenceButton.AccessibleDescription = "Voice phrase: open release evidence.";
+        openEvidenceButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "open release evidence";
+
+            ShowCommandPalette("open release evidence");
+        };
+
+        var openManualEvidenceButton = CreateShellButton("Open Manual Evidence", 170);
+        openManualEvidenceButton.AccessibleName = "Help open manual evidence";
+        openManualEvidenceButton.AccessibleDescription = "Voice phrase: open manual evidence.";
+        openManualEvidenceButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "open manual evidence";
+
+            ShowCommandPalette("open manual evidence");
+        };
+
+        var openManualEvidenceChecklistButton = CreateShellButton("Open Checklist", 160);
+        openManualEvidenceChecklistButton.AccessibleName = "Help open manual evidence checklist";
+        openManualEvidenceChecklistButton.AccessibleDescription = "Voice phrases: open manual evidence checklist, open checklist.";
+        openManualEvidenceChecklistButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "open manual evidence checklist";
+
+            ShowCommandPalette("open manual evidence checklist");
+        };
+
+        var openInstallerButton = CreateShellButton("Open Installer", 126);
+        openInstallerButton.AccessibleName = "Help open installer";
+        openInstallerButton.AccessibleDescription = "Voice phrase: open installer.";
+        openInstallerButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "open installer";
+
+            ShowCommandPalette("open installer");
+        };
+
+        var readImportSummaryButton = CreateShellButton("Read Import Again", 150);
+        readImportSummaryButton.AccessibleName = "Help read import summary";
+        readImportSummaryButton.AccessibleDescription = "Voice phrase: read import summary again.";
+        readImportSummaryButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "read import summary again";
+
+            ShowCommandPalette("read import summary again");
+        };
+
+        var shortcutsButton = CreateShellButton("Shortcuts", 100);
+        shortcutsButton.AccessibleName = "Help shortcuts commands";
+        shortcutsButton.AccessibleDescription = "Voice phrase: show shortcuts commands.";
+        shortcutsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "category:Voice shortcuts";
+
+            ShowCommandPalette("category:Voice shortcuts");
+        };
+
+        var shortcutsCommandsButton = CreateShellButton("Voice Shortcuts", 130);
+        shortcutsCommandsButton.AccessibleName = "Help voice shortcuts commands";
+        shortcutsCommandsButton.AccessibleDescription = "Voice phrase: show voice shortcuts commands.";
+        shortcutsCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "category:Voice shortcuts";
+
+            ShowCommandPalette("category:Voice shortcuts");
+        };
+
+        var systemCommandsButton = CreateShellButton("System", 95);
+        systemCommandsButton.AccessibleName = "Help system commands";
+        systemCommandsButton.AccessibleDescription = "Voice phrase: show system commands.";
+        systemCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "category:System";
+
+            ShowCommandPalette("category:System");
+        };
+
+        var keyboardCommandsButton = CreateShellButton("Keyboard", 100);
+        keyboardCommandsButton.AccessibleName = "Help keyboard commands";
+        keyboardCommandsButton.AccessibleDescription = "Voice phrase: show keyboard commands.";
+        keyboardCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "category:Keyboard";
+
+            ShowCommandPalette("category:Keyboard");
+        };
+
+        var mouseCommandsButton = CreateShellButton("Mouse", 85);
+        mouseCommandsButton.AccessibleName = "Help mouse commands";
+        mouseCommandsButton.AccessibleDescription = "Voice phrase: show mouse commands.";
+        mouseCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "category:Mouse";
+
+            ShowCommandPalette("category:Mouse");
+        };
+
+        var dictationCommandsButton = CreateShellButton("Dictation", 100);
+        dictationCommandsButton.AccessibleName = "Help dictation commands";
+        dictationCommandsButton.AccessibleDescription = "Voice phrase: show dictation commands.";
+        dictationCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "category:Dictation";
+
+            ShowCommandPalette("category:Dictation");
+        };
+
+        var fileCommandsButton = CreateShellButton("File Search", 105);
+        fileCommandsButton.AccessibleName = "Help file search commands";
+        fileCommandsButton.AccessibleDescription = "Voice phrases: show file search commands, open files tab, or show files tab.";
+        fileCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "category:File search";
+
+            ShowCommandPalette("category:File search");
+        };
+
+        var browserCommandsButton = CreateShellButton("Browser", 95);
+        browserCommandsButton.AccessibleName = "Help browser commands";
+        browserCommandsButton.AccessibleDescription = "Voice phrase: show browser commands.";
+        browserCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "category:Browser";
+
+            ShowCommandPalette("category:Browser");
+        };
+
+        var browserOpenButton = CreateShellButton("Browser Open", 120);
+        browserOpenButton.AccessibleName = "Help browser open or search";
+        browserOpenButton.AccessibleDescription = "Voice phrases: browser open, browser search, open website, browser open example.com.";
+        browserOpenButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "browser open";
+
+            ShowCommandPalette("browser open");
+        };
+
+        var voiceModeCommandsButton = CreateShellButton("Voice Mode", 110);
+        voiceModeCommandsButton.AccessibleName = "Help voice mode commands";
+        voiceModeCommandsButton.AccessibleDescription = "Voice phrase: show voice mode commands.";
+        voiceModeCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "voice mode";
+
+            ShowCommandPalette("voice mode");
+        };
+
+        var voiceAccessSettingsButton = CreateShellButton("Voice Access Settings", 155);
+        voiceAccessSettingsButton.AccessibleName = "Help voice access settings";
+        voiceAccessSettingsButton.AccessibleDescription = "Voice phrase: voice access settings.";
+        voiceAccessSettingsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "voice access settings";
+
+            SelectTab("Voice");
+        };
+
+        var speechSettingsButton = CreateShellButton("Speech Settings", 135);
+        speechSettingsButton.AccessibleName = "Help speech settings";
+        speechSettingsButton.AccessibleDescription = "Voice phrases: speech settings, voice typing settings, dictation settings.";
+        speechSettingsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "speech settings";
+
+            SelectTab("System");
+        };
+
+        var startListeningButton = CreateShellButton("Start Listening", 130);
+        startListeningButton.AccessibleName = "Help start listening";
+        startListeningButton.AccessibleDescription = "Voice phrases: start listening, start voice, voice access wake up, wake up, unmute microphone.";
+        startListeningButton.Click += (_, _) => StartVoiceListening();
+
+        var stopListeningButton = CreateShellButton("Stop Listening", 125);
+        stopListeningButton.AccessibleName = "Help stop listening";
+        stopListeningButton.AccessibleDescription = "Voice phrases: stop listening, stop voice, voice access sleep, go to sleep, turn off microphone, turn off voice access, stop voice access, close voice access, exit voice access, quit voice access, mute microphone.";
+        stopListeningButton.Click += (_, _) => StopVoiceListening();
+
+        var wakeRepairButton = CreateShellButton("Repair Wakeword", 150);
+        wakeRepairButton.AccessibleName = "Help repair wakeword";
+        wakeRepairButton.AccessibleDescription = "Voice phrase: repair wakeword.";
+        wakeRepairButton.Click += (_, _) => RunOpenWakeWordSetupHelper();
+
+        var trainVoiceIdentityButton = CreateShellButton("Train Voice Identity", 170);
+        trainVoiceIdentityButton.AccessibleName = "Help train voice identity";
+        trainVoiceIdentityButton.AccessibleDescription = "Voice phrase: train voice identity.";
+        trainVoiceIdentityButton.Click += (_, _) => OpenVoiceIdentityTrainingForActiveProfile();
+
+        var windowingCommandsButton = CreateShellButton("Windowing", 110);
+        windowingCommandsButton.AccessibleName = "Help windowing commands";
+        windowingCommandsButton.AccessibleDescription = "Voice phrase: show windowing commands.";
+        windowingCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "windowing";
+
+            ShowCommandPalette("windowing");
+        };
+
+        var taskViewButton = CreateShellButton("Task View", 95);
+        taskViewButton.AccessibleName = "Help task view";
+        taskViewButton.AccessibleDescription = "Voice phrases: task view, open task view, show task view, show open windows, show windows, show all windows, window switcher.";
+        taskViewButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "task view";
+
+            ShowCommandPalette("task view");
+        };
+
+        var snapLayoutsButton = CreateShellButton("Snap Layouts", 110);
+        snapLayoutsButton.AccessibleName = "Help snap layouts";
+        snapLayoutsButton.AccessibleDescription = "Voice phrase: show snap layouts.";
+        snapLayoutsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "snap layouts";
+
+            ShowCommandPalette("snap layouts");
+        };
+
+        var showDesktopButton = CreateShellButton("Show Desktop", 115);
+        showDesktopButton.AccessibleName = "Help show desktop";
+        showDesktopButton.AccessibleDescription = "Voice phrases: show desktop, show the desktop, show my desktop, minimize all windows.";
+        showDesktopButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "show desktop";
+
+            ShowCommandPalette("show desktop");
+        };
+
+        var closeWindowButton = CreateShellButton("Close Window", 110);
+        closeWindowButton.AccessibleName = "Help close window";
+        closeWindowButton.AccessibleDescription = "Voice phrases: close window, close this window, close active app, alt f4.";
+        closeWindowButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "close window";
+
+            ShowCommandPalette("close window");
+        };
+
+        var switchToAppButton = CreateShellButton("Switch to App", 110);
+        switchToAppButton.AccessibleName = "Help switch to app or window";
+        switchToAppButton.AccessibleDescription = "Voice phrases: switch to Edge, go to Notepad.";
+        switchToAppButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "switch apps";
+
+            SelectTab("System");
+        };
+
+        var nextWindowButton = CreateShellButton("Next Window", 105);
+        nextWindowButton.AccessibleName = "Help next window";
+        nextWindowButton.AccessibleDescription = "Voice phrase: next window.";
+        nextWindowButton.Click += (_, _) => ExecuteSystemAction("system-next-window", "Next window requested.");
+
+        var previousWindowButton = CreateShellButton("Previous Window", 120);
+        previousWindowButton.AccessibleName = "Help previous window";
+        previousWindowButton.AccessibleDescription = "Voice phrase: previous window.";
+        previousWindowButton.Click += (_, _) => ExecuteSystemAction("system-previous-window", "Previous window requested.");
+
+        var newDesktopButton = CreateShellButton("New Desktop", 105);
+        newDesktopButton.AccessibleName = "Help new desktop";
+        newDesktopButton.AccessibleDescription = "Voice phrases: new desktop, create desktop, new virtual desktop.";
+        newDesktopButton.Click += (_, _) => ExecuteSystemAction("system-new-virtual-desktop", "New virtual desktop requested.");
+
+        var nextDesktopButton = CreateShellButton("Next Desktop", 105);
+        nextDesktopButton.AccessibleName = "Help next desktop";
+        nextDesktopButton.AccessibleDescription = "Voice phrases: next desktop, next virtual desktop, switch to next desktop.";
+        nextDesktopButton.Click += (_, _) => ExecuteSystemAction("system-next-virtual-desktop", "Next virtual desktop requested.");
+
+        var previousDesktopButton = CreateShellButton("Prev Desktop", 105);
+        previousDesktopButton.AccessibleName = "Help previous desktop";
+        previousDesktopButton.AccessibleDescription = "Voice phrases: previous desktop, previous virtual desktop, switch to previous desktop.";
+        previousDesktopButton.Click += (_, _) => ExecuteSystemAction("system-previous-virtual-desktop", "Previous virtual desktop requested.");
+
+        var pressEnterButton = CreateShellButton("Press Enter", 95);
+        pressEnterButton.AccessibleName = "Help press enter";
+        pressEnterButton.AccessibleDescription = "Voice phrase: press enter.";
+        pressEnterButton.Click += (_, _) => ExecuteSystemAction("system-press-enter", "Enter requested.");
+
+        var pressTabButton = CreateShellButton("Press Tab", 85);
+        pressTabButton.AccessibleName = "Help press tab";
+        pressTabButton.AccessibleDescription = "Voice phrase: press tab.";
+        pressTabButton.Click += (_, _) => ExecuteSystemAction("system-press-tab", "Tab requested.");
+
+        var pressEscapeButton = CreateShellButton("Press Escape", 100);
+        pressEscapeButton.AccessibleName = "Help press escape";
+        pressEscapeButton.AccessibleDescription = "Voice phrase: press escape.";
+        pressEscapeButton.Click += (_, _) => ExecuteSystemAction("system-press-escape", "Escape requested.");
+
+        var pressBackspaceButton = CreateShellButton("Press Backspace", 120);
+        pressBackspaceButton.AccessibleName = "Help press backspace";
+        pressBackspaceButton.AccessibleDescription = "Voice phrase: press backspace.";
+        pressBackspaceButton.Click += (_, _) => ExecuteSystemAction("system-press-backspace", "Backspace requested.");
+
+        var pressSpaceButton = CreateShellButton("Press Space", 95);
+        pressSpaceButton.AccessibleName = "Help press space";
+        pressSpaceButton.AccessibleDescription = "Voice phrase: press space.";
+        pressSpaceButton.Click += (_, _) => ExecuteSystemAction("system-press-space", "Space requested.");
+
+        var pressDeleteButton = CreateShellButton("Press Delete", 100);
+        pressDeleteButton.AccessibleName = "Help press delete";
+        pressDeleteButton.AccessibleDescription = "Voice phrase: press delete.";
+        pressDeleteButton.Click += (_, _) => ExecuteSystemAction("system-press-delete", "Delete requested.");
+
+        var pressInsertButton = CreateShellButton("Press Insert", 100);
+        pressInsertButton.AccessibleName = "Help press insert";
+        pressInsertButton.AccessibleDescription = "Voice phrase: press insert.";
+        pressInsertButton.Click += (_, _) => ExecuteSystemAction("system-press-insert", "Insert requested.");
+
+        var pressWindowsButton = CreateShellButton("Press Windows", 110);
+        pressWindowsButton.AccessibleName = "Help press windows key";
+        pressWindowsButton.AccessibleDescription = "Voice phrases: press windows key, windows key.";
+        pressWindowsButton.Click += (_, _) => ExecuteSystemAction("system-press-windows", "Windows key requested.");
+
+        var pressContextMenuButton = CreateShellButton("Context Menu", 115);
+        pressContextMenuButton.AccessibleName = "Help press context menu";
+        pressContextMenuButton.AccessibleDescription = "Voice phrases: press context menu, context menu key.";
+        pressContextMenuButton.Click += (_, _) => ExecuteSystemAction("system-press-context-menu", "Context menu key requested.");
+
+        var pressCapsLockButton = CreateShellButton("Caps Lock", 95);
+        pressCapsLockButton.AccessibleName = "Help press caps lock";
+        pressCapsLockButton.AccessibleDescription = "Voice phrases: press caps lock, caps lock.";
+        pressCapsLockButton.Click += (_, _) => ExecuteSystemAction("system-press-caps-lock", "Caps Lock requested.");
+
+        var shiftTabButton = CreateShellButton("Shift+Tab", 100);
+        shiftTabButton.AccessibleName = "Help shift tab";
+        shiftTabButton.AccessibleDescription = "Voice phrase: shift tab.";
+        shiftTabButton.Click += (_, _) => ExecuteSystemAction("system-press-chord:shift-tab", "Shift Tab requested.");
+
+        var ctrlTabButton = CreateShellButton("Ctrl+Tab", 95);
+        ctrlTabButton.AccessibleName = "Help ctrl tab";
+        ctrlTabButton.AccessibleDescription = "Voice phrase: control tab.";
+        ctrlTabButton.Click += (_, _) => ExecuteSystemAction("system-press-chord:control-tab", "Control Tab requested.");
+
+        var altLeftButton = CreateShellButton("Alt+Left", 90);
+        altLeftButton.AccessibleName = "Help alt left";
+        altLeftButton.AccessibleDescription = "Voice phrase: alt left.";
+        altLeftButton.Click += (_, _) => ExecuteSystemAction("system-press-chord:alt-left", "Alt Left requested.");
+
+        var altRightButton = CreateShellButton("Alt+Right", 95);
+        altRightButton.AccessibleName = "Help alt right";
+        altRightButton.AccessibleDescription = "Voice phrase: alt right.";
+        altRightButton.Click += (_, _) => ExecuteSystemAction("system-press-chord:alt-right", "Alt Right requested.");
+
+        var ctrlHomeButton = CreateShellButton("Ctrl+Home", 100);
+        ctrlHomeButton.AccessibleName = "Help ctrl home";
+        ctrlHomeButton.AccessibleDescription = "Voice phrase: control home.";
+        ctrlHomeButton.Click += (_, _) => ExecuteSystemAction("system-press-chord:control-home", "Control Home requested.");
+
+        var ctrlEndButton = CreateShellButton("Ctrl+End", 95);
+        ctrlEndButton.AccessibleName = "Help ctrl end";
+        ctrlEndButton.AccessibleDescription = "Voice phrase: control end.";
+        ctrlEndButton.Click += (_, _) => ExecuteSystemAction("system-press-chord:control-end", "Control End requested.");
+
+        var commaButton = CreateShellButton("Comma", 80);
+        commaButton.AccessibleName = "Help comma";
+        commaButton.AccessibleDescription = "Voice phrase: comma.";
+        commaButton.Click += (_, _) => ExecuteSystemAction("system-press-symbol:comma", "Comma requested.");
+
+        var periodButton = CreateShellButton("Period", 80);
+        periodButton.AccessibleName = "Help period";
+        periodButton.AccessibleDescription = "Voice phrases: period, full stop.";
+        periodButton.Click += (_, _) => ExecuteSystemAction("system-press-symbol:period", "Period requested.");
+
+        var slashButton = CreateShellButton("Slash", 75);
+        slashButton.AccessibleName = "Help slash";
+        slashButton.AccessibleDescription = "Voice phrase: slash.";
+        slashButton.Click += (_, _) => ExecuteSystemAction("system-press-symbol:slash", "Slash requested.");
+
+        var questionMarkButton = CreateShellButton("Question", 90);
+        questionMarkButton.AccessibleName = "Help question mark";
+        questionMarkButton.AccessibleDescription = "Voice phrase: question mark.";
+        questionMarkButton.Click += (_, _) => ExecuteSystemAction("system-press-symbol:question", "Question mark requested.");
+
+        var browserBackButton = CreateShellButton("Browser Back", 120);
+        browserBackButton.AccessibleName = "Help browser back";
+        browserBackButton.AccessibleDescription = "Voice phrase: browser back.";
+        browserBackButton.Click += (_, _) => ExecuteBrowserAction("browser-back", "Browser back requested.");
+
+        var browserForwardButton = CreateShellButton("Browser Forward", 130);
+        browserForwardButton.AccessibleName = "Help browser forward";
+        browserForwardButton.AccessibleDescription = "Voice phrase: browser forward.";
+        browserForwardButton.Click += (_, _) => ExecuteBrowserAction("browser-forward", "Browser forward requested.");
+
+        var browserNewTabButton = CreateShellButton("Browser New Tab", 145);
+        browserNewTabButton.AccessibleName = "Help browser new tab";
+        browserNewTabButton.AccessibleDescription = "Voice phrase: browser new tab.";
+        browserNewTabButton.Click += (_, _) => ExecuteBrowserAction("browser-new-tab", "Browser new tab requested.");
+
+        var browserFindButton = CreateShellButton("Browser Find", 125);
+        browserFindButton.AccessibleName = "Help browser find";
+        browserFindButton.AccessibleDescription = "Voice phrases: browser find, search this page for privacy policy, find privacy policy on this page.";
+        browserFindButton.Click += (_, _) => ExecuteBrowserAction("browser-find", "Browser find in page requested.");
+
+        var browserCloseTabButton = CreateShellButton("Browser Close Tab", 145);
+        browserCloseTabButton.AccessibleName = "Help browser close tab";
+        browserCloseTabButton.AccessibleDescription = "Voice phrases: browser close tab, close browser tab.";
+        browserCloseTabButton.Click += (_, _) => ExecuteBrowserAction("browser-close-tab", "Browser close tab requested.");
+
+        var magnifierSettingsButton = CreateShellButton("Magnifier Settings", 140);
+        magnifierSettingsButton.AccessibleName = "Help magnifier settings";
+        magnifierSettingsButton.AccessibleDescription = "Voice phrases: magnifier settings, zoom settings.";
+        magnifierSettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-magnifier-settings", "Magnifier settings requested.");
+
+        var narratorSettingsButton = CreateShellButton("Narrator Settings", 130);
+        narratorSettingsButton.AccessibleName = "Help narrator settings";
+        narratorSettingsButton.AccessibleDescription = "Voice phrases: narrator settings, screen reader settings.";
+        narratorSettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-narrator-settings", "Narrator settings requested.");
+
+        var captionsSettingsButton = CreateShellButton("Captions Settings", 130);
+        captionsSettingsButton.AccessibleName = "Help captions settings";
+        captionsSettingsButton.AccessibleDescription = "Voice phrases: captions settings, live captions settings.";
+        captionsSettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-captions-settings", "Captions settings requested.");
+
+        var helpSpeechSettingsButton = CreateShellButton("Speech Settings", 125);
+        helpSpeechSettingsButton.AccessibleName = "Help speech settings";
+        helpSpeechSettingsButton.AccessibleDescription = "Voice phrases: speech settings, voice access settings, voice typing settings, dictation settings.";
+        helpSpeechSettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-speech-settings", "Speech settings requested.");
+
+        var openSettingsButton = CreateShellButton("Open Settings", 115);
+        openSettingsButton.AccessibleName = "Help open settings";
+        openSettingsButton.AccessibleDescription = "Voice phrases: windows settings, open settings.";
+        openSettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-settings", "Windows Settings requested.");
+
+        var displaySettingsButton = CreateShellButton("Display Settings", 125);
+        displaySettingsButton.AccessibleName = "Help display settings";
+        displaySettingsButton.AccessibleDescription = "Voice phrase: open display settings.";
+        displaySettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-display-settings", "Display settings requested.");
+
+        var soundSettingsButton = CreateShellButton("Sound Settings", 120);
+        soundSettingsButton.AccessibleName = "Help sound settings";
+        soundSettingsButton.AccessibleDescription = "Voice phrase: open sound settings.";
+        soundSettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-sound-settings", "Sound settings requested.");
+
+        var accessibilitySettingsButton = CreateShellButton("Accessibility", 110);
+        accessibilitySettingsButton.AccessibleName = "Help accessibility settings";
+        accessibilitySettingsButton.AccessibleDescription = "Voice phrase: open accessibility settings.";
+        accessibilitySettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-accessibility-settings", "Accessibility settings requested.");
+
+        var mouseSettingsButton = CreateShellButton("Mouse Settings", 115);
+        mouseSettingsButton.AccessibleName = "Help mouse settings";
+        mouseSettingsButton.AccessibleDescription = "Voice phrase: open mouse settings.";
+        mouseSettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-mouse-settings", "Mouse settings requested.");
+
+        var keyboardSettingsButton = CreateShellButton("Keyboard Settings", 130);
+        keyboardSettingsButton.AccessibleName = "Help keyboard settings";
+        keyboardSettingsButton.AccessibleDescription = "Voice phrase: open keyboard settings.";
+        keyboardSettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-keyboard-settings", "Keyboard settings requested.");
+
+        var privacySettingsButton = CreateShellButton("Privacy Settings", 125);
+        privacySettingsButton.AccessibleName = "Help privacy settings";
+        privacySettingsButton.AccessibleDescription = "Voice phrase: open privacy settings.";
+        privacySettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-privacy-settings", "Privacy settings requested.");
+
+        var powerSettingsButton = CreateShellButton("Power Settings", 120);
+        powerSettingsButton.AccessibleName = "Help power settings";
+        powerSettingsButton.AccessibleDescription = "Voice phrases: power and battery settings, open power and battery settings.";
+        powerSettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-power-settings", "Power settings requested.");
+
+        var installedAppsSettingsButton = CreateShellButton("Installed Apps", 120);
+        installedAppsSettingsButton.AccessibleName = "Help installed apps settings";
+        installedAppsSettingsButton.AccessibleDescription = "Voice phrases: installed apps settings, open installed apps settings.";
+        installedAppsSettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-apps-settings", "Installed apps settings requested.");
+
+        var defaultAppsSettingsButton = CreateShellButton("Default Apps", 110);
+        defaultAppsSettingsButton.AccessibleName = "Help default apps settings";
+        defaultAppsSettingsButton.AccessibleDescription = "Voice phrases: default apps settings, open default apps settings.";
+        defaultAppsSettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-default-apps-settings", "Default apps settings requested.");
+
+        var dateTimeSettingsButton = CreateShellButton("Date/Time", 95);
+        dateTimeSettingsButton.AccessibleName = "Help date and time settings";
+        dateTimeSettingsButton.AccessibleDescription = "Voice phrases: date and time settings, open date and time settings.";
+        dateTimeSettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-date-time-settings", "Date and time settings requested.");
+
+        var notificationsSettingsButton = CreateShellButton("Notifications", 110);
+        notificationsSettingsButton.AccessibleName = "Help notifications settings";
+        notificationsSettingsButton.AccessibleDescription = "Voice phrases: notifications settings, open notifications settings.";
+        notificationsSettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-notifications-settings", "Notifications settings requested.");
+
+        var windowsUpdateSettingsButton = CreateShellButton("Windows Update", 120);
+        windowsUpdateSettingsButton.AccessibleName = "Help windows update settings";
+        windowsUpdateSettingsButton.AccessibleDescription = "Voice phrases: windows update settings, open windows update settings.";
+        windowsUpdateSettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-windows-update-settings", "Windows Update settings requested.");
+
+        var personalizationSettingsButton = CreateShellButton("Personalize", 100);
+        personalizationSettingsButton.AccessibleName = "Help personalization settings";
+        personalizationSettingsButton.AccessibleDescription = "Voice phrases: personalization settings, open personalization settings.";
+        personalizationSettingsButton.Click += (_, _) => ExecuteSystemAction("system-open-personalization-settings", "Personalization settings requested.");
+
+        var volumeUpButton = CreateShellButton("Volume Up", 90);
+        volumeUpButton.AccessibleName = "Help volume up";
+        volumeUpButton.AccessibleDescription = "Voice phrase: volume up.";
+        volumeUpButton.Click += (_, _) => ExecuteSystemAction("system-volume-up", "Volume up requested.");
+
+        var volumeDownButton = CreateShellButton("Volume Down", 100);
+        volumeDownButton.AccessibleName = "Help volume down";
+        volumeDownButton.AccessibleDescription = "Voice phrase: volume down.";
+        volumeDownButton.Click += (_, _) => ExecuteSystemAction("system-volume-down", "Volume down requested.");
+
+        var muteButton = CreateShellButton("Mute", 75);
+        muteButton.AccessibleName = "Help mute volume";
+        muteButton.AccessibleDescription = "Voice phrases: mute volume, mute audio.";
+        muteButton.Click += (_, _) => ExecuteSystemAction("system-volume-mute", "Volume mute requested.");
+
+        var playPauseButton = CreateShellButton("Play/Pause", 95);
+        playPauseButton.AccessibleName = "Help play or pause media";
+        playPauseButton.AccessibleDescription = "Voice phrases: play or pause, play media, pause media.";
+        playPauseButton.Click += (_, _) => ExecuteSystemAction("system-media-play-pause", "Media play/pause requested.");
+
+        var nextTrackButton = CreateShellButton("Next Track", 95);
+        nextTrackButton.AccessibleName = "Help next track";
+        nextTrackButton.AccessibleDescription = "Voice phrase: next track.";
+        nextTrackButton.Click += (_, _) => ExecuteSystemAction("system-media-next-track", "Media next track requested.");
+
+        var previousTrackButton = CreateShellButton("Prev Track", 95);
+        previousTrackButton.AccessibleName = "Help previous track";
+        previousTrackButton.AccessibleDescription = "Voice phrases: previous track, previous song.";
+        previousTrackButton.Click += (_, _) => ExecuteSystemAction("system-media-previous-track", "Media previous track requested.");
+
+        var stopMediaButton = CreateShellButton("Stop Media", 95);
+        stopMediaButton.AccessibleName = "Help stop media";
+        stopMediaButton.AccessibleDescription = "Voice phrases: stop media, stop playback.";
+        stopMediaButton.Click += (_, _) => ExecuteSystemAction("system-media-stop", "Media stop requested.");
+
+        var quickSettingsButton = CreateShellButton("Quick Settings", 115);
+        quickSettingsButton.AccessibleName = "Help quick settings";
+        quickSettingsButton.AccessibleDescription = "Voice phrase: quick settings.";
+        quickSettingsButton.Click += (_, _) => ExecuteSystemShellSurfaceAction("system-open-quick-settings", "Quick Settings requested.");
+
+        var notificationCenterButton = CreateShellButton("Notifications Center", 150);
+        notificationCenterButton.AccessibleName = "Help notification center";
+        notificationCenterButton.AccessibleDescription = "Voice phrases: notification center, show notifications.";
+        notificationCenterButton.Click += (_, _) => ExecuteSystemShellSurfaceAction("system-open-notification-center", "Notification Center requested.");
+
+        var clipboardHistoryButton = CreateShellButton("Clipboard", 85);
+        clipboardHistoryButton.AccessibleName = "Help clipboard history";
+        clipboardHistoryButton.AccessibleDescription = "Voice phrases: clipboard history, open clipboard, show clipboard picker.";
+        clipboardHistoryButton.Click += (_, _) => ExecuteSystemShellSurfaceAction("system-open-clipboard-history", "Clipboard history requested.");
+
+        var snippingToolbarButton = CreateShellButton("Snipping", 85);
+        snippingToolbarButton.AccessibleName = "Help snipping toolbar";
+        snippingToolbarButton.AccessibleDescription = "Voice phrases: snipping toolbar, show screenshot toolbar, open screenshot tools.";
+        snippingToolbarButton.Click += (_, _) => ExecuteSystemShellSurfaceAction("system-open-snipping-toolbar", "Snipping toolbar requested.");
+
+        var taskManagerButton = CreateShellButton("Task Manager", 110);
+        taskManagerButton.AccessibleName = "Help task manager";
+        taskManagerButton.AccessibleDescription = "Voice phrase: open task manager.";
+        taskManagerButton.Click += (_, _) => ExecuteSystemAction("system-open-task-manager", "Task Manager requested.");
+
+        var minimizeWindowButton = CreateShellButton("Minimize Window", 125);
+        minimizeWindowButton.AccessibleName = "Help minimize window";
+        minimizeWindowButton.AccessibleDescription = "Voice phrase: minimize window.";
+        minimizeWindowButton.Click += (_, _) => ExecuteSystemAction("system-minimize-window", "Minimize window requested.");
+
+        var maximizeWindowButton = CreateShellButton("Maximize Window", 125);
+        maximizeWindowButton.AccessibleName = "Help maximize window";
+        maximizeWindowButton.AccessibleDescription = "Voice phrase: maximize window.";
+        maximizeWindowButton.Click += (_, _) => ExecuteSystemAction("system-maximize-window", "Maximize window requested.");
+
+        var restoreWindowButton = CreateShellButton("Restore Window", 120);
+        restoreWindowButton.AccessibleName = "Help restore window";
+        restoreWindowButton.AccessibleDescription = "Voice phrase: restore window.";
+        restoreWindowButton.Click += (_, _) => ExecuteSystemAction("system-restore-window", "Restore window requested.");
+
+        var readDictationButton = CreateShellButton("Read Aloud", 105);
+        readDictationButton.AccessibleName = "Help dictation read aloud";
+        readDictationButton.AccessibleDescription = "Voice phrases: read dictation, read that back.";
+        readDictationButton.Click += (_, _) => ReadDictationTextAloud();
+
+        var stopDictationReadbackButton = CreateShellButton("Stop Reading", 115);
+        stopDictationReadbackButton.AccessibleName = "Help dictation stop reading";
+        stopDictationReadbackButton.AccessibleDescription = "Voice phrases: stop reading, stop readback.";
+        stopDictationReadbackButton.Click += (_, _) => StopDictationReadback();
+
+        var showDictationCorrectionsButton = CreateShellButton("Corrections", 105);
+        showDictationCorrectionsButton.AccessibleName = "Help dictation corrections";
+        showDictationCorrectionsButton.AccessibleDescription = "Voice phrases: show correction alternatives, accept correction, choose correction 1.";
+        showDictationCorrectionsButton.Click += (_, _) => ShowDictationCorrectionsFromPicker();
+
+        var applyDictationFormatButton = CreateShellButton("Formatting", 100);
+        applyDictationFormatButton.AccessibleName = "Help dictation formatting";
+        applyDictationFormatButton.AccessibleDescription = "Voice phrases: capitalize that, title case that, uppercase that, lowercase that.";
+        applyDictationFormatButton.Click += (_, _) => ApplyDictationFormatFromControls(DictationTextFormat.SentenceCase);
+
+        var copyButton = CreateShellButton("Copy", 70);
+        copyButton.AccessibleName = "Help copy";
+        copyButton.AccessibleDescription = "Voice phrase: copy.";
+        copyButton.Click += (_, _) => ExecuteSystemAction("system-copy", "Copy requested.");
+
+        var pasteButton = CreateShellButton("Paste", 75);
+        pasteButton.AccessibleName = "Help paste";
+        pasteButton.AccessibleDescription = "Voice phrase: paste.";
+        pasteButton.Click += (_, _) => ExecuteSystemAction("system-paste", "Paste requested.");
+
+        var selectAllButton = CreateShellButton("Select All", 95);
+        selectAllButton.AccessibleName = "Help select all";
+        selectAllButton.AccessibleDescription = "Voice phrase: select all.";
+        selectAllButton.Click += (_, _) => ExecuteSystemAction("system-select-all", "Select all requested.");
+
+        var undoButton = CreateShellButton("Undo", 70);
+        undoButton.AccessibleName = "Help undo";
+        undoButton.AccessibleDescription = "Voice phrase: undo.";
+        undoButton.Click += (_, _) => ExecuteSystemAction("system-undo", "Undo requested.");
+
+        var redoButton = CreateShellButton("Redo", 70);
+        redoButton.AccessibleName = "Help redo";
+        redoButton.AccessibleDescription = "Voice phrase: redo.";
+        redoButton.Click += (_, _) => ExecuteSystemAction("system-redo", "Redo requested.");
+
+        var newDocumentButton = CreateShellButton("New Doc", 85);
+        newDocumentButton.AccessibleName = "Help new document";
+        newDocumentButton.AccessibleDescription = "Voice phrase: new document.";
+        newDocumentButton.Click += (_, _) => ExecuteSystemAction("system-new-document", "New document requested.");
+
+        var openFileButton = CreateShellButton("Open File", 90);
+        openFileButton.AccessibleName = "Help open file";
+        openFileButton.AccessibleDescription = "Voice phrase: open file.";
+        openFileButton.Click += (_, _) => ExecuteSystemAction("system-open-file", "Open file requested.");
+
+        var printButton = CreateShellButton("Print", 70);
+        printButton.AccessibleName = "Help print";
+        printButton.AccessibleDescription = "Voice phrase: print.";
+        printButton.Click += (_, _) => ExecuteSystemAction("system-print", "Print requested.");
+
+        var zoomInButton = CreateShellButton("Zoom In", 80);
+        zoomInButton.AccessibleName = "Help zoom in";
+        zoomInButton.AccessibleDescription = "Voice phrase: zoom in.";
+        zoomInButton.Click += (_, _) => ExecuteSystemAction("system-zoom-in", "Zoom in requested.");
+
+        var zoomOutButton = CreateShellButton("Zoom Out", 85);
+        zoomOutButton.AccessibleName = "Help zoom out";
+        zoomOutButton.AccessibleDescription = "Voice phrase: zoom out.";
+        zoomOutButton.Click += (_, _) => ExecuteSystemAction("system-zoom-out", "Zoom out requested.");
+
+        var resetZoomButton = CreateShellButton("Reset Zoom", 95);
+        resetZoomButton.AccessibleName = "Help reset zoom";
+        resetZoomButton.AccessibleDescription = "Voice phrase: reset zoom.";
+        resetZoomButton.Click += (_, _) => ExecuteSystemAction("system-reset-zoom", "Reset zoom requested.");
+
+        var ctrlShiftTabButton = CreateShellButton("Ctrl+Shift+Tab", 125);
+        ctrlShiftTabButton.AccessibleName = "Help ctrl shift tab";
+        ctrlShiftTabButton.AccessibleDescription = "Voice phrase: control shift tab.";
+        ctrlShiftTabButton.Click += (_, _) => ExecuteSystemAction("system-press-chord:control-shift-tab", "Control Shift Tab requested.");
+
+        var altUpButton = CreateShellButton("Alt+Up", 80);
+        altUpButton.AccessibleName = "Help alt up";
+        altUpButton.AccessibleDescription = "Voice phrase: alt up.";
+        altUpButton.Click += (_, _) => ExecuteSystemAction("system-press-chord:alt-up", "Alt Up requested.");
+
+        var altDownButton = CreateShellButton("Alt+Down", 90);
+        altDownButton.AccessibleName = "Help alt down";
+        altDownButton.AccessibleDescription = "Voice phrase: alt down.";
+        altDownButton.Click += (_, _) => ExecuteSystemAction("system-press-chord:alt-down", "Alt Down requested.");
+
+        var ctrlShiftHomeButton = CreateShellButton("Ctrl+Shift+Home", 130);
+        ctrlShiftHomeButton.AccessibleName = "Help ctrl shift home";
+        ctrlShiftHomeButton.AccessibleDescription = "Voice phrase: control shift home.";
+        ctrlShiftHomeButton.Click += (_, _) => ExecuteSystemAction("system-press-chord:control-shift-home", "Control Shift Home requested.");
+
+        var ctrlShiftEndButton = CreateShellButton("Ctrl+Shift+End", 125);
+        ctrlShiftEndButton.AccessibleName = "Help ctrl shift end";
+        ctrlShiftEndButton.AccessibleDescription = "Voice phrase: control shift end.";
+        ctrlShiftEndButton.Click += (_, _) => ExecuteSystemAction("system-press-chord:control-shift-end", "Control Shift End requested.");
+
+        var semicolonButton = CreateShellButton("Semicolon", 95);
+        semicolonButton.AccessibleName = "Help semicolon";
+        semicolonButton.AccessibleDescription = "Voice phrase: semicolon.";
+        semicolonButton.Click += (_, _) => ExecuteSystemAction("system-press-symbol:semicolon", "Semicolon requested.");
+
+        var colonButton = CreateShellButton("Colon", 80);
+        colonButton.AccessibleName = "Help colon";
+        colonButton.AccessibleDescription = "Voice phrase: colon.";
+        colonButton.Click += (_, _) => ExecuteSystemAction("system-press-symbol:colon", "Colon requested.");
+
+        var quoteButton = CreateShellButton("Quote", 80);
+        quoteButton.AccessibleName = "Help quote";
+        quoteButton.AccessibleDescription = "Voice phrase: quote.";
+        quoteButton.Click += (_, _) => ExecuteSystemAction("system-press-symbol:quote", "Quote requested.");
+
+        var atButton = CreateShellButton("At Sign", 85);
+        atButton.AccessibleName = "Help at sign";
+        atButton.AccessibleDescription = "Voice phrase: at sign.";
+        atButton.Click += (_, _) => ExecuteSystemAction("system-press-symbol:at", "At sign requested.");
+
+        var plusButton = CreateShellButton("Plus", 75);
+        plusButton.AccessibleName = "Help plus";
+        plusButton.AccessibleDescription = "Voice phrase: plus.";
+        plusButton.Click += (_, _) => ExecuteSystemAction("system-press-symbol:plus", "Plus requested.");
+
+        var upButton = CreateShellButton("Up", 60);
+        upButton.AccessibleName = "Help press up arrow";
+        upButton.AccessibleDescription = "Voice phrases: press up arrow, up arrow.";
+        upButton.Click += (_, _) => ExecuteSystemAction("system-press-up", "Up arrow requested.");
+
+        var downButton = CreateShellButton("Down", 65);
+        downButton.AccessibleName = "Help press down arrow";
+        downButton.AccessibleDescription = "Voice phrases: press down arrow, down arrow.";
+        downButton.Click += (_, _) => ExecuteSystemAction("system-press-down", "Down arrow requested.");
+
+        var leftButton = CreateShellButton("Left", 60);
+        leftButton.AccessibleName = "Help press left arrow";
+        leftButton.AccessibleDescription = "Voice phrases: press left arrow, left arrow.";
+        leftButton.Click += (_, _) => ExecuteSystemAction("system-press-left", "Left arrow requested.");
+
+        var rightButton = CreateShellButton("Right", 65);
+        rightButton.AccessibleName = "Help press right arrow";
+        rightButton.AccessibleDescription = "Voice phrases: press right arrow, right arrow.";
+        rightButton.Click += (_, _) => ExecuteSystemAction("system-press-right", "Right arrow requested.");
+
+        var homeButton = CreateShellButton("Home", 65);
+        homeButton.AccessibleName = "Help press home";
+        homeButton.AccessibleDescription = "Voice phrases: press home, home key.";
+        homeButton.Click += (_, _) => ExecuteSystemAction("system-press-home", "Home requested.");
+
+        var endButton = CreateShellButton("End", 60);
+        endButton.AccessibleName = "Help press end";
+        endButton.AccessibleDescription = "Voice phrases: press end, end key.";
+        endButton.Click += (_, _) => ExecuteSystemAction("system-press-end", "End requested.");
+
+        var pageUpButton = CreateShellButton("Page Up", 80);
+        pageUpButton.AccessibleName = "Help press page up";
+        pageUpButton.AccessibleDescription = "Voice phrases: press page up, page up.";
+        pageUpButton.Click += (_, _) => ExecuteSystemAction("system-page-up", "Page up requested.");
+
+        var pageDownButton = CreateShellButton("Page Down", 90);
+        pageDownButton.AccessibleName = "Help press page down";
+        pageDownButton.AccessibleDescription = "Voice phrases: press page down, page down.";
+        pageDownButton.Click += (_, _) => ExecuteSystemAction("system-page-down", "Page down requested.");
+
+        var mediaCommandsButton = CreateShellButton("Media", 90);
+        mediaCommandsButton.AccessibleName = "Help media commands";
+        mediaCommandsButton.AccessibleDescription = "Voice phrase: show media commands.";
+        mediaCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "media";
+
+            ShowCommandPalette("media");
+        };
+
+        var visibleCommandsButton = CreateShellButton("Visible Controls", 130);
+        visibleCommandsButton.AccessibleName = "Help visible commands";
+        visibleCommandsButton.AccessibleDescription = "Voice phrase: show visible commands.";
+        visibleCommandsButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "category:Visible controls";
+
+            ShowCommandPalette("category:Visible controls");
+        };
+
+        var browserShowNumbersButton = CreateShellButton("Browser Show Numbers", 150);
+        browserShowNumbersButton.AccessibleName = "Help browser show numbers";
+        browserShowNumbersButton.AccessibleDescription = "Voice phrases: browser show numbers, show numbers, show numbers here.";
+        browserShowNumbersButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "show numbers";
+
+            ShowCommandPalette("show numbers");
+        };
+
+        var browserShowGridButton = CreateShellButton("Browser Show Grid", 140);
+        browserShowGridButton.AccessibleName = "Help browser show grid";
+        browserShowGridButton.AccessibleDescription = "Voice phrases: browser show grid, show grid, show grid here.";
+        browserShowGridButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "show grid";
+
+            ShowCommandPalette("show grid");
+        };
+
+        var browserHideOverlaysButton = CreateShellButton("Browser Hide Overlays", 160);
+        browserHideOverlaysButton.AccessibleName = "Help browser hide overlays";
+        browserHideOverlaysButton.AccessibleDescription = "Voice phrases: browser hide overlays, hide visible controls, hide grid.";
+        browserHideOverlaysButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "hide overlays";
+
+            ShowCommandPalette("hide overlays");
+        };
+
+        var showNumbersButton = CreateShellButton("Show Numbers", 120);
+        showNumbersButton.AccessibleName = "Help show numbers";
+        showNumbersButton.AccessibleDescription = "Voice phrase: show numbers.";
+        showNumbersButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "show numbers";
+
+            ShowCommandPalette("show numbers");
+        };
+
+        var showGridButton = CreateShellButton("Show Grid", 110);
+        showGridButton.AccessibleName = "Help show grid";
+        showGridButton.AccessibleDescription = "Voice phrase: show grid.";
+        showGridButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "show grid";
+
+            ShowCommandPalette("show grid");
+        };
+
+        var showKeyboardButton = CreateShellButton("Show Keyboard", 130);
+        showKeyboardButton.AccessibleName = "Help show keyboard";
+        showKeyboardButton.AccessibleDescription = "Voice phrase: show keyboard.";
+        showKeyboardButton.Click += (_, _) =>
+        {
+            if (_helpSearchTextBox != null)
+                _helpSearchTextBox.Text = "show keyboard";
+
+            ShowCommandPalette("show keyboard");
+        };
+
+        var row = 0;
+        AddFullWidth(layout, heading, row++);
+        AddFullWidth(layout, description, row++);
+        AddFullWidth(layout, _helpContractLabel, row++);
+        AddRow(layout, "Search", _helpSearchTextBox, row++);
+        AddFullWidth(layout, _helpStatusStrip, row++);
+        AddFullWidth(layout, _helpTextBox, row++);
+        AddRow(layout, "Selected", _helpSelectedLabel, row++);
+        AddFullWidth(layout, _helpCommandsList, row++);
+
+        var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
+        buttons.Controls.Add(openPaletteButton);
+        buttons.Controls.Add(allCommandsButton);
+        buttons.Controls.Add(freeCommandsButton);
+        buttons.Controls.Add(openCoreCommandsButton);
+        buttons.Controls.Add(paidCommandsButton);
+        buttons.Controls.Add(proCommandsButton);
+        buttons.Controls.Add(advancedCommandsButton);
+        buttons.Controls.Add(safetyCommandsButton);
+        buttons.Controls.Add(sessionSafetyCommandsButton);
+        buttons.Controls.Add(navigationCommandsButton);
+        buttons.Controls.Add(gettingStartedButton);
+        buttons.Controls.Add(voiceAccessGuideButton);
+        buttons.Controls.Add(releaseProofButton);
+        buttons.Controls.Add(setupCommandsButton);
+        buttons.Controls.Add(accountTabButton);
+        buttons.Controls.Add(voiceTabButton);
+        buttons.Controls.Add(sessionTabButton);
+        buttons.Controls.Add(plansTabButton);
+        buttons.Controls.Add(packsTabButton);
+        buttons.Controls.Add(importPackButton);
+        buttons.Controls.Add(importPackFolderButton);
+        buttons.Controls.Add(dropPackFolderButton);
+        buttons.Controls.Add(openPacksFolderButton);
+        buttons.Controls.Add(refreshPacksButton);
+        buttons.Controls.Add(updatePackButton);
+        buttons.Controls.Add(rollbackPackButton);
+        buttons.Controls.Add(enablePackButton);
+        buttons.Controls.Add(disablePackButton);
+        buttons.Controls.Add(removePackButton);
+        buttons.Controls.Add(updatesCommandsButton);
+        buttons.Controls.Add(readUpdatesStatusButton);
+        buttons.Controls.Add(readCheckInStatusButton);
+        buttons.Controls.Add(readPlansStatusButton);
+        buttons.Controls.Add(readVisualStatusButton);
+        buttons.Controls.Add(readUpdateSummaryButton);
+        buttons.Controls.Add(readRestartProofButton);
+        buttons.Controls.Add(openEvidenceButton);
+        buttons.Controls.Add(openManualEvidenceButton);
+        buttons.Controls.Add(openManualEvidenceChecklistButton);
+        buttons.Controls.Add(openInstallerButton);
+        buttons.Controls.Add(readImportSummaryButton);
+        buttons.Controls.Add(shortcutsButton);
+        buttons.Controls.Add(shortcutsCommandsButton);
+        buttons.Controls.Add(systemCommandsButton);
+        buttons.Controls.Add(keyboardCommandsButton);
+        buttons.Controls.Add(mouseCommandsButton);
+        buttons.Controls.Add(dictationCommandsButton);
+        buttons.Controls.Add(fileCommandsButton);
+        buttons.Controls.Add(browserCommandsButton);
+        buttons.Controls.Add(browserOpenButton);
+        buttons.Controls.Add(voiceModeCommandsButton);
+        buttons.Controls.Add(voiceAccessSettingsButton);
+        buttons.Controls.Add(helpSpeechSettingsButton);
+        buttons.Controls.Add(startListeningButton);
+        buttons.Controls.Add(stopListeningButton);
+        buttons.Controls.Add(windowingCommandsButton);
+        buttons.Controls.Add(taskViewButton);
+        buttons.Controls.Add(snapLayoutsButton);
+        buttons.Controls.Add(showDesktopButton);
+        buttons.Controls.Add(closeWindowButton);
+        buttons.Controls.Add(switchToAppButton);
+        buttons.Controls.Add(nextWindowButton);
+        buttons.Controls.Add(previousWindowButton);
+        buttons.Controls.Add(newDesktopButton);
+        buttons.Controls.Add(nextDesktopButton);
+        buttons.Controls.Add(previousDesktopButton);
+        buttons.Controls.Add(pressEnterButton);
+        buttons.Controls.Add(pressTabButton);
+        buttons.Controls.Add(pressEscapeButton);
+        buttons.Controls.Add(pressBackspaceButton);
+        buttons.Controls.Add(pressSpaceButton);
+        buttons.Controls.Add(pressDeleteButton);
+        buttons.Controls.Add(pressInsertButton);
+        buttons.Controls.Add(pressWindowsButton);
+        buttons.Controls.Add(pressContextMenuButton);
+        buttons.Controls.Add(pressCapsLockButton);
+        buttons.Controls.Add(shiftTabButton);
+        buttons.Controls.Add(ctrlTabButton);
+        buttons.Controls.Add(altLeftButton);
+        buttons.Controls.Add(altRightButton);
+        buttons.Controls.Add(ctrlHomeButton);
+        buttons.Controls.Add(ctrlEndButton);
+        buttons.Controls.Add(commaButton);
+        buttons.Controls.Add(periodButton);
+        buttons.Controls.Add(slashButton);
+        buttons.Controls.Add(questionMarkButton);
+        buttons.Controls.Add(upButton);
+        buttons.Controls.Add(downButton);
+        buttons.Controls.Add(leftButton);
+        buttons.Controls.Add(rightButton);
+        buttons.Controls.Add(homeButton);
+        buttons.Controls.Add(endButton);
+        buttons.Controls.Add(pageUpButton);
+        buttons.Controls.Add(pageDownButton);
+        buttons.Controls.Add(browserBackButton);
+        buttons.Controls.Add(browserForwardButton);
+        buttons.Controls.Add(browserNewTabButton);
+        buttons.Controls.Add(browserFindButton);
+        buttons.Controls.Add(browserCloseTabButton);
+        buttons.Controls.Add(magnifierSettingsButton);
+        buttons.Controls.Add(narratorSettingsButton);
+        buttons.Controls.Add(captionsSettingsButton);
+        buttons.Controls.Add(speechSettingsButton);
+        buttons.Controls.Add(openSettingsButton);
+        buttons.Controls.Add(displaySettingsButton);
+        buttons.Controls.Add(soundSettingsButton);
+        buttons.Controls.Add(accessibilitySettingsButton);
+        buttons.Controls.Add(mouseSettingsButton);
+        buttons.Controls.Add(keyboardSettingsButton);
+        buttons.Controls.Add(privacySettingsButton);
+        buttons.Controls.Add(powerSettingsButton);
+        buttons.Controls.Add(installedAppsSettingsButton);
+        buttons.Controls.Add(defaultAppsSettingsButton);
+        buttons.Controls.Add(dateTimeSettingsButton);
+        buttons.Controls.Add(notificationsSettingsButton);
+        buttons.Controls.Add(windowsUpdateSettingsButton);
+        buttons.Controls.Add(personalizationSettingsButton);
+        buttons.Controls.Add(volumeUpButton);
+        buttons.Controls.Add(volumeDownButton);
+        buttons.Controls.Add(muteButton);
+        buttons.Controls.Add(playPauseButton);
+        buttons.Controls.Add(nextTrackButton);
+        buttons.Controls.Add(previousTrackButton);
+        buttons.Controls.Add(stopMediaButton);
+        buttons.Controls.Add(quickSettingsButton);
+        buttons.Controls.Add(notificationCenterButton);
+        buttons.Controls.Add(clipboardHistoryButton);
+        buttons.Controls.Add(snippingToolbarButton);
+        buttons.Controls.Add(taskManagerButton);
+        buttons.Controls.Add(minimizeWindowButton);
+        buttons.Controls.Add(maximizeWindowButton);
+        buttons.Controls.Add(restoreWindowButton);
+        buttons.Controls.Add(readDictationButton);
+        buttons.Controls.Add(stopDictationReadbackButton);
+        buttons.Controls.Add(showDictationCorrectionsButton);
+        buttons.Controls.Add(applyDictationFormatButton);
+        buttons.Controls.Add(copyButton);
+        buttons.Controls.Add(pasteButton);
+        buttons.Controls.Add(selectAllButton);
+        buttons.Controls.Add(undoButton);
+        buttons.Controls.Add(redoButton);
+        buttons.Controls.Add(newDocumentButton);
+        buttons.Controls.Add(openFileButton);
+        buttons.Controls.Add(printButton);
+        buttons.Controls.Add(zoomInButton);
+        buttons.Controls.Add(zoomOutButton);
+        buttons.Controls.Add(resetZoomButton);
+        buttons.Controls.Add(ctrlShiftTabButton);
+        buttons.Controls.Add(altUpButton);
+        buttons.Controls.Add(altDownButton);
+        buttons.Controls.Add(ctrlShiftHomeButton);
+        buttons.Controls.Add(ctrlShiftEndButton);
+        buttons.Controls.Add(semicolonButton);
+        buttons.Controls.Add(colonButton);
+        buttons.Controls.Add(quoteButton);
+        buttons.Controls.Add(atButton);
+        buttons.Controls.Add(plusButton);
+        buttons.Controls.Add(showNumbersButton);
+        buttons.Controls.Add(showGridButton);
+        buttons.Controls.Add(showKeyboardButton);
+        buttons.Controls.Add(browserShowNumbersButton);
+        buttons.Controls.Add(browserShowGridButton);
+        buttons.Controls.Add(browserHideOverlaysButton);
+        buttons.Controls.Add(wakeRepairButton);
+        buttons.Controls.Add(trainVoiceIdentityButton);
+        buttons.Controls.Add(mediaCommandsButton);
+        buttons.Controls.Add(visibleCommandsButton);
+        layout.Controls.Add(buttons, 1, row);
+        layout.SetColumnSpan(buttons, 2);
+
+        RefreshHelpTab();
         tab.Controls.Add(layout);
         return tab;
     }
@@ -909,6 +2988,68 @@ public sealed class MainForm : Form
         _sessionPhaseLabel = new Label { AutoSize = true, Font = new Font(Font, FontStyle.Bold), Text = "Phase: Listening" };
         _sessionNextActionLabel = new Label { AutoSize = true, ForeColor = Color.FromArgb(37, 99, 235), Font = new Font(Font, FontStyle.Bold), Text = "Next: say Callsign." };
         _sessionHintLabel = CreateStatusLabel("Next: say Callsign.");
+        _sessionReadinessLabel = CreateStatusLabel("Readiness: create or select a profile.");
+        _sessionReadinessLabel.AccessibleName = "Session readiness";
+        _sessionReadinessLabel.AccessibleDescription = "Shows whether the current profile is enrolled and ready for the visible wake to identity flow.";
+        _sessionStatusStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = new Padding(10, 5, 10, 5),
+            BackColor = Color.FromArgb(242, 247, 253),
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AccessibleName = "Session status strip",
+            AccessibleDescription = "Shows the live listener, identity, command, next action, and readiness state as compact visible badges."
+        };
+        _sessionListenerBadge = CreateSessionBadge("Listener: stopped", "Shows whether the local listener is running.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _sessionIdentityBadge = CreateSessionBadge("Identity: not verified", "Shows whether Callsign has verified the current callsign.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _sessionCommandBadge = CreateSessionBadge("Command: none", "Shows the current command capture state.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _sessionNextActionBadge = CreateSessionBadge("Next: say Callsign.", "Shows the next visible session action.", Color.FromArgb(255, 247, 237), Color.FromArgb(154, 52, 18));
+        _sessionNextActionBadge.AccessibleName = "Session next action";
+        _sessionNextActionBadge.AccessibleDescription = "Shows the next visible session step, such as saying Callsign or the app name.";
+        _sessionReadinessBadge = CreateSessionBadge("Ready: profile needed", "Shows whether the current profile can proceed through the visible wake flow.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _sessionStatusStrip.Controls.Add(_sessionListenerBadge);
+        _sessionStatusStrip.Controls.Add(_sessionIdentityBadge);
+        _sessionStatusStrip.Controls.Add(_sessionCommandBadge);
+        _sessionStatusStrip.Controls.Add(_sessionNextActionBadge);
+        _sessionStatusStrip.Controls.Add(_sessionReadinessBadge);
+        _wakeStatusStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = Padding.Empty,
+            AccessibleName = "Wake status strip",
+            AccessibleDescription = "Shows the wake detector, summary, score, and margin as compact visible badges."
+        };
+        _wakeDetectorBadge = CreateSessionBadge("Wake: idle", "Shows the current wake detector and its state.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _wakeSummaryBadge = CreateSessionBadge("Summary: unavailable", "Shows whether the latest wake candidate was accepted or rejected.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _wakeQualityBadge = CreateSessionBadge("Quality: unavailable", "Shows the latest wake candidate quality in one compact summary.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _wakeScoreBadge = CreateSessionBadge("Score: unavailable", "Shows the latest wake score in compact form.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _wakeMarginBadge = CreateSessionBadge("Margin: unavailable", "Shows the latest wake margin in compact form.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _wakeQualityBadge.Text = BuildWakeQualityBadgeText(null, null);
+        _wakeStatusStrip.Controls.Add(_wakeDetectorBadge);
+        _wakeStatusStrip.Controls.Add(_wakeSummaryBadge);
+        _wakeStatusStrip.Controls.Add(_wakeQualityBadge);
+        _wakeStatusStrip.Controls.Add(_wakeScoreBadge);
+        _wakeStatusStrip.Controls.Add(_wakeMarginBadge);
+        _sessionContractLabel = new Label
+        {
+            AutoSize = false,
+            Height = 36,
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 4, 0, 0),
+            Padding = new Padding(12, 7, 12, 7),
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            Font = new Font("Segoe UI Semibold", 8.9f, FontStyle.Bold),
+            Text = "Contract: Callsign -> identity verification -> command -> visible action.",
+            AccessibleName = "Session contract",
+            AccessibleDescription = "Summarizes the visible session flow from wake word to identity verification, command capture, and visible action."
+        };
         _sessionIdentityLabel = new Label { AutoSize = true, Text = "Waiting for wake word." };
         _sessionCommandLabel = new Label { AutoSize = true, Text = "No command captured." };
         _sessionCountdownLabel = new Label { AutoSize = true, Text = "No timer running." };
@@ -918,9 +3059,11 @@ public sealed class MainForm : Form
         _sessionTranscriptHistoryList = CreateShellListBox(110);
         _listeningStateLabel = new Label { AutoSize = true, Text = "Microphone listener is stopped." };
         _lastHeardLabel = new Label { AutoSize = true, MaximumSize = new Size(760, 0), Text = "Nothing heard yet." };
-        _wakeReliabilityLabel = new Label { AutoSize = true, MaximumSize = new Size(760, 0), Text = "No wake event detected yet." };
+        _wakeReliabilityLabel = new Label { AutoSize = true, MaximumSize = new Size(760, 0), Text = "Wake detector unavailable." };
+        _wakeSummaryLabel = new Label { AutoSize = true, MaximumSize = new Size(760, 0), Text = "Wake summary unavailable.", AccessibleName = "Wake summary" };
         _wakeCandidateLabel = new Label { AutoSize = true, MaximumSize = new Size(760, 0), Text = "Wake candidate: nothing heard yet." };
         _wakeScoreLabel = new Label { AutoSize = true, Text = "Wake score unavailable." };
+        _wakeMarginLabel = new Label { AutoSize = true, Text = "Wake margin unavailable.", AccessibleName = "Wake margin" };
         _wakeQualityLabel = new Label { AutoSize = true, MaximumSize = new Size(760, 0), Text = "Audio quality diagnostics unavailable." };
         _runtimeOwnerLabel = new Label { AutoSize = true, MaximumSize = new Size(760, 0), Text = "Runtime owner unavailable." };
         _runtimeProofLabel = new Label { AutoSize = true, MaximumSize = new Size(760, 0), Text = "Runtime proof unavailable." };
@@ -932,6 +3075,9 @@ public sealed class MainForm : Form
 
         _stopListeningButton = new Button { Text = "Stop Listening", Width = 130, Enabled = false, AccessibleName = "Session stop listening", AccessibleDescription = "Voice phrases: stop listening, stop voice, voice access sleep, go to sleep, turn off microphone, turn off voice access, stop voice access, close voice access, exit voice access, quit voice access, mute microphone." };
         _stopListeningButton.Click += (_, _) => StopVoiceListening();
+
+        _restartListeningButton = new Button { Text = "Restart Listening", Width = 150, AccessibleName = "Session restart listening", AccessibleDescription = "Voice phrases: restart listening, restart voice, restart callsign, restart microphone, restart voice access." };
+        _restartListeningButton.Click += (_, _) => RestartVoiceListening();
 
         _readStatusButton = new Button { Text = "Read Status", Width = 115, AccessibleName = "Session read status", AccessibleDescription = "Voice phrases: what did you hear, read status, repeat status." };
         _readStatusButton.Click += (_, _) => ReadCurrentStatusAloud();
@@ -996,6 +3142,9 @@ public sealed class MainForm : Form
         voiceModeButtons.Controls.Add(_voiceModeCommandsOnlyRadio);
         voiceModeButtons.Controls.Add(_voiceModeDictationOnlyRadio);
         voiceModeButtons.Controls.Add(_voiceModeDefaultRadio);
+        _readVoiceModeStatusButton = new Button { Text = "Read Voice Mode", Width = 130, AccessibleName = "Voice mode readback", AccessibleDescription = "Voice phrases: read voice mode status, repeat voice mode status, read voice mode, repeat voice mode." };
+        _readVoiceModeStatusButton.Click += (_, _) => ReadVoiceModeStatusAloud();
+        voiceModeButtons.Controls.Add(_readVoiceModeStatusButton);
         SyncVoiceModeControls();
 
         _rehearsePhraseButton = new Button { Text = "Test Phrase Launch", Width = 150, AccessibleName = "Session test phrase launch", AccessibleDescription = "Voice phrase: test phrase launch." };
@@ -1029,15 +3178,21 @@ public sealed class MainForm : Form
         AddFullWidth(layout, heading, row++);
         AddFullWidth(layout, description, row++);
         AddFullWidth(layout, examples, row++);
+        AddFullWidth(layout, _sessionContractLabel, row++);
+        AddFullWidth(layout, _sessionStatusStrip, row++);
+        AddFullWidth(layout, _wakeStatusStrip, row++);
         AddRow(layout, "Launch test phrase", _voicePhraseText, row++);
         AddFullWidth(layout, _sessionPhaseLabel, row++);
         AddFullWidth(layout, _sessionNextActionLabel, row++);
         AddFullWidth(layout, _sessionHintLabel, row++);
+        AddFullWidth(layout, _sessionReadinessLabel, row++);
         AddRow(layout, "Listener", _listeningStateLabel, row++);
         AddRow(layout, "Last heard", _lastHeardLabel, row++);
         AddRow(layout, "Wake detector", _wakeReliabilityLabel, row++);
+        AddRow(layout, "Wake summary", _wakeSummaryLabel, row++);
         AddRow(layout, "Wake candidate", _wakeCandidateLabel, row++);
         AddRow(layout, "Wake score", _wakeScoreLabel, row++);
+        AddRow(layout, "Wake margin", _wakeMarginLabel, row++);
         AddRow(layout, "Audio quality", _wakeQualityLabel, row++);
         AddRow(layout, "Runtime owner", _runtimeOwnerLabel, row++);
         AddRow(layout, "Runtime proof", _runtimeProofLabel, row++);
@@ -1061,6 +3216,7 @@ public sealed class MainForm : Form
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
         buttons.Controls.Add(_startListeningButton);
         buttons.Controls.Add(_stopListeningButton);
+        buttons.Controls.Add(_restartListeningButton);
         buttons.Controls.Add(_readStatusButton);
         buttons.Controls.Add(_stopStatusReadbackButton);
         buttons.Controls.Add(_clearRecentSpeechButton);
@@ -1096,11 +3252,49 @@ public sealed class MainForm : Form
         _dictationSafetyLabel = CreateStatusLabel("Safety: dictated text stays in Callsign's review buffer until you copy or paste it. Paste into sensitive targets is blocked; readback is local and stop reading leaves text unchanged.");
         _dictationSafetyLabel.AccessibleName = "Dictation review safety";
         _dictationSafetyLabel.AccessibleDescription = "Explains that dictated text stays in the review buffer until copy or paste, paste is blocked for sensitive targets, and readback is local.";
+        _dictationContractLabel = new Label
+        {
+            AutoSize = false,
+            Height = 36,
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 4, 0, 0),
+            Padding = new Padding(12, 7, 12, 7),
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            Font = new Font("Segoe UI Semibold", 8.9f, FontStyle.Bold),
+            Text = "Contract: speech -> visible review -> correction -> copy/paste.",
+            AccessibleName = "Dictation contract",
+            AccessibleDescription = "Summarizes the visible dictation flow from speech capture to review, correction, and copy or paste."
+        };
+        _dictationStatusStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = Padding.Empty,
+            AccessibleName = "Dictation status strip",
+            AccessibleDescription = "Shows the dictation mode, review buffer length, and local readback state at a glance."
+        };
+        _dictationModeBadge = CreateDictationBadge("Mode: stopped", "Shows whether dictation is stopped, active, or running in a specific mode.");
+        _dictationReviewBadge = CreateDictationBadge("Review: 0 chars", "Shows how much text is currently in the visible dictation review buffer.");
+        _dictationReadbackBadge = CreateDictationBadge("Readback: local", "Shows whether local readback is available and keeps the review surface visible.");
+        _dictationSafetyBadge = CreateDictationBadge("Safety: paste blocked until reviewed", "Shows that dictation stays visible and paste stays gated for sensitive targets.");
+        _dictationBoundaryBadge = CreateDictationBadge("Boundary: review stays local", "Shows that dictated text stays in the review buffer until copy or paste and that readback remains local.");
+        _dictationStatusStrip.Controls.Add(_dictationModeBadge);
+        _dictationStatusStrip.Controls.Add(_dictationReviewBadge);
+        _dictationStatusStrip.Controls.Add(_dictationReadbackBadge);
+        _dictationStatusStrip.Controls.Add(_dictationSafetyBadge);
+        _dictationStatusStrip.Controls.Add(_dictationBoundaryBadge);
         _dictationStatusLabel = new Label
         {
             AutoSize = true,
             Text = "Dictation is stopped."
         };
+        _dictationPreviewLabel = CreateStatusLabel("Preview: nothing yet.");
+        _dictationPreviewLabel.AccessibleName = "Dictation review preview";
+        _dictationPreviewLabel.AccessibleDescription = "Shows a live preview of the reviewed dictation buffer so the user can scan the current text quickly.";
         _dictationSpeechCueLabel = CreateStatusLabel("Speech cue: dictation is stopped.");
         _dictationLastHeardLabel = CreateStatusLabel("Last heard: nothing yet.");
         _dictationTextBox = new TextBox
@@ -1123,6 +3317,85 @@ public sealed class MainForm : Form
         };
         _dictationHistoryList = CreateShellListBox(110);
         _dictationHistoryList.AccessibleName = "Recent dictated speech";
+
+        _dictationCorrectionScopePicker = new ComboBox
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Width = 180,
+            AccessibleName = "Dictation correction scope",
+            AccessibleDescription = "Choose which reviewed text span will be shown in the correction alternatives surface."
+        };
+        _dictationCorrectionScopePicker.Items.AddRange(new object[]
+        {
+            "Previous word",
+            "Previous sentence",
+            "Previous paragraph",
+            "All text"
+        });
+        _dictationCorrectionScopePicker.SelectedIndex = 0;
+        _dictationCorrectionScopePicker.SelectedIndexChanged += (_, _) => RefreshDictationPanel();
+
+        _showDictationCorrectionsButton = new Button
+        {
+            Text = "Show Alternatives",
+            Width = 150,
+            AccessibleName = "Dictation show correction alternatives",
+            AccessibleDescription = "Shows the visible correction HUD for the selected scope so the reviewed text can be corrected before it is pasted or copied."
+        };
+        _showDictationCorrectionsButton.Click += (_, _) => ShowDictationCorrectionsFromPicker();
+
+        _dictationFormatScopePicker = new ComboBox
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Width = 180,
+            AccessibleName = "Dictation formatting scope",
+            AccessibleDescription = "Choose which reviewed text span will be reformatted before it is copied or pasted."
+        };
+        _dictationFormatScopePicker.Items.AddRange(new object[]
+        {
+            "Previous word",
+            "Previous sentence",
+            "Previous paragraph",
+            "All text"
+        });
+        _dictationFormatScopePicker.SelectedIndex = 0;
+        _dictationFormatScopePicker.SelectedIndexChanged += (_, _) => RefreshDictationPanel();
+
+        _capitalizeDictationButton = new Button
+        {
+            Text = "Capitalize",
+            Width = 95,
+            AccessibleName = "Dictation capitalize previous word",
+            AccessibleDescription = "Applies sentence case to the selected dictation scope."
+        };
+        _capitalizeDictationButton.Click += (_, _) => ApplyDictationFormatFromControls(DictationTextFormat.SentenceCase);
+
+        _titleCaseDictationButton = new Button
+        {
+            Text = "Title Case",
+            Width = 95,
+            AccessibleName = "Dictation title case",
+            AccessibleDescription = "Applies title case to the selected dictation scope."
+        };
+        _titleCaseDictationButton.Click += (_, _) => ApplyDictationFormatFromControls(DictationTextFormat.TitleCase);
+
+        _uppercaseDictationButton = new Button
+        {
+            Text = "Uppercase",
+            Width = 95,
+            AccessibleName = "Dictation uppercase",
+            AccessibleDescription = "Applies uppercase to the selected dictation scope."
+        };
+        _uppercaseDictationButton.Click += (_, _) => ApplyDictationFormatFromControls(DictationTextFormat.Uppercase);
+
+        _lowercaseDictationButton = new Button
+        {
+            Text = "Lowercase",
+            Width = 95,
+            AccessibleName = "Dictation lowercase",
+            AccessibleDescription = "Applies lowercase to the selected dictation scope."
+        };
+        _lowercaseDictationButton.Click += (_, _) => ApplyDictationFormatFromControls(DictationTextFormat.Lowercase);
 
         _startDictationButton = new Button { Text = "Start Dictation", Width = 130, AccessibleName = "Dictation start", AccessibleDescription = "Voice phrase: start dictation." };
         _startDictationButton.Click += (_, _) => StartDictation();
@@ -1317,13 +3590,47 @@ public sealed class MainForm : Form
         AddFullWidth(layout, heading, row++);
         AddFullWidth(layout, description, row++);
         AddFullWidth(layout, _dictationHintLabel, row++);
+        AddFullWidth(layout, _dictationContractLabel, row++);
         AddFullWidth(layout, _dictationSafetyLabel, row++);
+        AddFullWidth(layout, _dictationStatusStrip, row++);
         AddRow(layout, "Dictation status", _dictationStatusLabel, row++);
+        AddRow(layout, "Preview", _dictationPreviewLabel, row++);
         AddRow(layout, "Speech cue", _dictationSpeechCueLabel, row++);
         AddRow(layout, "Last heard", _dictationLastHeardLabel, row++);
         AddRow(layout, "Dictated text", _dictationTextBox, row++);
         AddFullWidth(layout, _dictationHistoryLabel, row++);
         AddFullWidth(layout, _dictationHistoryList, row++);
+
+        var correctionLauncher = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty
+        };
+        correctionLauncher.Controls.Add(_dictationCorrectionScopePicker);
+        correctionLauncher.Controls.Add(_showDictationCorrectionsButton);
+        correctionLauncher.Controls.Add(CreateStatusLabel("Choose a scope, then open the visible correction HUD."));
+        AddRow(layout, "Correction", correctionLauncher, row++);
+
+        var formatLauncher = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty
+        };
+        formatLauncher.Controls.Add(_dictationFormatScopePicker);
+        formatLauncher.Controls.Add(_capitalizeDictationButton);
+        formatLauncher.Controls.Add(_titleCaseDictationButton);
+        formatLauncher.Controls.Add(_uppercaseDictationButton);
+        formatLauncher.Controls.Add(_lowercaseDictationButton);
+        formatLauncher.Controls.Add(CreateStatusLabel("Choose a scope, then apply a visible case format."));
+        AddRow(layout, "Format", formatLauncher, row++);
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
         buttons.Controls.Add(_startDictationButton);
@@ -1399,7 +3706,7 @@ public sealed class MainForm : Form
     private TabPage BuildBrowserTab()
     {
         var tab = new TabPage("Browser");
-        var layout = BuildTwoColumnLayout(12);
+        var layout = BuildTwoColumnLayout(13);
 
         var heading = CreateHeading("Open a website or search the web");
         var description = new Label
@@ -1408,11 +3715,48 @@ public sealed class MainForm : Form
             MaximumSize = new Size(900, 0),
             Text = "Enter a URL or a search phrase. Callsign will open the default browser and hand the browser a visible target or web search."
         };
+        _browserContractLabel = new Label
+        {
+            AutoSize = false,
+            Height = 36,
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 4, 0, 0),
+            Padding = new Padding(12, 7, 12, 7),
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            Font = new Font("Segoe UI Semibold", 8.9f, FontStyle.Bold),
+            Text = "Contract: open web target -> visible browser action -> review or stop.",
+            AccessibleName = "Browser contract",
+            AccessibleDescription = "Summarizes the visible browser flow from opening a web target through visible browser action, review, and stop."
+        };
         _browserSafetyLabel = CreateStatusLabel("Safety: browser targets are web-only. Callsign accepts http/https, bare domains, and search text; file, script, settings, installer, and app schemes are blocked here. Browser commands use visible shortcuts and do not inspect page contents or run hidden scripts.");
         _browserSafetyLabel.AccessibleName = "Browser safety";
         _browserSafetyLabel.AccessibleDescription = "Explains the web-only browser boundary, blocked non-web schemes, visible shortcut behavior, and no hidden page inspection.";
-        _browserStatusLabel = new Label { AutoSize = true, Text = "Browser target not opened yet." };
-        _browserVoiceCueLabel = new Label { AutoSize = true, Text = "Voice cue: browser is waiting for speech." };
+        _browserStatusStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = Padding.Empty,
+            AccessibleName = "Browser status strip",
+            AccessibleDescription = "Shows the current browser target, next action, spoken cue, and last browser action at a glance."
+        };
+        _browserTargetBadge = CreateBrowserBadge("Target: none", "Shows the current browser target or search text.");
+        _browserCueBadge = CreateBrowserBadge("Cue: enter a target", "Shows whether the browser is ready for a URL or search phrase, or has one queued for action.");
+        _browserActionBadge = CreateBrowserBadge("Action: none", "Shows the last browser action that ran visibly.");
+        _browserNextBadge = CreateBrowserBadge("Next: open a web target", "Shows the next visible browser step.");
+        _browserSafetyBadge = CreateBrowserBadge("Safety: web only", "Shows that browser targets stay web-only and hidden scripts remain blocked.");
+        _browserBoundaryBadge = CreateBrowserBadge("Boundary: visible shortcuts", "Shows that browser commands use visible shortcuts and do not inspect page contents or run hidden scripts.");
+        _browserStatusStrip.Controls.Add(_browserTargetBadge);
+        _browserStatusStrip.Controls.Add(_browserCueBadge);
+        _browserStatusStrip.Controls.Add(_browserActionBadge);
+        _browserStatusStrip.Controls.Add(_browserNextBadge);
+        _browserStatusStrip.Controls.Add(_browserSafetyBadge);
+        _browserStatusStrip.Controls.Add(_browserBoundaryBadge);
+        _browserStatusLabel = new Label { AutoSize = true, Text = "Browser ready. Enter a URL or search text." };
+        _browserVoiceCueLabel = new Label { AutoSize = true, Text = "Voice cue: say browser open or browser search." };
         _browserLastHeardLabel = new Label { AutoSize = true, Text = "Last heard: nothing yet." };
         _browserLastActionLabel = new Label { AutoSize = true, MaximumSize = new Size(900, 0), Text = "Last action: none yet." };
         _browserInputText = new TextBox { Dock = DockStyle.Fill, PlaceholderText = "Search the web or open a URL, such as example.com or callsign desktop assistant", AccessibleName = "Browser target" };
@@ -1500,10 +3844,10 @@ public sealed class MainForm : Form
         _browserFindPreviousButton = new Button { Text = "Find Previous", Width = 110, AccessibleName = "Browser find previous", AccessibleDescription = "Voice phrase: find previous." };
         _browserFindPreviousButton.Click += (_, _) => ExecuteBrowserAction("browser-find-previous", "Browser find previous requested.");
 
-        _browserStartScrollUpButton = new Button { Text = "Start Up", Width = 90, AccessibleName = "Browser start scrolling up", AccessibleDescription = "Voice phrase: start scrolling up." };
+        _browserStartScrollUpButton = new Button { Text = "Start Up", Width = 90, AccessibleName = "Browser start scrolling up", AccessibleDescription = "Voice phrase: browser start scrolling up." };
         _browserStartScrollUpButton.Click += (_, _) => ExecuteBrowserAction("browser-start-scroll-up", "Browser start scrolling up requested.");
 
-        _browserStartScrollDownButton = new Button { Text = "Start Down", Width = 100, AccessibleName = "Browser start scrolling down", AccessibleDescription = "Voice phrase: start scrolling down." };
+        _browserStartScrollDownButton = new Button { Text = "Start Down", Width = 100, AccessibleName = "Browser start scrolling down", AccessibleDescription = "Voice phrase: browser start scrolling down." };
         _browserStartScrollDownButton.Click += (_, _) => ExecuteBrowserAction("browser-start-scroll-down", "Browser start scrolling down requested.");
 
         _browserStartScrollLeftButton = new Button { Text = "Start Left", Width = 95, AccessibleName = "Browser start scrolling left", AccessibleDescription = "Voice phrase: browser start scrolling left." };
@@ -1512,7 +3856,7 @@ public sealed class MainForm : Form
         _browserStartScrollRightButton = new Button { Text = "Start Right", Width = 100, AccessibleName = "Browser start scrolling right", AccessibleDescription = "Voice phrase: browser start scrolling right." };
         _browserStartScrollRightButton.Click += (_, _) => ExecuteBrowserAction("browser-start-scroll-right", "Browser start scrolling right requested.");
 
-        _browserStopScrollButton = new Button { Text = "Stop Scroll", Width = 100, AccessibleName = "Browser stop scrolling", AccessibleDescription = "Voice phrase: stop scrolling." };
+        _browserStopScrollButton = new Button { Text = "Stop Scroll", Width = 100, AccessibleName = "Browser stop scrolling", AccessibleDescription = "Voice phrase: browser stop scrolling." };
         _browserStopScrollButton.Click += (_, _) => ExecuteBrowserAction("browser-stop-scroll", "Browser stop scrolling requested.");
 
         _browserScrollUpButton = new Button { Text = "Scroll Up", Width = 90, AccessibleName = "Browser scroll up", AccessibleDescription = "Voice phrase: browser scroll up." };
@@ -1527,10 +3871,10 @@ public sealed class MainForm : Form
         _browserScrollRightButton = new Button { Text = "Scroll Right", Width = 100, AccessibleName = "Browser scroll right", AccessibleDescription = "Voice phrase: browser scroll right." };
         _browserScrollRightButton.Click += (_, _) => ExecuteBrowserAction("browser-scroll-right", "Browser scroll right requested.");
 
-        _browserScrollTopButton = new Button { Text = "Scroll Top", Width = 95, AccessibleName = "Browser scroll to top", AccessibleDescription = "Voice phrase: scroll to top." };
+        _browserScrollTopButton = new Button { Text = "Scroll Top", Width = 95, AccessibleName = "Browser scroll to top", AccessibleDescription = "Voice phrases: browser scroll top, go to top of page." };
         _browserScrollTopButton.Click += (_, _) => ExecuteBrowserAction("browser-scroll-top", "Browser scroll to top requested.");
 
-        _browserScrollBottomButton = new Button { Text = "Scroll Bottom", Width = 110, AccessibleName = "Browser scroll to bottom", AccessibleDescription = "Voice phrase: scroll to bottom." };
+        _browserScrollBottomButton = new Button { Text = "Scroll Bottom", Width = 110, AccessibleName = "Browser scroll to bottom", AccessibleDescription = "Voice phrases: browser scroll bottom, go to bottom of page." };
         _browserScrollBottomButton.Click += (_, _) => ExecuteBrowserAction("browser-scroll-bottom", "Browser scroll to bottom requested.");
 
         _browserFullscreenButton = new Button { Text = "Full Screen", Width = 100, AccessibleName = "Browser full screen", AccessibleDescription = "Voice phrase: browser full screen." };
@@ -1545,10 +3889,44 @@ public sealed class MainForm : Form
         _browserZoomResetButton = new Button { Text = "Zoom Reset", Width = 100, AccessibleName = "Browser zoom reset", AccessibleDescription = "Voice phrase: browser zoom reset." };
         _browserZoomResetButton.Click += (_, _) => ExecuteBrowserAction("browser-zoom-reset", "Browser zoom reset requested.");
 
+        _browserShowNumbersButton = new Button
+        {
+            Text = "Show Numbers",
+            Width = 110,
+            AccessibleName = "Browser show numbers",
+            AccessibleDescription = "Voice phrases: browser show numbers, show numbers, show numbers here. Opens the visible controls overlay for the browser surface."
+        };
+        _browserShowNumbersButton.Click += (_, _) => ShowVisibleControlsSummary(VisibleControlsScope.CurrentSurface);
+
+        _browserShowGridButton = new Button
+        {
+            Text = "Show Grid",
+            Width = 90,
+            AccessibleName = "Browser show grid",
+            AccessibleDescription = "Voice phrases: browser show grid, show grid, show grid here. Opens the mouse grid over the browser surface."
+        };
+        _browserShowGridButton.Click += (_, _) => ShowMouseGrid(MouseGridScope.CurrentWindow);
+
+        _browserHideOverlaysButton = new Button
+        {
+            Text = "Hide Overlays",
+            Width = 110,
+            AccessibleName = "Browser hide overlays",
+            AccessibleDescription = "Voice phrases: browser hide overlays, hide visible controls, hide grid. Closes browser overlay aids without changing the page."
+        };
+        _browserHideOverlaysButton.Click += (_, _) =>
+        {
+            HideVisibleControlsOverlay();
+            HideMouseGrid();
+            UpdateStatus("Browser overlays hidden.");
+        };
+
         var row = 0;
         AddFullWidth(layout, heading, row++);
         AddFullWidth(layout, description, row++);
+        AddFullWidth(layout, _browserContractLabel, row++);
         AddFullWidth(layout, _browserSafetyLabel, row++);
+        AddFullWidth(layout, _browserStatusStrip, row++);
         AddRow(layout, "Target", _browserInputText, row++);
         AddRow(layout, "Address text", _browserAddressTextInput, row++);
         AddRow(layout, "Find text", _browserFindTextInput, row++);
@@ -1599,6 +3977,9 @@ public sealed class MainForm : Form
         buttons.Controls.Add(_browserZoomInButton);
         buttons.Controls.Add(_browserZoomOutButton);
         buttons.Controls.Add(_browserZoomResetButton);
+        buttons.Controls.Add(_browserShowNumbersButton);
+        buttons.Controls.Add(_browserShowGridButton);
+        buttons.Controls.Add(_browserHideOverlaysButton);
         layout.Controls.Add(buttons, 1, row);
         layout.SetColumnSpan(buttons, 2);
 
@@ -1609,7 +3990,7 @@ public sealed class MainForm : Form
     private TabPage BuildSystemTab()
     {
         var tab = new TabPage("System");
-        var layout = BuildTwoColumnLayout(8);
+        var layout = BuildTwoColumnLayout(10);
 
         var heading = CreateHeading("Adjust common system controls visibly");
         var description = new Label
@@ -1618,13 +3999,57 @@ public sealed class MainForm : Form
             MaximumSize = new Size(900, 0),
             Text = "System controls stay visible and local: change volume, mute audio, control media playback, switch to a named app or window, manage the active window, open shell surfaces such as Quick Settings or clipboard history, open safe Windows Settings pages, open Task Manager, and show the desktop without opening a shell."
         };
+        _systemContractLabel = new Label
+        {
+            AutoSize = false,
+            Height = 36,
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 4, 0, 0),
+            Padding = new Padding(12, 7, 12, 7),
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            Font = new Font("Segoe UI Semibold", 8.9f, FontStyle.Bold),
+            Text = "Contract: visible system surface -> bounded action -> clear status -> safe rollback when possible.",
+            AccessibleName = "System contract",
+            AccessibleDescription = "Summarizes the visible system-control flow from surface selection through bounded action, status, and rollback where possible."
+        };
         _systemStatusLabel = new Label { AutoSize = true, Text = "No system action run yet." };
         _systemSelectedActionLabel = new Label { AutoSize = true, Text = "Selected action: none." };
+        _systemStatusStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = new Padding(10, 5, 10, 5),
+            BackColor = Color.FromArgb(242, 247, 253),
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AccessibleName = "System status strip",
+            AccessibleDescription = "Shows the current system action, selected action, next action, voice cue, and safety state as compact visible badges."
+        };
+        _systemActionBadge = CreateSystemBadge("Action: none", "Shows the last visible system action that ran.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _systemSelectedBadge = CreateSystemBadge("Selected: none", "Shows the currently selected System action.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _systemNextBadge = CreateSystemBadge("Next: choose an action", "Shows the next visible system step.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _systemCueBadge = CreateSystemBadge("Cue: choose an action", "Shows the current voice cue or listener state.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _systemSafetyBadge = CreateSystemBadge("Safety: visible", "Shows that System actions stay visible and bounded.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _systemWindowingBadge = CreateSystemBadge("Windowing: Task View + Snap Layouts", "Shows that window management stays visible and uses standard Windows surfaces.", Color.FromArgb(255, 247, 237), Color.FromArgb(154, 52, 18));
+        _systemKeyboardBadge = CreateSystemBadge("Keyboard: allowlisted + release modifiers", "Shows that keyboard parity stays bounded to the visible foreground app with a clear modifier release path.", Color.FromArgb(240, 249, 255), Color.FromArgb(7, 89, 133));
+        _systemMouseBadge = CreateSystemBadge("Mouse: click + drag + scroll", "Shows that mouse parity stays visible, bounded, and reversible where possible.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _systemMediaBadge = CreateSystemBadge("Media: play + pause + stop", "Shows that media controls stay visible and bounded to the foreground app or session.", Color.FromArgb(255, 247, 237), Color.FromArgb(154, 52, 18));
+        _systemStatusStrip.Controls.Add(_systemActionBadge);
+        _systemStatusStrip.Controls.Add(_systemSelectedBadge);
+        _systemStatusStrip.Controls.Add(_systemNextBadge);
+        _systemStatusStrip.Controls.Add(_systemCueBadge);
+        _systemStatusStrip.Controls.Add(_systemSafetyBadge);
+        _systemStatusStrip.Controls.Add(_systemWindowingBadge);
+        _systemStatusStrip.Controls.Add(_systemKeyboardBadge);
+        _systemStatusStrip.Controls.Add(_systemMouseBadge);
+        _systemStatusStrip.Controls.Add(_systemMediaBadge);
         _systemSafetyLabel = CreateStatusLabel("Safety: system commands stay visible and reversible where possible. Settings, clipboard history, snipping, project, cast, keyboard, mouse, and window actions open visible Windows surfaces or send bounded input; Callsign does not toggle settings, read clipboard contents, capture screenshots, force-kill apps, or act in hidden windows from this surface.");
         _systemSafetyLabel.AccessibleName = "System safety";
         _systemSafetyLabel.AccessibleDescription = "Explains that System actions use visible Windows surfaces or bounded input and do not toggle settings, read clipboard contents, capture screenshots, force-kill apps, or act in hidden windows.";
         _systemLastActionLabel = new Label { AutoSize = true, MaximumSize = new Size(900, 0), Text = "Last action: none yet." };
-        _systemVoiceCueLabel = new Label { AutoSize = true, Text = "Voice cue: system is waiting for speech." };
+        _systemVoiceCueLabel = new Label { AutoSize = true, Text = "Voice cue: system ready. Choose an action or say one of the visible commands." };
         _systemLastHeardLabel = new Label { AutoSize = true, Text = "Last heard: nothing yet." };
         _systemSwitchWindowText = BuildTextInput("Switch to app or window");
         _systemSwitchWindowText.PlaceholderText = "Edge, Notepad, or Explorer";
@@ -1667,7 +4092,7 @@ public sealed class MainForm : Form
         _systemPreviousWindowButton = new Button { Text = "Previous Window", Width = 120, AccessibleName = "System previous window", AccessibleDescription = "Voice phrases: previous window, switch to the previous app." };
         _systemPreviousWindowButton.Click += (_, _) => ExecuteSystemAction("system-previous-window", "Previous window requested.");
 
-        _systemTaskViewButton = new Button { Text = "Task View", Width = 90, AccessibleName = "System task view", AccessibleDescription = "Voice phrases: task view, show open windows." };
+        _systemTaskViewButton = new Button { Text = "Task View", Width = 90, AccessibleName = "System task view", AccessibleDescription = "Voice phrases: task view, show open windows, show all windows, show windows, window switcher." };
         _systemTaskViewButton.Click += (_, _) => ExecuteSystemAction("system-open-task-view", "Task view requested.");
 
         var systemQuickSettingsButton = new Button { Text = "Quick Settings", Width = 110, AccessibleName = "System quick settings", AccessibleDescription = "Voice phrase: quick settings." };
@@ -1700,13 +4125,13 @@ public sealed class MainForm : Form
         _systemClearWindowChoicesButton = new Button { Text = "Clear Window Choices", Width = 150, Enabled = false, AccessibleName = "System clear window choices", AccessibleDescription = "Voice phrases: clear window choices, cancel window choices." };
         _systemClearWindowChoicesButton.Click += (_, _) => ClearPendingWindowSwitch("Window choice cleared.");
 
-        _systemNewVirtualDesktopButton = new Button { Text = "New Desktop", Width = 105, AccessibleName = "System new virtual desktop", AccessibleDescription = "Voice phrase: new desktop." };
+        _systemNewVirtualDesktopButton = new Button { Text = "New Desktop", Width = 105, AccessibleName = "System new virtual desktop", AccessibleDescription = "Voice phrases: new desktop, create desktop, new virtual desktop." };
         _systemNewVirtualDesktopButton.Click += (_, _) => ExecuteSystemAction("system-new-virtual-desktop", "New virtual desktop requested.");
 
-        _systemNextVirtualDesktopButton = new Button { Text = "Next Desktop", Width = 105, AccessibleName = "System next virtual desktop", AccessibleDescription = "Voice phrase: next desktop." };
+        _systemNextVirtualDesktopButton = new Button { Text = "Next Desktop", Width = 105, AccessibleName = "System next virtual desktop", AccessibleDescription = "Voice phrases: next desktop, next virtual desktop, switch to next desktop." };
         _systemNextVirtualDesktopButton.Click += (_, _) => ExecuteSystemAction("system-next-virtual-desktop", "Next virtual desktop requested.");
 
-        _systemPreviousVirtualDesktopButton = new Button { Text = "Prev Desktop", Width = 105, AccessibleName = "System previous virtual desktop", AccessibleDescription = "Voice phrase: previous desktop." };
+        _systemPreviousVirtualDesktopButton = new Button { Text = "Prev Desktop", Width = 105, AccessibleName = "System previous virtual desktop", AccessibleDescription = "Voice phrases: previous desktop, previous virtual desktop, switch to previous desktop." };
         _systemPreviousVirtualDesktopButton.Click += (_, _) => ExecuteSystemAction("system-previous-virtual-desktop", "Previous virtual desktop requested.");
 
         _systemTaskManagerButton = new Button { Text = "Task Manager", Width = 110, AccessibleName = "System open Task Manager", AccessibleDescription = "Voice phrase: open task manager." };
@@ -1992,6 +4417,9 @@ public sealed class MainForm : Form
         _systemSaveButton = new Button { Text = "Save", Width = 65, AccessibleName = "System save", AccessibleDescription = "Voice phrase: save." };
         _systemSaveButton.Click += (_, _) => ExecuteSystemAction("system-save", "Save requested.");
 
+        _systemSaveAsButton = new Button { Text = "Save As", Width = 75, AccessibleName = "System save as", AccessibleDescription = "Voice phrases: save as, open save as dialog." };
+        _systemSaveAsButton.Click += (_, _) => ExecuteSystemAction("system-save-as", "Save As dialog requested.");
+
         _systemUndoButton = new Button { Text = "Undo", Width = 65, AccessibleName = "System undo", AccessibleDescription = "Voice phrase: undo." };
         _systemUndoButton.Click += (_, _) => ExecuteSystemAction("system-undo", "Undo requested.");
 
@@ -2009,6 +4437,12 @@ public sealed class MainForm : Form
 
         _systemFindButton = new Button { Text = "Find", Width = 65, AccessibleName = "System find", AccessibleDescription = "Voice phrase: find." };
         _systemFindButton.Click += (_, _) => ExecuteSystemAction("system-find", "Find requested.");
+
+        _systemFindNextButton = new Button { Text = "Find Next", Width = 85, AccessibleName = "System find next", AccessibleDescription = "Voice phrases: find next in app, next match in app." };
+        _systemFindNextButton.Click += (_, _) => ExecuteSystemAction("system-find-next", "Find next requested.");
+
+        _systemFindPreviousButton = new Button { Text = "Find Prev", Width = 85, AccessibleName = "System find previous", AccessibleDescription = "Voice phrases: find previous in app, previous match in app." };
+        _systemFindPreviousButton.Click += (_, _) => ExecuteSystemAction("system-find-previous", "Find previous requested.");
 
         _systemNewWindowButton = new Button { Text = "New Window", Width = 100, AccessibleName = "System new window", AccessibleDescription = "Voice phrase: new window." };
         _systemNewWindowButton.Click += (_, _) => ExecuteSystemAction("system-new-window", "New window requested.");
@@ -2031,7 +4465,7 @@ public sealed class MainForm : Form
         _systemZoomResetButton = new Button { Text = "Reset Zoom", Width = 95, AccessibleName = "System reset zoom", AccessibleDescription = "Voice phrase: reset zoom." };
         _systemZoomResetButton.Click += (_, _) => ExecuteSystemAction("system-zoom-reset", "Zoom reset requested.");
 
-        _systemCloseWindowButton = new Button { Text = "Close Window", Width = 100, AccessibleName = "System close window", AccessibleDescription = "Voice phrases: close this window, close active app." };
+        _systemCloseWindowButton = new Button { Text = "Close Window", Width = 100, AccessibleName = "System close window", AccessibleDescription = "Voice phrases: close this window, close active app, alt f4, press alt f4." };
         _systemCloseWindowButton.Click += (_, _) => ExecuteSystemAction("system-close-window", "Close window requested.");
 
         _systemMovePreviousCharacterButton = new Button { Text = "Prev Char", Width = 85, AccessibleName = "System move previous character", AccessibleDescription = "Voice phrase: previous character." };
@@ -2145,6 +4579,8 @@ public sealed class MainForm : Form
         var row = 0;
         AddFullWidth(layout, heading, row++);
         AddFullWidth(layout, description, row++);
+        AddFullWidth(layout, _systemContractLabel, row++);
+        AddFullWidth(layout, _systemStatusStrip, row++);
         AddFullWidth(layout, _systemSafetyLabel, row++);
         AddRow(layout, "Status", _systemStatusLabel, row++);
         AddRow(layout, "Selected", _systemSelectedActionLabel, row++);
@@ -2260,12 +4696,15 @@ public sealed class MainForm : Form
         buttons.Controls.Add(_systemCutButton);
         buttons.Controls.Add(_systemSelectAllButton);
         buttons.Controls.Add(_systemSaveButton);
+        buttons.Controls.Add(_systemSaveAsButton);
         buttons.Controls.Add(_systemUndoButton);
         buttons.Controls.Add(_systemRedoButton);
         buttons.Controls.Add(_systemBoldButton);
         buttons.Controls.Add(_systemItalicButton);
         buttons.Controls.Add(_systemUnderlineButton);
         buttons.Controls.Add(_systemFindButton);
+        buttons.Controls.Add(_systemFindNextButton);
+        buttons.Controls.Add(_systemFindPreviousButton);
         buttons.Controls.Add(_systemNewWindowButton);
         buttons.Controls.Add(_systemNewDocumentButton);
         buttons.Controls.Add(_systemOpenFileButton);
@@ -2329,12 +4768,56 @@ public sealed class MainForm : Form
             MaximumSize = new Size(900, 0),
             Text = "Searches the intended alpha scope: common user folders plus Callsign data. Results show clearly, empty states are explained, and selected items can be opened."
         };
-        _fileSearchStatusLabel = CreateStatusLabel("No file search run yet.");
+        _fileSearchContractLabel = new Label
+        {
+            AutoSize = false,
+            Height = 36,
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 4, 0, 0),
+            Padding = new Padding(12, 7, 12, 7),
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            Font = new Font("Segoe UI Semibold", 8.9f, FontStyle.Bold),
+            Text = "Contract: search locally -> review results -> open or reveal by policy.",
+            AccessibleName = "Files contract",
+            AccessibleDescription = "Summarizes the visible file-search flow from local search through result review and policy-gated open or reveal actions."
+        };
+        _fileSearchStatusLabel = CreateStatusLabel("Ready to search local files.");
+        _fileSearchStatusStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = new Padding(10, 5, 10, 5),
+            BackColor = Color.FromArgb(242, 247, 253),
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AccessibleName = "Files status strip",
+            AccessibleDescription = "Shows the current file query, next action, result count, voice cue, and safety boundary as compact visible badges."
+        };
+        _fileSearchQueryBadge = CreateFileSearchBadge("Query: none", "Shows the current search query.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _fileSearchResultBadge = CreateFileSearchBadge("Results: 0", "Shows how many file search results are available.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _fileSearchCueBadge = CreateFileSearchBadge("Cue: say a file name", "Shows whether file search is ready for a filename, folder name, or has one queued for action.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _fileSearchNextBadge = CreateFileSearchBadge("Next: search local files", "Shows the next visible file-search step.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _fileSearchSafetyBadge = CreateFileSearchBadge("Safety: local", "Shows the local search boundary and visible review rule.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _fileSearchScopeBadge = CreateFileSearchBadge("Scope: local folders", "Shows the intended local file-search scope.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _fileSearchSelectionBadge = CreateFileSearchBadge("Selected: none", "Shows the selected file result.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _fileSearchBoundaryBadge = CreateFileSearchBadge("Boundary: reveal in Explorer", "Shows that direct open stays blocked for executable or script-like files and reveal stays visible in Explorer.", Color.FromArgb(255, 247, 237), Color.FromArgb(154, 52, 18));
+        _fileSearchReviewBadge = CreateFileSearchBadge("Review: select before open", "Shows that file search results should be checked before opening or revealing them.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _fileSearchStatusStrip.Controls.Add(_fileSearchQueryBadge);
+        _fileSearchStatusStrip.Controls.Add(_fileSearchResultBadge);
+        _fileSearchStatusStrip.Controls.Add(_fileSearchCueBadge);
+        _fileSearchStatusStrip.Controls.Add(_fileSearchNextBadge);
+        _fileSearchStatusStrip.Controls.Add(_fileSearchSafetyBadge);
+        _fileSearchStatusStrip.Controls.Add(_fileSearchScopeBadge);
+        _fileSearchStatusStrip.Controls.Add(_fileSearchSelectionBadge);
+        _fileSearchStatusStrip.Controls.Add(_fileSearchBoundaryBadge);
+        _fileSearchStatusStrip.Controls.Add(_fileSearchReviewBadge);
         _fileSearchSafetyLabel = CreateStatusLabel("Safety: file search stays in common user folders and Callsign data. Results are shown before action; executable or script-like files are blocked from direct open and should be revealed in Explorer instead.");
         _fileSearchSafetyLabel.AccessibleName = "Files search safety";
         _fileSearchSafetyLabel.AccessibleDescription = "Explains the allowed file-search scope, visible result review, and blocked direct-open behavior for executable or script-like files.";
         _fileSearchSelectionLabel = CreateStatusLabel("Selected result: none.");
-        _fileSearchVoiceCueLabel = CreateStatusLabel("Voice cue: file search is waiting for speech.");
+        _fileSearchVoiceCueLabel = CreateStatusLabel("Voice cue: say search files, search for a filename, or search for a folder.");
         _fileSearchLastHeardLabel = CreateStatusLabel("Last heard: nothing yet.");
         _fileSearchLastActionLabel = new Label { AutoSize = true, MaximumSize = new Size(900, 0), Text = "Last action: none yet." };
         _fileSearchQueryText = BuildTextInput("Search");
@@ -2399,6 +4882,8 @@ public sealed class MainForm : Form
         var row = 0;
         AddFullWidth(layout, heading, row++);
         AddFullWidth(layout, description, row++);
+        AddFullWidth(layout, _fileSearchContractLabel, row++);
+        AddFullWidth(layout, _fileSearchStatusStrip, row++);
         AddFullWidth(layout, _fileSearchSafetyLabel, row++);
         AddRow(layout, "Search", _fileSearchQueryText, row++);
         AddRow(layout, "Status", _fileSearchStatusLabel, row++);
@@ -2426,34 +4911,267 @@ public sealed class MainForm : Form
         return tab;
     }
 
+    private TabPage BuildPlansTab()
+    {
+        var tab = new TabPage("Plans");
+        var layout = BuildTwoColumnLayout(9);
+
+        var heading = CreateHeading("Free parity core, paid beyond-parity packs");
+        var description = new Label
+        {
+            AutoSize = true,
+            MaximumSize = new Size(900, 0),
+            Text = "The public Free core stays useful on its own and owns the full Windows Voice Access parity baseline. Pro and Advanced are paid extension libraries for beyond-parity Windows, WSL, Linux, browser, workflow, diagnostics, and admin capabilities, but they never replace the visible wake -> identity -> command -> action model."
+        };
+        _plansRoadmapLabel = CreateStatusLabel("Revision cadence: start at 0.0.3a, use 0.0.01a micro revisions for fixes and polish, use 0.0.1a major revisions for new alpha capability clusters, and ship v1.0.0a as the first public alpha. Keep alpha features free through beta; begin paid Pro and Advanced layers only after the public alpha boundary.");
+        _plansRoadmapLabel.AccessibleName = "Plans roadmap";
+        _plansRoadmapLabel.AccessibleDescription = "Explains the alpha revision cadence and the transition from free alpha features to the post-alpha paid boundary.";
+
+        _plansFreeLabel = CreateStatusLabel("Free: open-source core, full Windows Voice Access parity baseline, no paid account required.");
+        _plansFreeLabel.AccessibleName = "Free tier";
+        _plansFreeLabel.AccessibleDescription = "Describes the open-source Free core and the Windows Voice Access parity baseline that remains free.";
+        _plansProLabel = CreateStatusLabel("Pro: paid tier for beyond-parity Windows, WSL, Linux, browser, and workflow control.");
+        _plansProLabel.AccessibleName = "Pro tier";
+        _plansProLabel.AccessibleDescription = "Describes the paid Pro tier for beyond-parity everyday control.";
+        _plansAdvancedLabel = CreateStatusLabel("Advanced: paid tier for beyond-parity recipes, diagnostics, admin/dev workflows, and power-user automation.");
+        _plansAdvancedLabel.AccessibleName = "Advanced tier";
+        _plansAdvancedLabel.AccessibleDescription = "Describes the paid Advanced tier for specialized command packs and automation.";
+        _plansBoundaryLabel = CreateStatusLabel("Boundary: entitlement may gate paid packs, but policy still decides whether any command may run.");
+        _plansBoundaryLabel.AccessibleName = "Tier boundary";
+        _plansBoundaryLabel.AccessibleDescription = "Explains that paid entitlement only decides whether a paid pack may load and cannot override policy or visibility gates.";
+        _plansCapabilityStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = new Padding(10, 5, 10, 5),
+            BackColor = Color.FromArgb(242, 247, 253),
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AccessibleName = "Plans capability strip",
+            AccessibleDescription = "Shows the core Free, Pro, and Advanced capability split in compact visible badges."
+        };
+        _plansFreeCapabilityBadge = CreatePlansBadge("Free: Voice Access parity baseline", "Shows that the full Windows Voice Access parity baseline stays in the open-source Free core.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _plansProCapabilityBadge = CreatePlansBadge("Pro: beyond-parity OS + browser + workflow", "Shows the paid Pro capabilities beyond the Free parity baseline.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _plansAdvancedCapabilityBadge = CreatePlansBadge("Advanced: beyond-parity recipes + diagnostics + admin", "Shows the paid Advanced capabilities beyond the Free parity baseline.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _plansCapabilityStrip.Controls.Add(_plansFreeCapabilityBadge);
+        _plansCapabilityStrip.Controls.Add(_plansProCapabilityBadge);
+        _plansCapabilityStrip.Controls.Add(_plansAdvancedCapabilityBadge);
+        _plansStatusStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = new Padding(10, 5, 10, 5),
+            BackColor = Color.FromArgb(242, 247, 253),
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AccessibleName = "Plans status strip",
+            AccessibleDescription = "Shows the current Free, Pro, Advanced, and entitlement boundary in compact visible badges."
+        };
+        _plansFreeBadge = CreatePlansBadge("Free: open parity", "Shows the open-source Free core and the Windows Voice Access parity baseline.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _plansProBadge = CreatePlansBadge("Pro: paid", "Shows the paid Pro tier.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _plansAdvancedBadge = CreatePlansBadge("Advanced: paid", "Shows the paid Advanced tier.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _plansBoundaryBadge = CreatePlansBadge("Boundary: policy still wins", "Shows that entitlement does not bypass policy or visibility gates.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _plansStatusStrip.Controls.Add(_plansFreeBadge);
+        _plansStatusStrip.Controls.Add(_plansProBadge);
+        _plansStatusStrip.Controls.Add(_plansAdvancedBadge);
+        _plansStatusStrip.Controls.Add(_plansBoundaryBadge);
+        _plansRoadmapStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = new Padding(10, 5, 10, 5),
+            BackColor = Color.FromArgb(242, 247, 253),
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AccessibleName = "Plans roadmap strip",
+            AccessibleDescription = "Shows the alpha revision cadence and the public alpha to paid-tier transition in compact visible badges."
+        };
+        _plansStartBadge = CreatePlansBadge("Start: 0.0.3a", "Shows the current baseline starting point for the alpha roadmap.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _plansMicroBadge = CreatePlansBadge("Micro: 0.0.01a", "Shows the micro-revision cadence used for fixes and polish.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _plansMajorBadge = CreatePlansBadge("Major: 0.0.1a", "Shows the major alpha milestone cadence used for new capability clusters.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _plansPublicAlphaBadge = CreatePlansBadge("Public alpha: v1.0.0a", "Shows the first public alpha milestone.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _plansFuturePaidBadge = CreatePlansBadge("After alpha: paid layers", "Shows that Pro and Advanced begin only after the public alpha boundary.", Color.FromArgb(255, 247, 237), Color.FromArgb(154, 52, 18));
+        _plansRoadmapStrip.Controls.Add(_plansStartBadge);
+        _plansRoadmapStrip.Controls.Add(_plansMicroBadge);
+        _plansRoadmapStrip.Controls.Add(_plansMajorBadge);
+        _plansRoadmapStrip.Controls.Add(_plansPublicAlphaBadge);
+        _plansRoadmapStrip.Controls.Add(_plansFuturePaidBadge);
+
+        _plansEntitlementPicker = new ComboBox
+        {
+            Dock = DockStyle.Fill,
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            AccessibleName = "Plans entitlement picker",
+            AccessibleDescription = "Choose which entitlement tiers this profile currently has."
+        };
+        _plansEntitlementPicker.Items.AddRange([
+            "Free only",
+            "Free + Pro",
+            "Free + Advanced",
+            "Free + Pro + Advanced"
+        ]);
+
+        _readPlansStatusButton = new Button
+        {
+            Text = "Read Plans Status",
+            Width = 134,
+            AccessibleName = "Plans read status",
+            AccessibleDescription = "Voice phrases: read plans status, repeat plans status, read tier status, read pricing status."
+        };
+        _readPlansStatusButton.Click += (_, _) => ReadPlansStatusAloud();
+
+        var applyEntitlementButton = new Button
+        {
+            Text = "Apply Entitlement",
+            Width = 140,
+            AccessibleName = "Apply entitlement",
+            AccessibleDescription = "Save the selected entitlement boundary to the active profile."
+        };
+        applyEntitlementButton.Click += (_, _) => ApplySelectedEntitlementPreset();
+
+        var row = 0;
+        AddFullWidth(layout, heading, row++);
+        AddFullWidth(layout, description, row++);
+        AddFullWidth(layout, _plansStatusStrip, row++);
+        AddFullWidth(layout, _plansCapabilityStrip, row++);
+        AddFullWidth(layout, _plansRoadmapLabel, row++);
+        AddFullWidth(layout, _plansRoadmapStrip, row++);
+        AddRow(layout, "Current entitlement", _plansEntitlementPicker, row++);
+        layout.Controls.Add(applyEntitlementButton, 1, row);
+        row++;
+        layout.Controls.Add(_readPlansStatusButton, 1, row);
+        row++;
+        AddRow(layout, "Free", _plansFreeLabel, row++);
+        AddRow(layout, "Pro", _plansProLabel, row++);
+        AddRow(layout, "Advanced", _plansAdvancedLabel, row++);
+        AddRow(layout, "Boundary", _plansBoundaryLabel, row++);
+
+        tab.Controls.Add(layout);
+        return tab;
+    }
+
     private TabPage BuildPacksTab()
     {
         var tab = new TabPage("Packs");
-        var layout = BuildTwoColumnLayout(11);
+        tab.AllowDrop = true;
+        tab.AccessibleName = "Packs tab";
+        tab.AccessibleDescription = "Visible extension-pack surface with import, review, rollback, and drag-and-drop support across the full tab.";
+        tab.DragEnter += (_, e) => PacksDropEnter(e);
+        tab.DragDrop += (_, e) => PacksDrop(tab, e);
+        var layout = BuildTwoColumnLayout(12);
+        layout.AllowDrop = true;
+        layout.DragEnter += (_, e) => PacksDropEnter(e);
+        layout.DragDrop += (_, e) => PacksDrop(layout, e);
 
         var heading = CreateHeading("Load extension packs from a local folder");
         var description = new Label
         {
             AutoSize = true,
             MaximumSize = new Size(900, 0),
-            Text = "Installed packs are discovered from the local Callsign packs folder. Drag and drop one or more `.dll` files (or folders of .dlls) to import. Community packs stay disabled by default, but their command metadata remains visible so you can review permissions before enabling them."
+            Text = "Installed packs are discovered from the local Callsign packs folder, and the folder is watched so new `.dll` files appear without a manual refresh. Drag and drop one or more `.dll` files (or folders of .dlls) anywhere on this tab to import. Community packs stay disabled by default, but their command metadata remains visible so you can review permissions before enabling them."
+        };
+        _packsContractLabel = new Label
+        {
+            AutoSize = false,
+            Height = 36,
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 4, 0, 0),
+            Padding = new Padding(12, 7, 12, 7),
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            Font = new Font("Segoe UI Semibold", 8.9f, FontStyle.Bold),
+            Text = "Contract: import locally -> review disabled -> enable by policy -> rollback or remove.",
+            AccessibleName = "Packs contract",
+            AccessibleDescription = "Summarizes the visible extension-pack flow from local import through disabled-by-default review, enablement, and rollback or removal."
+        };
+        _packsVoiceCueLabel = new Label
+        {
+            AutoSize = false,
+            Height = 34,
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 2, 0, 0),
+            Padding = new Padding(12, 7, 12, 7),
+            BackColor = Color.FromArgb(239, 246, 255),
+            ForeColor = Color.FromArgb(30, 64, 175),
+            Font = new Font("Segoe UI Semibold", 8.9f, FontStyle.Bold),
+            Text = BuildPacksVoiceCueText(),
+            AccessibleName = "Packs voice cue",
+            AccessibleDescription = "Shows the spoken cues that mirror the visible Packs import and review flow."
         };
         _packsRootLabel = CreateStatusLabel("Pack folder: not loaded yet.");
         _packsStatusLabel = CreateStatusLabel("No packs scanned yet.");
-        _packsDropZoneLabel = CreateStatusLabel("Drop community command pack .dll files or folders here. Imports are copied locally, disabled by default, and must be reviewed before enablement.");
+        _packsStatusStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = new Padding(10, 5, 10, 5),
+            BackColor = Color.FromArgb(242, 247, 253),
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AccessibleName = "Packs status strip",
+            AccessibleDescription = "Shows the current pack count, filter, selected pack, import state, and enablement state as compact visible badges."
+        };
+        _packsCountBadge = CreatePacksBadge("Packs: 0", "Shows how many packs are discovered.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _packsFilterBadge = CreatePacksBadge("Filter: all", "Shows the current pack filter.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _packsSelectionBadge = CreatePacksBadge("Selected: none", "Shows the current selected pack.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _packsImportBadge = CreatePacksBadge("Import: none yet", "Shows the most recent pack import result.", Color.FromArgb(255, 247, 237), Color.FromArgb(154, 52, 18));
+        _packsWatchBadge = CreatePacksBadge("Watch: active", "Shows whether the packs folder is being watched for new DLLs.", Color.FromArgb(240, 249, 255), Color.FromArgb(7, 89, 133));
+        _packsWatchActivityBadge = CreatePacksBadge("Last watch: never yet", "Shows when the watched folder last noticed a DLL change.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _packsEnablementBadge = CreatePacksBadge("Enablement: review", "Shows whether the selected pack can be enabled or is gated.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _packsBoundaryBadge = CreatePacksBadge("Boundary: Free open", "Shows that the Free core stays open-source while paid packs remain gated by entitlement and policy.", Color.FromArgb(255, 247, 237), Color.FromArgb(154, 52, 18));
+        _packsStatusStrip.Controls.Add(_packsCountBadge);
+        _packsStatusStrip.Controls.Add(_packsFilterBadge);
+        _packsStatusStrip.Controls.Add(_packsSelectionBadge);
+        _packsStatusStrip.Controls.Add(_packsImportBadge);
+        _packsStatusStrip.Controls.Add(_packsWatchBadge);
+        _packsStatusStrip.Controls.Add(_packsWatchActivityBadge);
+        _packsStatusStrip.Controls.Add(_packsEnablementBadge);
+        _packsStatusStrip.Controls.Add(_packsBoundaryBadge);
+        _packsDropZoneLabel = CreateStatusLabel("Drop community command pack .dll files or folders here. Imports are copied locally, discovered by the watched folder, and stay disabled until reviewed.");
         _packsDropZoneLabel.AccessibleName = "Packs drop zone";
-        _packsDropZoneLabel.AccessibleDescription = "Visible drag-and-drop target for community command pack DLL files or folders. Dropped packs are imported disabled by default so tier, signature, source, and command permissions can be reviewed before enablement.";
+        _packsDropZoneLabel.AccessibleDescription = "Visible drag-and-drop target for community command pack DLL files or folders. Dropped packs are imported disabled by default so tier, signature, source, command permissions, and watch-state behavior can be reviewed before enablement.";
         _packsDropZoneLabel.BackColor = Color.FromArgb(239, 246, 255);
         _packsDropZoneLabel.Padding = new Padding(10, 8, 10, 8);
         _packsDropZoneLabel.AllowDrop = true;
         _packsDropZoneLabel.DragEnter += (_, e) => PacksDropEnter(e);
         _packsDropZoneLabel.DragDrop += (_, e) => PacksDrop(_packsDropZoneLabel, e);
+        _packsFilterText = BuildTextInput("Pack filter");
+        _packsFilterText.PlaceholderText = "Filter by community, trusted, paid, disabled, entitlement, signature, or pack name";
+        _packsFilterText.AccessibleName = "Installed packs filter";
+        _packsFilterText.AccessibleDescription = "Filters the installed packs list by pack name, community or trusted source, paid or Free tier, load status, signature status, import state, or command gate.";
+        _packsFilterText.TextChanged += (_, _) => RefreshPacksPanel(forceReload: false);
+        _packsFilterButtonsPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = Padding.Empty,
+            AccessibleName = "Installed packs quick filters",
+            AccessibleDescription = "Offers one-click filters for all packs, community packs, trusted packs, disabled packs, and gated packs."
+        };
+        AddPackFilterButton("All", string.Empty, "Shows every installed pack.");
+        AddPackFilterButton("Community", "community", "Shows imported community packs.");
+        AddPackFilterButton("Trusted", "trusted", "Shows trusted or built-in packs.");
+        AddPackFilterButton("Disabled", "disabled", "Shows packs disabled for review.");
+        AddPackFilterButton("Gated", "gated", "Shows packs blocked by signature, entitlement, or other gating.");
+        AddPackFilterButton("Paid", "paid", "Shows Pro and Advanced packs that belong to the paid boundary.");
         _packsSelectedSummaryLabel = CreateStatusLabel("Selected pack: none. Tier, signature, source, and command-gate details will appear here.");
         _packsSelectedSummaryLabel.AccessibleName = "Selected pack summary";
         _packsSelectedSummaryLabel.AccessibleDescription = "Shows the selected pack tier, load status, source, signature status, import status, and command gate before enablement.";
         _packsEnablementLabel = CreateStatusLabel("Enablement readiness: select a pack to see whether commands can run, are disabled for review, or are blocked by signature or entitlement.");
         _packsEnablementLabel.AccessibleName = "Pack enablement readiness";
         _packsEnablementLabel.AccessibleDescription = "Explains whether the selected pack can be enabled, is disabled for review, or is blocked by signature, entitlement, invalid metadata, or missing files.";
+        _packsImportSummaryLabel = CreateStatusLabel("Last import: none yet.");
+        _packsImportSummaryLabel.AccessibleName = "Packs import summary";
+        _packsImportSummaryLabel.AccessibleDescription = "Shows the most recent pack import result and the next visible action.";
+        _packsBackupLabel = CreateStatusLabel("Backup: none selected.");
+        _packsBackupLabel.AccessibleName = "Pack rollback backup status";
+        _packsBackupLabel.AccessibleDescription = "Shows whether the selected pack has a rollback backup available for restoration.";
         _packsList = CreateShellListBox(180);
         _packsList.AccessibleName = "Installed packs";
         _packsList.AccessibleDescription = "Installed pack rows show display name, version, tier, load status, and high-level entitlement or signature gates.";
@@ -2474,6 +5192,18 @@ public sealed class MainForm : Form
         _importPackFolderButton = new Button { Text = "Import Folder...", Width = 120, AccessibleName = "Packs import folder", AccessibleDescription = "Voice phrase: import extension folder." };
         _importPackFolderButton.Click += (_, _) => ImportCommunityPackFolder();
 
+        _readImportSummaryButton = new Button { Text = "Read Import Again", Width = 150, AccessibleName = "Packs read import summary", AccessibleDescription = "Voice phrase: read import summary again." };
+        _readImportSummaryButton.Click += (_, _) => RepeatImportSplashSummary();
+
+        _readWatchStatusButton = new Button { Text = "Read Watch Status", Width = 150, AccessibleName = "Packs read watch status", AccessibleDescription = "Voice phrase: read watch status." };
+        _readWatchStatusButton.Click += (_, _) => ReadPacksWatchStatusAloud();
+
+        _updatePackButton = new Button { Text = "Update Pack...", Width = 120, AccessibleName = "Packs update pack", AccessibleDescription = "Voice phrase: update extension pack." };
+        _updatePackButton.Click += (_, _) => UpdateCommunityPack();
+
+        _rollbackPackButton = new Button { Text = "Rollback Pack...", Width = 126, AccessibleName = "Packs rollback pack", AccessibleDescription = "Voice phrase: rollback extension pack." };
+        _rollbackPackButton.Click += (_, _) => RollbackSelectedPack();
+
         _openPacksFolderButton = new Button { Text = "Open Folder", Width = 110, AccessibleName = "Packs open folder", AccessibleDescription = "Voice phrase: open packs folder." };
         _openPacksFolderButton.Click += (_, _) => OpenPacksFolder();
 
@@ -2489,9 +5219,16 @@ public sealed class MainForm : Form
         var row = 0;
         AddFullWidth(layout, heading, row++);
         AddFullWidth(layout, description, row++);
+        AddRow(layout, "Contract", _packsContractLabel, row++);
+        AddRow(layout, "Voice cue", _packsVoiceCueLabel, row++);
+        AddFullWidth(layout, _packsStatusStrip, row++);
         AddRow(layout, "Drop zone", _packsDropZoneLabel, row++);
         AddRow(layout, "Folder", _packsRootLabel, row++);
         AddRow(layout, "Status", _packsStatusLabel, row++);
+        AddRow(layout, "Filter", _packsFilterText, row++);
+        AddRow(layout, "Last import", _packsImportSummaryLabel, row++);
+        AddRow(layout, "Rollback", _packsBackupLabel, row++);
+        AddFullWidth(layout, _packsFilterButtonsPanel, row++);
         AddRow(layout, "Selected pack", _packsSelectedSummaryLabel, row++);
         AddRow(layout, "Enablement", _packsEnablementLabel, row++);
         AddFullWidth(layout, _packsList, row++);
@@ -2501,6 +5238,10 @@ public sealed class MainForm : Form
         buttons.Controls.Add(_refreshPacksButton);
         buttons.Controls.Add(_importPackButton);
         buttons.Controls.Add(_importPackFolderButton);
+        buttons.Controls.Add(_readImportSummaryButton);
+        buttons.Controls.Add(_readWatchStatusButton);
+        buttons.Controls.Add(_updatePackButton);
+        buttons.Controls.Add(_rollbackPackButton);
         buttons.Controls.Add(_openPacksFolderButton);
         buttons.Controls.Add(_enablePackButton);
         buttons.Controls.Add(_disablePackButton);
@@ -2515,28 +5256,168 @@ public sealed class MainForm : Form
     private TabPage BuildUpdatesTab()
     {
         var tab = new TabPage("Updates");
-        var layout = BuildTwoColumnLayout(9);
+        var layout = BuildTwoColumnLayout(10);
 
         var heading = CreateHeading("Update checks, server state, and visible install readiness");
         var description = new Label
         {
             AutoSize = true,
             MaximumSize = new Size(900, 0),
-            Text = "Callsign phones home on startup and every 25 hours while running, then checks the update server for a manifest and installer. The update flow stays visible so users can see the server, cadence, last check, and next due time."
+            Text = "Callsign checks for updates on startup and every 25 hours while running, then checks the update server for a manifest and installer. The update flow stays visible so users can see the server, cadence, last check, and next due time."
         };
+        _updatesContractLabel = new Label
+        {
+            AutoSize = false,
+            Height = 36,
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 4, 0, 0),
+            Padding = new Padding(12, 7, 12, 7),
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            Font = new Font("Segoe UI Semibold", 8.9f, FontStyle.Bold),
+            Text = "Contract: check startup cadence -> review manifest -> install visibly.",
+            AccessibleName = "Updates contract",
+            AccessibleDescription = "Summarizes the visible update flow from startup checks through manifest review and visible installation."
+        };
+
+        _updatesStatusStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = new Padding(10, 5, 10, 5),
+            BackColor = Color.FromArgb(242, 247, 253),
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AccessibleName = "Updates status strip",
+            AccessibleDescription = "Shows the current update server, cadence, last check, pending manifest, installer state, downloaded installer path, public website target, and update automation in compact visible badges."
+        };
+        _updatesServerBadge = CreateUpdatesBadge("Server: ready", "Shows the configured update server and channel.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _updatesCadenceBadge = CreateUpdatesBadge("Cadence: 25 hours", "Shows when Callsign phones home while running.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _updatesStateBadge = CreateUpdatesBadge("State: ready to check", "Shows the last update check status.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _updatesPendingBadge = CreateUpdatesBadge("Pending: none", "Shows whether a manifest or installer is pending.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _updatesDeviceBadge = CreateUpdatesBadge("Privacy id: none", "Shows the local update identity that is hashed before phone-home requests.", Color.FromArgb(254, 243, 242), Color.FromArgb(153, 27, 27));
+        _updatesInstallerBadge = CreateUpdatesBadge("Installer: none", "Shows whether the current installer download is ready to open.", Color.FromArgb(255, 247, 237), Color.FromArgb(154, 52, 18));
+        _updatesDownloadedInstallerBadge = CreateUpdatesBadge("Download: none", "Shows the last downloaded installer path that survived restart, if one exists.", Color.FromArgb(255, 251, 235), Color.FromArgb(161, 98, 7));
+        _updatesWebsiteBadge = CreateUpdatesBadge("Website: /downloads/Callsign-Setup.exe", "Shows the public website download target that the release proof compares against.", Color.FromArgb(240, 249, 255), Color.FromArgb(7, 89, 133));
+        _updatesAutomationBadge = CreateUpdatesBadge("Auto: download + install", "Shows that available updates are downloaded and launched visibly.", Color.FromArgb(255, 247, 237), Color.FromArgb(154, 52, 18));
+        _updatesStatusStrip.Controls.Add(_updatesServerBadge);
+        _updatesStatusStrip.Controls.Add(_updatesCadenceBadge);
+        _updatesStatusStrip.Controls.Add(_updatesStateBadge);
+        _updatesStatusStrip.Controls.Add(_updatesPendingBadge);
+        _updatesStatusStrip.Controls.Add(_updatesDeviceBadge);
+        _updatesStatusStrip.Controls.Add(_updatesInstallerBadge);
+        _updatesStatusStrip.Controls.Add(_updatesDownloadedInstallerBadge);
+        _updatesStatusStrip.Controls.Add(_updatesWebsiteBadge);
+        _updatesStatusStrip.Controls.Add(_updatesAutomationBadge);
 
         _updatesServerLabel = CreateStatusLabel("Update server: not checked yet.");
         _updatesServerLabel.AccessibleName = "Update server";
         _updatesServerLabel.AccessibleDescription = "Shows the configured update server URL and channel.";
+        _updateServerUrlText = BuildTextInput("Update server URL");
+        _updateServerUrlText.PlaceholderText = "https://updates.example.com";
+        _updateServerUrlText.Text = _updateCheckService.ServerUrl;
+        _updateServerUrlText.AccessibleDescription = "Lets you set the update server Callsign checks on startup and every 25 hours.";
+        _applyUpdateServerButton = new Button
+        {
+            Text = "Save Update Server",
+            Width = 150,
+            AccessibleName = "Save update server",
+            AccessibleDescription = "Saves the current update server URL to the selected profile and updates Callsign's live update target."
+        };
+        _applyUpdateServerButton.Click += (_, _) => ApplyUpdateServerUrl();
         _updatesCadenceLabel = CreateStatusLabel("Cadence: checks on startup and every 25 hours while Callsign is running.");
         _updatesCadenceLabel.AccessibleName = "Update cadence";
         _updatesCadenceLabel.AccessibleDescription = "Shows when Callsign checks for updates while it is running.";
-        _updatesStateLabel = CreateStatusLabel("Last check: never.");
+        _updatesStateLabel = CreateStatusLabel("Update checks are ready.");
         _updatesStateLabel.AccessibleName = "Update check state";
         _updatesStateLabel.AccessibleDescription = "Shows the last update check time, next due time, and known version.";
-        _updatesPendingLabel = CreateStatusLabel("Pending update: none yet.");
+        _updatesCheckInLabel = CreateStatusLabel("Check-in: never yet. Callsign phones home on startup and while running.");
+        _updatesCheckInLabel.AccessibleName = "Update check-in";
+        _updatesCheckInLabel.AccessibleDescription = "Shows the last successful phone-home check-in to the update server.";
+        _updatesPendingLabel = CreateStatusLabel("Pending manifest: none yet. Use Check now to look for the latest manifest.");
         _updatesPendingLabel.AccessibleName = "Pending update manifest";
         _updatesPendingLabel.AccessibleDescription = "Shows the latest known manifest and whether an installer has been launched.";
+        _updatesDeviceLabel = CreateStatusLabel("Update privacy id: none yet. Callsign will create a local device id and send only a hash when this profile phones home.");
+        _updatesDeviceLabel.AccessibleName = "Update privacy id";
+        _updatesDeviceLabel.AccessibleDescription = "Shows the local update identity that Callsign hashes before phone-home requests.";
+        _updatesInstallerLabel = CreateStatusLabel("Installer download: none yet. A successful check stages it here.");
+        _updatesInstallerLabel.AccessibleName = "Installer download";
+        _updatesInstallerLabel.AccessibleDescription = "Shows whether the current release installer download is available to open.";
+        _updatesDownloadedInstallerLabel = CreateStatusLabel("Last downloaded installer: none yet.");
+        _updatesDownloadedInstallerLabel.AccessibleName = "Downloaded installer path";
+        _updatesDownloadedInstallerLabel.AccessibleDescription = "Shows the last downloaded installer path that survived restart, when one exists.";
+        _updatesWebsiteLabel = CreateStatusLabel("Website download target: /downloads/Callsign-Setup.exe.");
+        _updatesWebsiteLabel.AccessibleName = "Public website download target";
+        _updatesWebsiteLabel.AccessibleDescription = "Shows the public installer download target that the release proof compares against.";
+        _updatesReleaseProofLabel = CreateStatusLabel("Release proof: compare installer, evidence folder, and site.");
+        _updatesReleaseProofLabel.AccessibleName = "Release proof";
+        _updatesReleaseProofLabel.AccessibleDescription = "Shows the visible installer hash, the release evidence folder, and the public download endpoint that should match before release.";
+        _updatesRestartLabel = CreateStatusLabel("Restart proof: state reloads from disk.");
+        _updatesRestartLabel.AccessibleName = "Restart proof";
+        _updatesRestartLabel.AccessibleDescription = "Shows that the pending manifest, last-known version, and next-due timing are reloaded after a restart.";
+        _updatesEvidenceLabel = CreateStatusLabel("Evidence status: release packet, manual template, and checklist not checked yet.");
+        _updatesEvidenceLabel.AccessibleName = "Evidence status";
+        _updatesEvidenceLabel.AccessibleDescription = "Shows whether the release evidence folder, release packet summary, manual evidence template, and manual evidence checklist are present.";
+        _updatesManualEvidenceLabel = CreateStatusLabel("Manual evidence progress: not checked yet.");
+        _updatesManualEvidenceLabel.AccessibleName = "Manual evidence progress";
+        _updatesManualEvidenceLabel.AccessibleDescription = "Shows whether manual parity evidence has been supplied, how many walkthrough checks remain, and which parity categories still need live proof.";
+        _updatesManualEvidenceStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = new Padding(10, 5, 10, 5),
+            BackColor = Color.FromArgb(242, 247, 253),
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AccessibleName = "Manual evidence progress strip",
+            AccessibleDescription = "Shows manual evidence supplied state, remaining walkthrough count, first remaining walkthrough, missing category count, first missing category, and next action in compact visible badges."
+        };
+        _updatesManualSuppliedBadge = CreateUpdatesBadge("Manual: unknown", "Shows whether completed manual/live parity evidence was supplied.", Color.FromArgb(255, 247, 237), Color.FromArgb(154, 52, 18));
+        _updatesManualRemainingBadge = CreateUpdatesBadge("Remaining: unknown", "Shows how many manual/live parity walkthrough checks still remain.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _updatesManualCategoriesBadge = CreateUpdatesBadge("Categories: unknown", "Shows how many Voice Access parity categories still need manual/live proof.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _updatesManualProofBadge = CreateUpdatesBadge("Proof: unknown", "Shows the first remaining manual/live walkthrough proof item.", Color.FromArgb(248, 250, 252), Color.FromArgb(51, 65, 85));
+        _updatesManualCategoryBadge = CreateUpdatesBadge("Category: unknown", "Shows the first Voice Access parity category still missing manual/live proof.", Color.FromArgb(240, 253, 250), Color.FromArgb(15, 118, 110));
+        _updatesManualNextBadge = CreateUpdatesBadge("Next: open checklist", "Shows the next release-evidence action for closing manual parity proof.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _updatesManualEvidenceStrip.Controls.Add(_updatesManualSuppliedBadge);
+        _updatesManualEvidenceStrip.Controls.Add(_updatesManualRemainingBadge);
+        _updatesManualEvidenceStrip.Controls.Add(_updatesManualCategoriesBadge);
+        _updatesManualEvidenceStrip.Controls.Add(_updatesManualProofBadge);
+        _updatesManualEvidenceStrip.Controls.Add(_updatesManualCategoryBadge);
+        _updatesManualEvidenceStrip.Controls.Add(_updatesManualNextBadge);
+        _updatesReleaseGatesLabel = CreateStatusLabel("Release gates: not checked yet.");
+        _updatesReleaseGatesLabel.AccessibleName = "Release gates";
+        _updatesReleaseGatesLabel.AccessibleDescription = "Shows the four documentation-pack release gates for installed automation, human-spoken walkthrough, failure-state walkthrough, and clean Windows proof.";
+        _updatesReleaseGatesStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = new Padding(10, 5, 10, 5),
+            BackColor = Color.FromArgb(247, 250, 252),
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AccessibleName = "Release gates strip",
+            AccessibleDescription = "Shows the required release gates for installed automation, human-spoken walkthrough, failure-state walkthrough, and clean Windows proof."
+        };
+        _updatesGateInstalledBadge = CreateUpdatesBadge("Installed gate: unknown", "Shows the installed end-to-end automated release gate.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _updatesGateSpokenBadge = CreateUpdatesBadge("Spoken gate: unknown", "Shows the human-spoken core walkthrough release gate.", Color.FromArgb(240, 253, 244), Color.FromArgb(22, 101, 52));
+        _updatesGateFailureBadge = CreateUpdatesBadge("Failure gate: unknown", "Shows the wrong-identity, timeout, cancel, microphone, runtime, and wake-model failure-state release gate.", Color.FromArgb(255, 247, 237), Color.FromArgb(154, 52, 18));
+        _updatesGateCleanBadge = CreateUpdatesBadge("Clean VM gate: unknown", "Shows the clean Windows user or virtual machine public installer release gate.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _updatesReleaseGatesStrip.Controls.Add(_updatesGateInstalledBadge);
+        _updatesReleaseGatesStrip.Controls.Add(_updatesGateSpokenBadge);
+        _updatesReleaseGatesStrip.Controls.Add(_updatesGateFailureBadge);
+        _updatesReleaseGatesStrip.Controls.Add(_updatesGateCleanBadge);
+        _updatesNextProofInstructionsLabel = CreateStatusLabel("Next proof instructions: not checked yet.");
+        _updatesNextProofInstructionsLabel.AccessibleName = "Next proof instructions";
+        _updatesNextProofInstructionsLabel.AccessibleDescription = "Shows the concrete evidence command and expected result from the generated manual evidence template for the next remaining parity proof.";
+        _updatesProofNotesLabel = CreateStatusLabel("Proof notes: not checked yet.");
+        _updatesProofNotesLabel.AccessibleName = "Proof notes";
+        _updatesProofNotesLabel.AccessibleDescription = "Shows how many manual proof notes exist in the release evidence folder and where new notes are created.";
+        _updatesAutomationLabel = CreateStatusLabel("Automation: download and install happen visibly.");
+        _updatesAutomationLabel.AccessibleName = "Update automation";
+        _updatesAutomationLabel.AccessibleDescription = "Shows that Callsign downloads and launches update installers visibly when they are available.";
 
         _checkUpdatesButton = new Button
         {
@@ -2551,14 +5432,265 @@ public sealed class MainForm : Form
             _ = CheckForUpdatesAsync(force: true, attemptInstall: true);
         };
 
+        _repeatUpdateSummaryButton = new Button
+        {
+            Text = "Read Summary Again",
+            Width = 150,
+            AccessibleName = "Updates read summary again",
+            AccessibleDescription = "Voice phrase: read update summary again."
+        };
+        _repeatUpdateSummaryButton.Click += (_, _) => RepeatUpdateSplashSummary();
+
+        _readUpdatesStatusButton = new Button
+        {
+            Text = "Read Updates Status",
+            Width = 115,
+            AccessibleName = "Updates read status",
+            AccessibleDescription = "Voice phrases: read updates status, repeat updates status."
+        };
+        _readUpdatesStatusButton.Click += (_, _) => ReadUpdatesStatusAloud();
+
+        _readCheckInStatusButton = new Button
+        {
+            Text = "Read Check-In Status",
+            Width = 142,
+            AccessibleName = "Updates read check-in status",
+            AccessibleDescription = "Voice phrases: read check-in status, repeat check-in status."
+        };
+        _readCheckInStatusButton.Click += (_, _) => ReadCheckInStatusAloud();
+
+        _readEvidenceStatusButton = new Button
+        {
+            Text = "Read Evidence Status",
+            Width = 154,
+            AccessibleName = "Updates read evidence status",
+            AccessibleDescription = "Voice phrases: read evidence status, repeat evidence status."
+        };
+        _readEvidenceStatusButton.Click += (_, _) => ReadEvidenceStatusAloud();
+
+        _readEvidenceHeaderButton = new Button
+        {
+            Text = "Read Evidence Header",
+            Width = 158,
+            AccessibleName = "Updates read evidence header",
+            AccessibleDescription = "Voice phrases: read evidence header, read manual evidence header."
+        };
+        _readEvidenceHeaderButton.Click += (_, _) => ReadEvidenceHeaderAloud();
+
+        _readReleaseBlockersButton = new Button
+        {
+            Text = "Read Blockers",
+            Width = 128,
+            AccessibleName = "Updates read release blockers",
+            AccessibleDescription = "Voice phrases: read release blockers, why is release blocked."
+        };
+        _readReleaseBlockersButton.Click += (_, _) => ReadReleaseBlockersAloud();
+
+        _readNextProofButton = new Button
+        {
+            Text = "Read Next Proof",
+            Width = 142,
+            AccessibleName = "Updates read next proof",
+            AccessibleDescription = "Voice phrases: read next proof, what proof is next."
+        };
+        _readNextProofButton.Click += (_, _) => ReadNextProofAloud();
+
+        _readReleaseGatesButton = new Button
+        {
+            Text = "Read Gates",
+            Width = 116,
+            AccessibleName = "Updates read release gates",
+            AccessibleDescription = "Voice phrases: read release gates, what gates remain."
+        };
+        _readReleaseGatesButton.Click += (_, _) => ReadReleaseGatesAloud();
+
+        _readNextProofInstructionsButton = new Button
+        {
+            Text = "Read Proof Steps",
+            Width = 148,
+            AccessibleName = "Updates read next proof instructions",
+            AccessibleDescription = "Voice phrases: read proof steps, read next proof instructions."
+        };
+        _readNextProofInstructionsButton.Click += (_, _) => ReadNextProofInstructionsAloud();
+
+        _readProofNotesStatusButton = new Button
+        {
+            Text = "Read Proof Notes",
+            Width = 150,
+            AccessibleName = "Updates read proof notes status",
+            AccessibleDescription = "Voice phrases: read proof notes, read proof notes status."
+        };
+        _readProofNotesStatusButton.Click += (_, _) => ReadProofNotesStatusAloud();
+
+        _createNextProofNoteButton = new Button
+        {
+            Text = "Create Proof Note",
+            Width = 152,
+            AccessibleName = "Updates create next proof note",
+            AccessibleDescription = "Voice phrases: create proof note, create next proof note."
+        };
+        _createNextProofNoteButton.Click += (_, _) => CreateNextProofNote();
+
+        _createAllProofNotesButton = new Button
+        {
+            Text = "Create All Notes",
+            Width = 142,
+            AccessibleName = "Updates create all proof notes",
+            AccessibleDescription = "Voice phrases: create all proof notes, prepare all proof notes."
+        };
+        _createAllProofNotesButton.Click += (_, _) => CreateAllProofNotes();
+
+        _createEvidenceDraftButton = new Button
+        {
+            Text = "Create Evidence Draft",
+            Width = 166,
+            AccessibleName = "Updates create evidence draft",
+            AccessibleDescription = "Voice phrases: create evidence draft, prefill manual evidence."
+        };
+        _createEvidenceDraftButton.Click += (_, _) => CreateManualEvidenceDraft();
+
+        _openEvidenceDraftButton = new Button
+        {
+            Text = "Open Evidence Draft",
+            Width = 166,
+            AccessibleName = "Updates open evidence draft",
+            AccessibleDescription = "Voice phrases: open evidence draft, open manual evidence draft."
+        };
+        _openEvidenceDraftButton.Click += (_, _) => OpenManualEvidenceDraft();
+
+        _readEvidenceDraftButton = new Button
+        {
+            Text = "Read Evidence Draft",
+            Width = 164,
+            AccessibleName = "Updates read evidence draft",
+            AccessibleDescription = "Voice phrases: read evidence draft, read manual evidence draft."
+        };
+        _readEvidenceDraftButton.Click += (_, _) => ReadEvidenceDraftAloud();
+
+        _readRestartProofButton = new Button
+        {
+            Text = "Restart Proof",
+            Width = 136,
+            AccessibleName = "Updates restart proof",
+            AccessibleDescription = "Voice phrases: restart proof, read restart proof, repeat restart proof."
+        };
+        _readRestartProofButton.Click += (_, _) => ReadRestartProofAloud();
+
+        _readReleaseProofButton = new Button
+        {
+            Text = "Read Release Proof",
+            Width = 150,
+            AccessibleName = "Updates release proof readback",
+            AccessibleDescription = "Voice phrases: read release proof, repeat release proof."
+        };
+        _readReleaseProofButton.Click += (_, _) => ReadReleaseProofAloud();
+
+        _openInstallerButton = new Button
+        {
+            Text = "Open Installer",
+            Width = 126,
+            AccessibleName = "Updates open installer",
+            AccessibleDescription = "Opens the current installer download in the default browser when a manifest is available."
+        };
+        _openInstallerButton.Click += (_, _) => OpenPendingInstallerDownload();
+
+        _openReleaseProofButton = new Button
+        {
+            Text = "Open Release Proof",
+            Width = 150,
+            AccessibleName = "Updates release proof",
+            AccessibleDescription = "Voice phrase: open release proof."
+        };
+        _openReleaseProofButton.Click += (_, _) => ShowStartupWalkthrough(openReleaseProof: true);
+
+        _openReleaseEvidenceButton = new Button
+        {
+            Text = "Open Release Evidence",
+            Width = 170,
+            AccessibleName = "Updates open release evidence",
+            AccessibleDescription = "Voice phrase: open release evidence."
+        };
+        _openReleaseEvidenceButton.Click += (_, _) => OpenReleaseEvidenceFolder();
+
+        _openProofNotesFolderButton = new Button
+        {
+            Text = "Open Proof Notes",
+            Width = 160,
+            AccessibleName = "Updates open proof notes",
+            AccessibleDescription = "Voice phrases: open proof notes, show proof notes."
+        };
+        _openProofNotesFolderButton.Click += (_, _) => OpenProofNotesFolder();
+
+        _openManualEvidenceTemplateButton = new Button
+        {
+            Text = "Open Manual Evidence",
+            Width = 170,
+            AccessibleName = "Updates open manual evidence template",
+            AccessibleDescription = "Voice phrase: open manual evidence template."
+        };
+        _openManualEvidenceTemplateButton.Click += (_, _) => OpenManualEvidenceTemplate();
+
+        _openManualEvidenceChecklistButton = new Button
+        {
+            Text = "Open Checklist",
+            Width = 150,
+            AccessibleName = "Updates open manual evidence checklist",
+            AccessibleDescription = "Voice phrases: open manual evidence checklist, open checklist."
+        };
+        _openManualEvidenceChecklistButton.Click += (_, _) => OpenManualEvidenceChecklist();
+
         var row = 0;
         AddFullWidth(layout, heading, row++);
         AddFullWidth(layout, description, row++);
+        AddFullWidth(layout, _updatesContractLabel, row++);
+        AddFullWidth(layout, _updatesStatusStrip, row++);
         AddRow(layout, "Server", _updatesServerLabel, row++);
+        AddRow(layout, "Server URL", _updateServerUrlText, row++);
         AddRow(layout, "Cadence", _updatesCadenceLabel, row++);
         AddRow(layout, "Status", _updatesStateLabel, row++);
+        AddRow(layout, "Check-in", _updatesCheckInLabel, row++);
         AddRow(layout, "Pending", _updatesPendingLabel, row++);
-        layout.Controls.Add(_checkUpdatesButton, 1, row);
+        AddRow(layout, "Device", _updatesDeviceLabel, row++);
+        AddRow(layout, "Installer", _updatesInstallerLabel, row++);
+        AddRow(layout, "Download path", _updatesDownloadedInstallerLabel, row++);
+        AddRow(layout, "Website target", _updatesWebsiteLabel, row++);
+        AddRow(layout, "Release proof", _updatesReleaseProofLabel, row++);
+        AddRow(layout, "Restart proof", _updatesRestartLabel, row++);
+        AddRow(layout, "Evidence", _updatesEvidenceLabel, row++);
+        AddRow(layout, "Manual proof", _updatesManualEvidenceLabel, row++);
+        AddFullWidth(layout, _updatesManualEvidenceStrip, row++);
+        AddRow(layout, "Release gates", _updatesReleaseGatesLabel, row++);
+        AddFullWidth(layout, _updatesReleaseGatesStrip, row++);
+        AddRow(layout, "Proof steps", _updatesNextProofInstructionsLabel, row++);
+        AddRow(layout, "Proof notes", _updatesProofNotesLabel, row++);
+        AddRow(layout, "Automation", _updatesAutomationLabel, row++);
+        var buttonRow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
+        buttonRow.Controls.Add(_checkUpdatesButton);
+        buttonRow.Controls.Add(_repeatUpdateSummaryButton);
+        buttonRow.Controls.Add(_readUpdatesStatusButton);
+        buttonRow.Controls.Add(_readCheckInStatusButton);
+        buttonRow.Controls.Add(_readEvidenceStatusButton);
+        buttonRow.Controls.Add(_readEvidenceHeaderButton);
+        buttonRow.Controls.Add(_readReleaseBlockersButton);
+        buttonRow.Controls.Add(_readNextProofButton);
+        buttonRow.Controls.Add(_readReleaseGatesButton);
+        buttonRow.Controls.Add(_readNextProofInstructionsButton);
+        buttonRow.Controls.Add(_readProofNotesStatusButton);
+        buttonRow.Controls.Add(_createNextProofNoteButton);
+        buttonRow.Controls.Add(_createAllProofNotesButton);
+        buttonRow.Controls.Add(_createEvidenceDraftButton);
+        buttonRow.Controls.Add(_openEvidenceDraftButton);
+        buttonRow.Controls.Add(_readEvidenceDraftButton);
+        buttonRow.Controls.Add(_readRestartProofButton);
+        buttonRow.Controls.Add(_readReleaseProofButton);
+        buttonRow.Controls.Add(_applyUpdateServerButton);
+        buttonRow.Controls.Add(_openInstallerButton);
+        buttonRow.Controls.Add(_openReleaseProofButton);
+        buttonRow.Controls.Add(_openReleaseEvidenceButton);
+        buttonRow.Controls.Add(_openProofNotesFolderButton);
+        buttonRow.Controls.Add(_openManualEvidenceTemplateButton);
+        buttonRow.Controls.Add(_openManualEvidenceChecklistButton);
+        layout.Controls.Add(buttonRow, 1, row);
 
         tab.Controls.Add(layout);
         return tab;
@@ -2575,6 +5707,20 @@ public sealed class MainForm : Form
             AutoSize = true,
             MaximumSize = new Size(900, 0),
             Text = "Voice shortcuts let you save a spoken phrase that runs one to eight existing Callsign commands with optional bounded wait steps. Each step still routes through Callsign's visible policy-gated command pipeline."
+        };
+        _voiceShortcutContractLabel = new Label
+        {
+            AutoSize = false,
+            Height = 36,
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 4, 0, 0),
+            Padding = new Padding(12, 7, 12, 7),
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            Font = new Font("Segoe UI Semibold", 8.9f, FontStyle.Bold),
+            Text = "Contract: save spoken shortcuts -> review actions -> run only through visible Callsign commands.",
+            AccessibleName = "Voice shortcuts contract",
+            AccessibleDescription = "Summarizes the visible shortcut flow from spoken shortcut creation through action review and normal command execution."
         };
 
         _voiceShortcutStatusLabel = CreateStatusLabel("No voice shortcuts saved yet.");
@@ -2655,6 +5801,7 @@ public sealed class MainForm : Form
         var row = 0;
         AddFullWidth(layout, heading, row++);
         AddFullWidth(layout, description, row++);
+        AddFullWidth(layout, _voiceShortcutContractLabel, row++);
         AddFullWidth(layout, _voiceShortcutSafetyLabel, row++);
         AddRow(layout, "Status", _voiceShortcutStatusLabel, row++);
         AddFullWidth(layout, _voiceShortcutsList, row++);
@@ -2705,6 +5852,11 @@ public sealed class MainForm : Form
             FormatPackListDisplay(Pack);
     }
 
+    private sealed record HelpCommandListItem(CommandDiscoveryEntry Command, string DisplayText)
+    {
+        public override string ToString() => DisplayText;
+    }
+
     private sealed record VoiceShortcutListItem(VoiceShortcutDefinition Shortcut)
     {
         public override string ToString()
@@ -2714,17 +5866,235 @@ public sealed class MainForm : Form
         }
     }
 
-    public static string FormatPackListDisplay(CallsignPackInfo pack)
+    public static string FormatPackListDisplay(CallsignPackInfo pack) =>
+        FormatPackListDisplay(pack, CallsignCommandRegistry.Shared);
+
+    public static string FormatPackListDisplay(CallsignPackInfo pack, CallsignCommandRegistry? registry)
     {
-        var source = pack.IsCommunity ? " community" : string.Empty;
+        var source = pack.IsCommunity ? "community pack" : "trusted pack";
         var gate = pack.LoadStatus switch
         {
             CallsignPackLoadStatus.EntitlementRequired => " - entitlement required",
             CallsignPackLoadStatus.SignatureRequired => " - signature required",
             _ => string.Empty
         };
+        var commandText = pack.CommandCount == 1 ? "1 command" : $"{pack.CommandCount} commands";
+        var preview = BuildPackCommandPreview(pack, registry);
 
-        return $"{pack.DisplayName} v{pack.Version} [{pack.Tier}] ({pack.LoadStatus}){source}{gate}";
+        return string.IsNullOrWhiteSpace(preview)
+            ? $"{pack.DisplayName} v{pack.Version} [{pack.Tier}] ({pack.LoadStatus}) - {source}{gate} - {commandText}"
+            : $"{pack.DisplayName} v{pack.Version} [{pack.Tier}] ({pack.LoadStatus}) - {source}{gate} - {commandText} {preview}";
+    }
+
+    private static string BuildPackCommandPreview(IEnumerable<CallsignCommandResolution> commands)
+    {
+        var preview = commands
+            .Select(command =>
+            {
+                var phrase = command.Definition.VoicePhrases.FirstOrDefault() ?? command.CommandDisplayName;
+                var category = string.IsNullOrWhiteSpace(command.Definition.Category)
+                    ? command.Definition.Kind.ToString()
+                    : command.Definition.Category;
+                return $"{phrase} [{category}]";
+            })
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Take(3)
+            .ToArray();
+
+        return preview.Length == 0
+            ? string.Empty
+            : $"Feature preview: {string.Join(", ", preview)}.";
+    }
+
+    private static string BuildPackCommandPreview(CallsignPackInfo pack, CallsignCommandRegistry? registry)
+    {
+        if (registry == null)
+            return string.Empty;
+
+        return BuildPackCommandPreview(
+            registry.GetCommands()
+                .Where(command => string.Equals(command.PackId, pack.PackId, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static string BuildImportedPackFeaturePreview(IReadOnlyList<CallsignPackInfo> importedPacks, CallsignCommandRegistry registry)
+    {
+        var preview = importedPacks
+            .SelectMany(pack => registry.GetCommands().Where(command => string.Equals(command.PackId, pack.PackId, StringComparison.OrdinalIgnoreCase)))
+            .Select(command =>
+            {
+                var phrase = command.Definition.VoicePhrases.FirstOrDefault() ?? command.CommandDisplayName;
+                var category = string.IsNullOrWhiteSpace(command.Definition.Category)
+                    ? command.Definition.Kind.ToString()
+                    : command.Definition.Category;
+                return $"{phrase} [{category}]";
+            })
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Take(3)
+            .ToArray();
+
+        return preview.Length == 0
+            ? string.Empty
+            : $"Feature preview: {string.Join(", ", preview)}.";
+    }
+
+    private string BuildPackSelectedSummary(CallsignPackInfo pack)
+    {
+        var preview = BuildPackCommandPreview(
+            CallsignCommandRegistry.Shared.GetCommands()
+                .Where(command => string.Equals(command.PackId, pack.PackId, StringComparison.OrdinalIgnoreCase)));
+        var baseSummary = $"Selected pack: {pack.DisplayName} v{pack.Version}. {FormatPackSecuritySummary(pack)}";
+        return string.IsNullOrWhiteSpace(preview) ? baseSummary : $"{baseSummary} {preview}";
+    }
+
+    private static string BuildPacksVoiceCueText() =>
+        "Voice cue: import pack, import folder, read import summary again, read import again, read watch status, drop DLLs here, or open packs folder. Next: review imported packs before enabling. The packs folder also watches for new DLLs so they appear without a manual refresh. Imported packs stay disabled by default and policy and entitlement still decide what can run.";
+
+    private static Label CreatePacksBadge(string text, string description, Color backColor, Color foreColor)
+    {
+        return new Label
+        {
+            AutoSize = true,
+            Margin = new Padding(0, 0, 8, 0),
+            Padding = new Padding(10, 4, 10, 4),
+            BackColor = backColor,
+            ForeColor = foreColor,
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            Text = text,
+            TextAlign = ContentAlignment.MiddleLeft,
+            AccessibleName = text,
+            AccessibleDescription = description
+        };
+    }
+
+    public int VisiblePackCount => _packsList.Items.Count;
+    public string PacksFilterText => _packsFilterText.Text;
+    public string PacksContractText => _packsContractLabel.Text;
+    public string PacksVoiceCueText => _packsVoiceCueLabel.Text;
+    public string SessionReadinessBadgeText => _sessionReadinessBadge.Text;
+    public string FileSearchContractText => _fileSearchContractLabel.Text;
+    public string FileSearchStatusStripAccessibleName => _fileSearchStatusStrip.AccessibleName ?? string.Empty;
+    public string FileSearchStatusStripTexts => string.Join(" ", _fileSearchStatusStrip.Controls.OfType<Control>().Select(control => control.Text));
+    public string FileSearchQueryBadgeText => _fileSearchQueryBadge.Text;
+    public string FileSearchResultBadgeText => _fileSearchResultBadge.Text;
+    public string FileSearchCueBadgeText => _fileSearchCueBadge.Text;
+    public string FileSearchNextBadgeText => _fileSearchNextBadge.Text;
+    public string FileSearchSafetyBadgeText => _fileSearchSafetyBadge.Text;
+    public string FileSearchScopeBadgeText => _fileSearchScopeBadge.Text;
+    public string FileSearchSelectionBadgeText => _fileSearchSelectionBadge.Text;
+    public string FileSearchBoundaryBadgeText => _fileSearchBoundaryBadge.Text;
+    public string FileSearchReviewBadgeText => _fileSearchReviewBadge.Text;
+    public string SystemContractText => _systemContractLabel.Text;
+    public string BrowserContractText => _browserContractLabel.Text;
+    public string BrowserStatusStripAccessibleName => _browserStatusStrip.AccessibleName ?? string.Empty;
+    public string BrowserStatusStripTexts => string.Join(" ", _browserStatusStrip.Controls.OfType<Control>().Select(control => control.Text));
+    public string BrowserTargetBadgeText => _browserTargetBadge.Text;
+    public string BrowserCueBadgeText => _browserCueBadge.Text;
+    public string BrowserActionBadgeText => _browserActionBadge.Text;
+    public string BrowserNextBadgeText => _browserNextBadge.Text;
+    public string BrowserSafetyBadgeText => _browserSafetyBadge.Text;
+    public string BrowserBoundaryBadgeText => _browserBoundaryBadge.Text;
+    public string VoiceContractText => _voiceContractLabel.Text;
+    public string VoiceShortcutContractText => _voiceShortcutContractLabel.Text;
+    public string UpdatesContractText => _updatesContractLabel.Text;
+    public string UpdatesStatusStripAccessibleName => _updatesStatusStrip.AccessibleName ?? string.Empty;
+    public string UpdatesStateLabelText => _updatesStateLabel.Text;
+    public string UpdatesServerBadgeText => _updatesServerBadge.Text;
+    public string UpdatesCadenceBadgeText => _updatesCadenceBadge.Text;
+    public string UpdatesStateBadgeText => _updatesStateBadge.Text;
+    public string UpdatesCheckInText => _updatesCheckInLabel.Text;
+    public string UpdatesPendingBadgeText => _updatesPendingBadge.Text;
+    public string UpdatesInstallerBadgeText => _updatesInstallerBadge.Text;
+    public string UpdatesDownloadedInstallerBadgeText => _updatesDownloadedInstallerBadge.Text;
+    public string UpdatesWebsiteBadgeText => _updatesWebsiteBadge.Text;
+    public string UpdatesReleaseProofText => _updatesReleaseProofLabel.Text;
+    public string UpdatesRestartProofText => _updatesRestartLabel.Text;
+    public string UpdatesAutomationBadgeText => _updatesAutomationBadge.Text;
+    public string UpdatesInstallerText => _updatesInstallerLabel.Text;
+    public string UpdatesDownloadedInstallerText => _updatesDownloadedInstallerLabel.Text;
+    public string UpdatesWebsiteText => _updatesWebsiteLabel.Text;
+    public string UpdatesDeviceIdentityText => _updatesDeviceLabel.Text;
+    public string OpenInstallerButtonText => _openInstallerButton.Text;
+    public bool OpenInstallerButtonEnabled => _openInstallerButton.Enabled;
+    public string RepeatUpdateSummaryButtonText => _repeatUpdateSummaryButton.Text;
+    public string ReadRestartProofButtonText => _readRestartProofButton.Text;
+    public string ReadReleaseProofButtonText => _readReleaseProofButton.Text;
+    public string ReadCheckInStatusButtonText => _readCheckInStatusButton.Text;
+    public string ReadEvidenceStatusButtonText => _readEvidenceStatusButton.Text;
+    public string ReadEvidenceHeaderButtonText => _readEvidenceHeaderButton.Text;
+    public string ReadReleaseBlockersButtonText => _readReleaseBlockersButton.Text;
+    public string ReadNextProofButtonText => _readNextProofButton.Text;
+    public string ReadReleaseGatesButtonText => _readReleaseGatesButton.Text;
+    public string UpdatesEvidenceStatusText => _updatesEvidenceLabel.Text;
+    public string UpdatesManualEvidenceProgressText => _updatesManualEvidenceLabel.Text;
+    public string UpdatesManualEvidenceStripAccessibleName => _updatesManualEvidenceStrip.AccessibleName ?? string.Empty;
+    public string UpdatesManualEvidenceStripTexts => string.Join(" ", _updatesManualEvidenceStrip.Controls.OfType<Control>().Select(control => control.Text));
+    public string UpdatesReleaseGatesText => _updatesReleaseGatesLabel.Text;
+    public string UpdatesReleaseGatesStripAccessibleName => _updatesReleaseGatesStrip.AccessibleName ?? string.Empty;
+    public string UpdatesReleaseGatesStripTexts => string.Join(" ", _updatesReleaseGatesStrip.Controls.OfType<Control>().Select(control => control.Text));
+    public string UpdatesNextProofInstructionsText => _updatesNextProofInstructionsLabel.Text;
+    public string UpdatesProofNotesText => _updatesProofNotesLabel.Text;
+    public string ReadNextProofInstructionsButtonText => _readNextProofInstructionsButton.Text;
+    public string ReadProofNotesStatusButtonText => _readProofNotesStatusButton.Text;
+    public string CreateNextProofNoteButtonText => _createNextProofNoteButton.Text;
+    public string CreateAllProofNotesButtonText => _createAllProofNotesButton.Text;
+    public string CreateEvidenceDraftButtonText => _createEvidenceDraftButton.Text;
+    public string OpenEvidenceDraftButtonText => _openEvidenceDraftButton.Text;
+    public string ReadEvidenceDraftButtonText => _readEvidenceDraftButton.Text;
+    public string ReadVoiceModeStatusButtonText => _readVoiceModeStatusButton.Text;
+    public string ReadPlansStatusButtonText => _readPlansStatusButton.Text;
+    public string OpenReleaseProofButtonText => _openReleaseProofButton.Text;
+    public string OpenProofNotesFolderButtonText => _openProofNotesFolderButton.Text;
+    public string OpenManualEvidenceTemplateButtonText => _openManualEvidenceTemplateButton.Text;
+    public string OpenManualEvidenceTemplateButtonAccessibleName => _openManualEvidenceTemplateButton.AccessibleName ?? string.Empty;
+    public string PlansStatusStripAccessibleName => _plansStatusStrip.AccessibleName ?? string.Empty;
+    public string PlansStatusStripTexts => string.Join(" ", _plansStatusStrip.Controls.OfType<Control>().Select(control => control.Text));
+    public string PlansCapabilityStripAccessibleName => _plansCapabilityStrip.AccessibleName ?? string.Empty;
+    public string PlansCapabilityStripTexts => string.Join(" ", _plansCapabilityStrip.Controls.OfType<Control>().Select(control => control.Text));
+    public string PlansRoadmapStripAccessibleName => _plansRoadmapStrip.AccessibleName ?? string.Empty;
+    public string PlansRoadmapStripTexts => string.Join(" ", _plansRoadmapStrip.Controls.OfType<Control>().Select(control => control.Text));
+    public string PlansFreeBadgeText => _plansFreeBadge.Text;
+    public string PlansProBadgeText => _plansProBadge.Text;
+    public string PlansAdvancedBadgeText => _plansAdvancedBadge.Text;
+    public string PlansBoundaryBadgeText => _plansBoundaryBadge.Text;
+    public string PlansFreeCapabilityBadgeText => _plansFreeCapabilityBadge.Text;
+    public string PlansProCapabilityBadgeText => _plansProCapabilityBadge.Text;
+    public string PlansAdvancedCapabilityBadgeText => _plansAdvancedCapabilityBadge.Text;
+    public string PlansStartBadgeText => _plansStartBadge.Text;
+    public string PlansMicroBadgeText => _plansMicroBadge.Text;
+    public string PlansMajorBadgeText => _plansMajorBadge.Text;
+    public string PlansPublicAlphaBadgeText => _plansPublicAlphaBadge.Text;
+    public string PlansFuturePaidBadgeText => _plansFuturePaidBadge.Text;
+    public string PlansRoadmapText => _plansRoadmapLabel.Text;
+    public string PlansEntitlementPresetText => _plansEntitlementPicker?.SelectedItem?.ToString() ?? string.Empty;
+    public string HelpDiscoveryBadgeText => _helpDiscoveryBadge.Text;
+    public string HelpBrowserBadgeText => _helpBrowserBadge.Text;
+    public string SystemStatusStripAccessibleName => _systemStatusStrip.AccessibleName ?? string.Empty;
+    public string SystemStatusStripTexts => string.Join(" ", _systemStatusStrip.Controls.OfType<Control>().Select(control => control.Text));
+    public string SystemActionBadgeText => _systemActionBadge.Text;
+    public string SystemSelectedBadgeText => _systemSelectedBadge.Text;
+    public string SystemCueBadgeText => _systemCueBadge.Text;
+    public string SystemSafetyBadgeText => _systemSafetyBadge.Text;
+    public string SystemKeyboardBadgeText => _systemKeyboardBadge.Text;
+    public string SystemMouseBadgeText => _systemMouseBadge.Text;
+    public string SystemMediaBadgeText => _systemMediaBadge.Text;
+    public string WakeReliabilityText => _wakeReliabilityLabel.Text;
+    public string SystemNextBadgeText => _systemNextBadge.Text;
+    public string SystemWindowingBadgeText => _systemWindowingBadge.Text;
+    public string PacksFilterButtonTexts => string.Join(" ", _packsFilterButtonsPanel.Controls.OfType<Button>().Select(button => button.Text));
+    public string ActivePackFilterText => _packsFilterButtonsPanel.Controls.OfType<Button>()
+        .FirstOrDefault(button => button.BackColor.ToArgb() == Color.FromArgb(37, 99, 235).ToArgb())?.Text ?? string.Empty;
+    public string PacksStatusText => _packsStatusLabel.Text;
+    public string SelectedPackSummaryText => _packsSelectedSummaryLabel.Text;
+    public string PacksImportSummaryText => _packsImportSummaryLabel.Text;
+    public string PacksWatchBadgeText => _packsWatchBadge.Text;
+    public string PacksWatchActivityBadgeText => _packsWatchActivityBadge.Text;
+    public string PacksWatchStatusText => BuildPacksWatchStatusReadout();
+    public string PacksRollbackBackupText => _packsBackupLabel.Text;
+
+    public void SetPacksFilterText(string text)
+    {
+        _packsFilterText.Text = text;
+        RefreshPacksPanel(forceReload: false);
     }
 
     public static string FormatPackSecuritySummary(CallsignPackInfo pack)
@@ -2776,6 +6146,21 @@ public sealed class MainForm : Form
         };
     }
 
+    private static string FormatPackEnablementBadgeText(CallsignPackInfo pack) =>
+        pack.LoadStatus switch
+        {
+            CallsignPackLoadStatus.Loaded => "Enablement: loaded",
+            CallsignPackLoadStatus.Disabled => "Enablement: disabled",
+            CallsignPackLoadStatus.EntitlementRequired => $"Enablement: {pack.Tier} gated",
+            CallsignPackLoadStatus.SignatureRequired => "Enablement: signature gated",
+            CallsignPackLoadStatus.InvalidPack => "Enablement: invalid metadata",
+            CallsignPackLoadStatus.MissingAssembly => "Enablement: missing assembly",
+            CallsignPackLoadStatus.MissingPackType => "Enablement: no pack type",
+            CallsignPackLoadStatus.DuplicatePackId => "Enablement: duplicate id",
+            CallsignPackLoadStatus.LoadFailure => "Enablement: load failed",
+            _ => "Enablement: review"
+        };
+
     private static TableLayoutPanel BuildTwoColumnLayout(int rowCount)
     {
         var layout = new TableLayoutPanel
@@ -2822,6 +6207,9 @@ public sealed class MainForm : Form
             BorderStyle = BorderStyle.FixedSingle,
             Margin = new Padding(0, 0, 0, 4)
         };
+
+    private static string? NormalizeUpdateServerUrl(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static Label CreateHeading(string text) =>
         new()
@@ -2870,6 +6258,40 @@ public sealed class MainForm : Form
             Text = text
         };
 
+    private static Label CreatePlansBadge(string text, string description, Color backColor, Color foreColor)
+    {
+        return new Label
+        {
+            AutoSize = true,
+            Margin = new Padding(0, 0, 8, 0),
+            Padding = new Padding(10, 4, 10, 4),
+            BackColor = backColor,
+            ForeColor = foreColor,
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            Text = text,
+            TextAlign = ContentAlignment.MiddleLeft,
+            AccessibleName = text,
+            AccessibleDescription = description
+        };
+    }
+
+    private static Label CreateUpdatesBadge(string text, string description, Color backColor, Color foreColor)
+    {
+        return new Label
+        {
+            AutoSize = true,
+            Margin = new Padding(0, 0, 8, 0),
+            Padding = new Padding(10, 4, 10, 4),
+            BackColor = backColor,
+            ForeColor = foreColor,
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            Text = text,
+            TextAlign = ContentAlignment.MiddleLeft,
+            AccessibleName = text,
+            AccessibleDescription = description
+        };
+    }
+
     private void LoadProfiles()
     {
         _updatingUi = true;
@@ -2910,7 +6332,7 @@ public sealed class MainForm : Form
         _updateCheckInProgress = true;
         try
         {
-            await _updateCheckService.SendCheckInAsync(_activeProfile?.Callsign, GetInstalledVersion());
+            await _updateCheckService.SendCheckInAsync(_activeProfile?.Callsign, GetInstalledVersion(), _activeProfile?.Settings.UpdateDeviceId);
             var result = await _updateCheckService.CheckForUpdateAsync(
                 force: force,
                 attemptInstall: attemptInstall,
@@ -2955,15 +6377,20 @@ public sealed class MainForm : Form
             || (manifest.ChangedCommands?.Count > 0)
             || (manifest.RemovedCommands?.Count > 0)
             || (manifest.ExtensionPackChanges?.Count > 0)
+            || (manifest.FeatureHighlights?.Count > 0)
             || !string.IsNullOrWhiteSpace(manifest.SplashSummary)
             || !string.IsNullOrWhiteSpace(manifest.ReleaseNotes);
 
         if (!hasAnyChanges)
             return false;
 
+        return true;
+    }
+
+    private void MarkSplashManifestShown(CallsignUpdateManifest manifest)
+    {
         _lastShownManifestVersion = manifest.Version;
         PersistLastShownUpdateManifestVersion(manifest.Version);
-        return true;
     }
 
     private void ShowUpdateSplash(CallsignUpdateManifest manifest)
@@ -2973,6 +6400,8 @@ public sealed class MainForm : Form
 
     private void ShowPackImportSplash(CallsignUpdateManifest manifest)
     {
+        _lastImportSplashManifest = manifest;
+        PersistLastImportSplashManifest(manifest);
         ShowManifestSplash(manifest, persistLastShownVersion: false);
     }
 
@@ -2980,6 +6409,9 @@ public sealed class MainForm : Form
     {
         if (persistLastShownVersion && !ShouldShowSplashForManifest(manifest))
             return;
+
+        if (persistLastShownVersion)
+            MarkSplashManifestShown(manifest);
 
         if (_updateSplash != null && !_updateSplash.IsDisposed)
         {
@@ -2993,7 +6425,7 @@ public sealed class MainForm : Form
         _updateSplash.BringToFront();
 
         RecordExtensionPackUiAudit(
-            "update_splash",
+            persistLastShownVersion ? "update_splash" : "import_splash",
             "succeeded",
             manifest.Version,
             persistLastShownVersion ? "shown" : "shown_pack_import",
@@ -3003,8 +6435,37 @@ public sealed class MainForm : Form
                 : "Pack import splash was shown in the visible import surface.");
     }
 
+    private void HideImportSplash()
+    {
+        var activeSplash = _updateSplash;
+        if (activeSplash?.IsImportSplash != true)
+        {
+            UpdateStatus("No import splash is visible.");
+            return;
+        }
+
+        if (_updateSplash?.Visible == true)
+            _updateSplash.Hide();
+
+        UpdateStatus("Import splash hidden.");
+        RecordExtensionPackUiAudit(
+            "import_splash",
+            "succeeded",
+            "hide_import_splash",
+            "hidden",
+            true,
+            "Pack import splash dismissal was shown in the visible import surface.");
+    }
+
     private void HideUpdateSplash()
     {
+        var activeSplash = _updateSplash;
+        if (activeSplash?.IsImportSplash == true)
+        {
+            HideImportSplash();
+            return;
+        }
+
         if (_updateSplash?.Visible == true)
             _updateSplash.Hide();
 
@@ -3018,12 +6479,82 @@ public sealed class MainForm : Form
             "Update splash dismissal was shown in the visible update surface.");
     }
 
-    private static string BuildPackImportSummary(CallsignPackInfo pack)
+    private void RepeatUpdateSplashSummary()
+    {
+        if (_updateSplash is null || _updateSplash.IsDisposed || !_updateSplash.Visible || _updateSplash.IsImportSplash)
+        {
+            UpdateStatus("No update splash is visible.");
+            return;
+        }
+
+        _updateSplash.RepeatNarration();
+        UpdateStatus("Repeated the update summary.");
+        RecordExtensionPackUiAudit(
+            "update_splash",
+            "succeeded",
+            "repeat_update_summary",
+            "replayed",
+            true,
+            "Update splash repeat-summary action was shown in the visible update surface.");
+    }
+
+    private void RepeatImportSplashSummary()
+    {
+        if (_updateSplash is not null && !_updateSplash.IsDisposed && _updateSplash.Visible && _updateSplash.IsImportSplash)
+        {
+            _updateSplash.RepeatNarration();
+            UpdateStatus("Repeated the import summary.");
+            RecordExtensionPackUiAudit(
+                "import_splash",
+                "succeeded",
+                "repeat_import_summary",
+                "replayed",
+                true,
+                "Pack import splash repeat-summary action was shown in the visible import surface.");
+            return;
+        }
+
+        if (_lastImportSplashManifest is not null)
+        {
+            ShowPackImportSplash(_lastImportSplashManifest);
+            UpdateStatus("Reopened the import summary.");
+            RecordExtensionPackUiAudit(
+                "import_splash",
+                "succeeded",
+                _lastImportSplashManifest.Version,
+                "reopened_import_summary",
+                true,
+                "Pack import splash was reopened from the visible Packs surface.");
+            return;
+        }
+
+        UpdateStatus("No import splash is visible.");
+    }
+
+    private static string BuildPackImportSummary(CallsignPackInfo pack, CallsignCommandRegistry? registry = null)
     {
         var commandText = pack.CommandCount == 1 ? "1 command" : $"{pack.CommandCount} commands";
         var source = pack.IsCommunity ? "community" : "trusted";
-        var signature = string.IsNullOrWhiteSpace(pack.SignatureStatus) ? "unknown signature" : pack.SignatureStatus;
-        return $"Imported {commandText} from the {source} pack '{pack.DisplayName}' ({pack.Tier}, {signature}).";
+        var signature = string.IsNullOrWhiteSpace(pack.SignatureStatus) ? "unknown" : pack.SignatureStatus;
+        var loadState = pack.LoadStatus switch
+        {
+            CallsignPackLoadStatus.Disabled => "disabled for review",
+            CallsignPackLoadStatus.Loaded => "loaded and visible",
+            CallsignPackLoadStatus.EntitlementRequired => $"{pack.Tier} entitlement required",
+            CallsignPackLoadStatus.SignatureRequired => "signature required",
+            CallsignPackLoadStatus.InvalidPack => "invalid pack",
+            CallsignPackLoadStatus.MissingAssembly => "missing assembly",
+            CallsignPackLoadStatus.MissingPackType => "missing pack type",
+            CallsignPackLoadStatus.DuplicatePackId => "duplicate pack id",
+            CallsignPackLoadStatus.LoadFailure => "load failed",
+            _ => pack.LoadStatus.ToString().ToLowerInvariant()
+        };
+
+        var commandPreview = BuildPackCommandPreview(pack, registry);
+
+        return string.IsNullOrWhiteSpace(commandPreview)
+            ? $"Imported {source} {pack.Tier} pack '{pack.DisplayName}' v{pack.Version} ({commandText}; signature={signature}; {loadState})."
+            : $"Imported {source} {pack.Tier} pack '{pack.DisplayName}' v{pack.Version} ({commandText}; signature={signature}; {loadState}). {commandPreview}";
     }
 
     public static int FindPreferredPackIndex(IReadOnlyList<CallsignPackInfo> packs, string? preferredPackId)
@@ -3070,12 +6601,41 @@ public sealed class MainForm : Form
         }
     }
 
+    private CallsignUpdateManifest? LoadLastImportSplashManifest()
+    {
+        try
+        {
+            if (!File.Exists(_importSplashStatePath))
+                return null;
+
+            var json = File.ReadAllText(_importSplashStatePath);
+            return JsonSerializer.Deserialize<CallsignUpdateManifest>(json);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private void PersistLastShownUpdateManifestVersion(string version)
     {
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_updateSplashStatePath)!);
             File.WriteAllText(_updateSplashStatePath, JsonSerializer.Serialize(new UpdateSplashState(version)));
+        }
+        catch
+        {
+            // Non-blocking persistence.
+        }
+    }
+
+    private void PersistLastImportSplashManifest(CallsignUpdateManifest manifest)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_importSplashStatePath)!);
+            File.WriteAllText(_importSplashStatePath, JsonSerializer.Serialize(manifest));
         }
         catch
         {
@@ -3126,7 +6686,18 @@ public sealed class MainForm : Form
         if (_startupWalkthroughShownThisSession || HasSeenStartupWalkthrough())
             return;
 
-        using var walkthrough = new StartupWalkthroughForm(tabName => SelectTab(tabName));
+        using var walkthrough = new StartupWalkthroughForm(
+            tabName => SelectTab(tabName),
+            filter => ShowVoiceHelp(filter),
+            () => OpenReleaseEvidenceFolder(),
+            () => OpenManualEvidenceTemplate(),
+            () => OpenPendingInstallerDownload(),
+            () => ImportCommunityPack(),
+            () => ImportCommunityPackFolder(),
+            repeatUpdateSummary: () => RepeatUpdateSplashSummary(),
+            repeatImportSummary: () => RepeatImportSplashSummary(),
+            openPacksFolder: () => OpenPacksFolder(),
+            releaseProofSummaryProvider: () => BuildReleaseProofText(_updateCheckService.PendingManifest));
         var result = walkthrough.ShowDialog(this);
         _startupWalkthroughShownThisSession = true;
 
@@ -3162,6 +6733,8 @@ public sealed class MainForm : Form
             _updatingUi = false;
         }
 
+        RefreshUpdateServerBinding(null);
+        ApplyProfileEntitlements(null);
         RefreshAllPanels();
         UpdateStatus("Create a new account, then save it before voice activation.");
     }
@@ -3191,6 +6764,8 @@ public sealed class MainForm : Form
             _updatingUi = false;
         }
 
+        RefreshUpdateServerBinding(profile);
+        ApplyProfileEntitlements(profile);
         RefreshAllPanels();
         UpdateStatus($"Editing account '{profile.Callsign}'.");
         if (_formReadyForListener)
@@ -3204,6 +6779,23 @@ public sealed class MainForm : Form
         _emailText.Text = profile.Email;
         _departmentText.Text = profile.Department;
         _notesText.Text = profile.Notes;
+        if (_updateServerUrlText != null)
+            _updateServerUrlText.Text = profile.Settings.UpdateServerUrl ?? _updateCheckService.ServerUrl;
+    }
+
+    private void RefreshUpdateServerBinding(UserProfile? profile)
+    {
+        _updateCheckService.SetServerUrl(profile?.Settings.UpdateServerUrl);
+        if (_updateServerUrlText != null)
+            _updateServerUrlText.Text = _updateCheckService.ServerUrl;
+    }
+
+    private void ApplyProfileEntitlements(UserProfile? profile)
+    {
+        var entitlements = profile?.Settings.GetEntitlementState() ?? CallsignEntitlementState.FreeOnly;
+        CallsignCommandRegistry.Shared.SetEntitlements(entitlements);
+        RefreshPlansPanel();
+        RefreshPacksPanel(forceReload: false);
     }
 
     private void RefreshAllPanels()
@@ -3215,8 +6807,91 @@ public sealed class MainForm : Form
         RefreshVoiceShortcutsPanel();
         RefreshBrowserPanel();
         RefreshFileSearchPanel();
+        RefreshPlansPanel();
         RefreshPacksPanel();
         RefreshUpdatesPanel();
+        UpdateShellSummary();
+    }
+
+    private void RefreshPlansPanel()
+    {
+        if (_plansFreeLabel == null || _plansProLabel == null || _plansAdvancedLabel == null || _plansBoundaryLabel == null || _plansStatusStrip == null || _plansEntitlementPicker == null)
+            return;
+
+        var entitlements = CallsignCommandRegistry.Shared.Entitlements;
+        var enabledTiers = entitlements.EnabledTiers
+            .OrderBy(tier => tier.ToString(), StringComparer.OrdinalIgnoreCase)
+            .Select(tier => tier.ToString())
+            .ToArray();
+        var entitlementSummary = enabledTiers.Length == 0
+            ? "none"
+            : string.Join(", ", enabledTiers);
+
+        _plansFreeLabel.Text = "Free: open-source core, full Windows Voice Access parity baseline, no paid account required.";
+        _plansProLabel.Text = $"Pro: paid tier for beyond-parity Windows, WSL, Linux, browser, and workflow control. Current access: {(entitlements.Allows(CallsignPackTier.Pro) ? "enabled" : "not enabled")}.";
+        _plansAdvancedLabel.Text = $"Advanced: paid tier for beyond-parity recipes, diagnostics, admin/dev workflows, and power-user automation. Current access: {(entitlements.Allows(CallsignPackTier.Advanced) ? "enabled" : "not enabled")}.";
+        _plansBoundaryLabel.Text = $"Boundary: current entitlement(s) {entitlementSummary}; policy still decides whether any command may run.";
+        _plansBoundaryBadge.Text = $"Boundary: {entitlementSummary}; policy still wins";
+        _plansBoundaryLabel.AccessibleDescription = "Explains the active entitlement state and that policy still gates every command.";
+
+        var selectedIndex = DetermineEntitlementPresetIndex(entitlements);
+        if (selectedIndex >= 0)
+        {
+            _updatingUi = true;
+            try
+            {
+                if (_plansEntitlementPicker.Items.Count > selectedIndex)
+                    _plansEntitlementPicker.SelectedIndex = selectedIndex;
+            }
+            finally
+            {
+                _updatingUi = false;
+            }
+        }
+
+        _plansEntitlementPicker.Enabled = _activeProfile != null && !string.IsNullOrWhiteSpace(_activeProfile.Callsign);
+    }
+
+    private void ApplySelectedEntitlementPreset()
+    {
+        if (_activeProfile == null || string.IsNullOrWhiteSpace(_activeProfile.Callsign))
+        {
+            UpdateStatus("Choose or create an account before changing entitlements.");
+            return;
+        }
+
+        if (_plansEntitlementPicker == null || _plansEntitlementPicker.SelectedIndex < 0)
+        {
+            UpdateStatus("Choose an entitlement preset first.");
+            return;
+        }
+
+        _activeProfile.Settings.EnabledEntitlementTiers = _plansEntitlementPicker.SelectedIndex switch
+        {
+            0 => [CallsignPackTier.Free.ToString()],
+            1 => [CallsignPackTier.Free.ToString(), CallsignPackTier.Pro.ToString()],
+            2 => [CallsignPackTier.Free.ToString(), CallsignPackTier.Advanced.ToString()],
+            3 => Enum.GetNames<CallsignPackTier>().ToList(),
+            _ => [CallsignPackTier.Free.ToString()]
+        };
+
+        SaveProfile();
+        ApplyProfileEntitlements(_activeProfile);
+        RefreshAllPanels();
+        UpdateStatus($"Saved entitlement preset '{_plansEntitlementPicker.SelectedItem}'.");
+    }
+
+    private static int DetermineEntitlementPresetIndex(CallsignEntitlementState entitlements)
+    {
+        var enabled = entitlements.EnabledTiers.OrderBy(tier => tier.ToString(), StringComparer.OrdinalIgnoreCase).ToArray();
+        return enabled switch
+        {
+            [CallsignPackTier.Free] => 0,
+            [CallsignPackTier.Free, CallsignPackTier.Pro] => 1,
+            [CallsignPackTier.Free, CallsignPackTier.Advanced] => 2,
+            [CallsignPackTier.Free, CallsignPackTier.Pro, CallsignPackTier.Advanced] => 3,
+            _ => 0
+        };
     }
 
     private void RefreshAccountPanel()
@@ -3225,6 +6900,8 @@ public sealed class MainForm : Form
         {
             _accountPathLabel.Text = "No profile selected.";
             _accountStateLabel.Text = "Voice not activated.";
+            _accountEntitlementLabel.Text = "Entitlement: Free only.";
+        _accountSetupPathLabel.Text = "Setup path: Account -> Voice -> Session -> Shortcuts -> System -> Files -> Plans -> Updates -> Packs.";
             _newProfileButton.Enabled = true;
             _saveProfileButton.Enabled = true;
             _deleteProfileButton.Enabled = false;
@@ -3233,6 +6910,15 @@ public sealed class MainForm : Form
 
         _accountPathLabel.Text = $"{_profileStore.ResolveCallsSignFolder(_activeProfile.Callsign)} (settings.json and alpha-audit.jsonl)";
         _accountStateLabel.Text = GetVoiceStatusText(_activeProfile.Settings);
+        var entitlementTiers = _activeProfile.Settings.GetEntitlementState().EnabledTiers
+            .OrderBy(tier => tier.ToString(), StringComparer.OrdinalIgnoreCase)
+            .Select(tier => tier.ToString())
+            .ToArray();
+        var entitlementSummary = entitlementTiers.Length == 1 && entitlementTiers[0].Equals("Free", StringComparison.OrdinalIgnoreCase)
+            ? "Free only"
+            : string.Join(", ", entitlementTiers);
+        _accountEntitlementLabel.Text = $"Entitlement: {entitlementSummary}";
+        _accountSetupPathLabel.Text = $"Setup path: Account -> Voice -> Session -> Shortcuts -> System -> Files -> Plans -> Updates -> Packs. Current profile: {_activeProfile.Callsign}.";
         _deleteProfileButton.Enabled = true;
     }
 
@@ -3240,14 +6926,20 @@ public sealed class MainForm : Form
     {
         if (_activeProfile == null || string.IsNullOrWhiteSpace(_activeProfile.Callsign))
         {
-            _voiceStateLabel.Text = _activeProfile == null ? "No account selected." : "Save the account before voice activation.";
+            _voiceStateLabel.Text = _activeProfile == null ? "No account selected. Create or pick a profile to begin." : "Save the account before voice activation.";
             _voiceSamplesLabel.Text = "0 / 0 samples";
             _voiceLastTrainedLabel.Text = "Never activated.";
             _voiceRecognitionModeLabel.Text = $"Recognition mode: {_voiceCommandService.CurrentModeDescription} | voice mode: {_voiceAccessMode}";
             _voiceRecordingStateLabel.Text = "No sample recording in progress.";
             _voicePlaybackStateLabel.Text = "No sample available for playback.";
-            _voiceNextStepLabel.Text = "Next step: create or pick a profile.";
+            _voiceNextStepLabel.Text = "Next step: choose or create a profile.";
             _voiceFailureLabel.Text = "Failure type: none yet.";
+            UpdateVoiceStatusStrip(
+                "Voice: ready to enroll",
+                "Samples: 0 / 0",
+                "Playback: none",
+                "Next: create or pick profile");
+            UpdateWakeCalibrationStatusStrip("Wake threshold: default", "Sensitivity: default", "Calibration: none", "Samples: none");
             _voiceProgress.Value = 0;
             _voiceProgress.Maximum = 1;
             _voicePromptText.Text = _activeProfile == null
@@ -3288,8 +6980,32 @@ public sealed class MainForm : Form
         _voicePromptText.Text = GetVoicePrompt(_activeProfile, settings);
         _voiceNextStepLabel.Text = GetVoiceNextStepText(settings, _voiceActivationBusy);
         _voiceFailureLabel.Text = GetVoiceFailureText(settings, _voiceActivationBusy, VoiceBiometricVerificationService.ReadEnrollmentSampleProof(_profileStore, _activeProfile));
+        var wakeThresholdText = settings.VoiceWakeThreshold > 0
+            ? $"Wake threshold: {settings.VoiceWakeThreshold:0.000}"
+            : $"Wake threshold: {VoiceCommandService.ResolveWakeThreshold(null, settings.VoiceWakeSensitivity):0.000}";
+        var wakeSensitivityText = string.IsNullOrWhiteSpace(settings.VoiceWakeSensitivity)
+            ? "Sensitivity: default"
+            : $"Sensitivity: {settings.VoiceWakeSensitivity}";
+        var wakeCalibrationText = settings.VoiceWakeCalibratedUtc.HasValue
+            ? $"Calibration: {settings.VoiceWakeCalibratedUtc.Value.ToLocalTime():g}"
+            : "Calibration: none";
+        var wakeSampleText = settings.VoiceWakeCalibrationSampleCount > 0
+            ? $"Samples: {settings.VoiceWakeCalibrationSampleCount}"
+            : "Samples: none";
+        UpdateWakeCalibrationStatusStrip(wakeThresholdText, wakeSensitivityText, wakeCalibrationText, wakeSampleText);
         var latestSamplePath = GetLatestVoiceSamplePath(_activeProfile);
         var hasSample = recordedSamplePaths.Count > 0 || File.Exists(latestSamplePath);
+        UpdateVoiceStatusStrip(
+            _voiceActivationBusy
+                ? "Voice: enrolling"
+                : settings.VoiceEnrolledUtc.HasValue
+                    ? "Voice: activated"
+                    : settings.VoiceSamplesRecorded < 3
+                        ? "Voice: collecting samples"
+                        : "Voice: ready to enroll",
+            $"{settings.VoiceSamplesRecorded} / {settings.VoiceSamplesRequired} samples",
+            hasSample ? "Playback: ready" : "Playback: none",
+            GetVoiceNextStepText(settings, _voiceActivationBusy).Replace("Next step:", "Next:", StringComparison.OrdinalIgnoreCase));
 
         if (_voiceSampleCapture.IsRecording && _voiceSampleCapture.LastTelemetry != null)
         {
@@ -3312,6 +7028,28 @@ public sealed class MainForm : Form
         _trainVoiceButton.Enabled = !_voiceActivationBusy;
         _resetVoiceButton.Enabled = !_voiceActivationBusy;
         UpdateRecordButtonAppearance();
+    }
+
+    private void UpdateWakeCalibrationStatusStrip(string? thresholdText, string? sensitivityText, string? calibrationText, string? sampleText)
+    {
+        if (_voiceWakeStatusStrip == null || _voiceWakeThresholdBadge == null || _voiceWakeSensitivityBadge == null || _voiceWakeCalibrationBadge == null || _voiceWakeSampleBadge == null)
+            return;
+
+        _voiceWakeThresholdBadge.Text = string.IsNullOrWhiteSpace(thresholdText) ? "Wake threshold: default" : thresholdText;
+        _voiceWakeSensitivityBadge.Text = string.IsNullOrWhiteSpace(sensitivityText) ? "Sensitivity: default" : sensitivityText;
+        _voiceWakeCalibrationBadge.Text = string.IsNullOrWhiteSpace(calibrationText) ? "Calibration: none" : calibrationText;
+        _voiceWakeSampleBadge.Text = string.IsNullOrWhiteSpace(sampleText) ? "Samples: none" : sampleText;
+    }
+
+    private void UpdateVoiceStatusStrip(string? stateText, string? samplesText, string? playbackText, string? nextStepText)
+    {
+        if (_voiceStatusStrip == null || _voiceStateBadge == null || _voiceSamplesBadge == null || _voicePlaybackBadge == null || _voiceNextStepBadge == null)
+            return;
+
+        _voiceStateBadge.Text = string.IsNullOrWhiteSpace(stateText) ? "Voice: ready to enroll" : stateText;
+        _voiceSamplesBadge.Text = string.IsNullOrWhiteSpace(samplesText) ? "Samples: 0 / 3" : samplesText;
+        _voicePlaybackBadge.Text = string.IsNullOrWhiteSpace(playbackText) ? "Playback: none" : playbackText;
+        _voiceNextStepBadge.Text = string.IsNullOrWhiteSpace(nextStepText) ? "Next: create or pick profile" : nextStepText;
     }
 
     private void SetVoiceActivationBusy(bool busy, string? status = null)
@@ -3363,6 +7101,29 @@ public sealed class MainForm : Form
             _sessionPhaseLabel.Text = $"Phase: {FormatOverlayPhase(runtimeSnapshot.SessionState)}";
             _sessionNextActionLabel.Text = FormatSessionHint(runtimeSnapshot.SessionState, runtimeSnapshot.VerifiedCallsign, runtimeSnapshot.PendingCommand);
             _sessionHintLabel.Text = GetSessionHintDetails(runtimeSnapshot.SessionState, runtimeSnapshot.VerifiedCallsign, runtimeSnapshot.PendingCommand);
+            _sessionReadinessLabel.Text = FormatSessionReadinessText(_activeProfile, runtimeSnapshot.SessionState);
+            UpdateSessionStatusStrip(
+                runtimeSnapshot.IsListening ? "Listener: running" : "Listener: stopped",
+                FormatRuntimeIdentityStatus(runtimeSnapshot),
+                FormatRuntimeCommandLabel(runtimeSnapshot),
+                FormatSessionHint(runtimeSnapshot.SessionState, runtimeSnapshot.VerifiedCallsign, runtimeSnapshot.PendingCommand),
+                FormatSessionReadinessText(_activeProfile, runtimeSnapshot.SessionState));
+            UpdateWakeStatusStrip(
+                string.IsNullOrWhiteSpace(wakeEngine) ? "Wake: unavailable" : $"Wake: {wakeEngine}",
+                string.IsNullOrWhiteSpace(wakeEngine)
+                    ? "Summary: detector unavailable"
+                    : runtimeSnapshot.LastWakeWordScore.HasValue && runtimeSnapshot.WakeWordThreshold.HasValue
+                        ? runtimeSnapshot.LastWakeWordScore.Value >= runtimeSnapshot.WakeWordThreshold.Value
+                            ? "Summary: accepted"
+                            : "Summary: below threshold"
+                : "Summary: listening for a scored candidate",
+                BuildWakeQualityBadgeText(runtimeSnapshot.LastWakeWordScore, runtimeSnapshot.WakeWordThreshold),
+                runtimeSnapshot.LastWakeWordScore.HasValue && runtimeSnapshot.WakeWordThreshold.HasValue
+                    ? $"Score: {runtimeSnapshot.LastWakeWordScore.Value:P0}"
+                    : "Score: unavailable",
+                runtimeSnapshot.LastWakeWordScore.HasValue && runtimeSnapshot.WakeWordThreshold.HasValue
+                    ? $"Margin: {FormatWakeMargin(runtimeSnapshot.LastWakeWordScore.Value, runtimeSnapshot.WakeWordThreshold.Value)}"
+                    : "Margin: unavailable");
             _lastHeardLabel.Text = FormatRuntimeLastHeardLabel(runtimeSnapshot);
             _sessionIdentityLabel.Text = FormatRuntimeIdentityStatus(runtimeSnapshot);
             _sessionCommandLabel.Text = FormatRuntimeCommandLabel(runtimeSnapshot);
@@ -3390,15 +7151,23 @@ public sealed class MainForm : Form
         var wakeTransitionSource = string.IsNullOrWhiteSpace(runtimeSnapshot.LastWakeTransitionSource)
             ? "none"
             : runtimeSnapshot.LastWakeTransitionSource;
-        _wakeReliabilityLabel.Text = string.IsNullOrWhiteSpace(wakeEngine)
-            ? $"Wake detector unavailable.{GetOpenWakeWordSetupHint(wakeEngine)}"
-            : $"Current wake detector: {wakeEngine}. Last wake source: {wakeTransitionSource}.{GetOpenWakeWordSetupHint(wakeEngine)}";
+        _wakeReliabilityLabel.Text = BuildWakeReliabilityText(wakeEngine, wakeTransitionSource, calibrationSampleCount: _activeProfile?.Settings.VoiceWakeCalibrationSampleCount);
+        _wakeSummaryLabel.Text = string.IsNullOrWhiteSpace(wakeEngine)
+            ? "Wake summary: detector unavailable."
+            : runtimeSnapshot.LastWakeWordScore.HasValue && runtimeSnapshot.WakeWordThreshold.HasValue
+                ? runtimeSnapshot.LastWakeWordScore.Value >= runtimeSnapshot.WakeWordThreshold.Value
+                    ? $"Wake summary: accepted at {runtimeSnapshot.LastWakeWordScore.Value:P0} confidence with {FormatWakeMargin(runtimeSnapshot.LastWakeWordScore.Value, runtimeSnapshot.WakeWordThreshold.Value)}."
+                    : $"Wake summary: below threshold at {runtimeSnapshot.LastWakeWordScore.Value:P0} confidence with {FormatWakeMargin(runtimeSnapshot.LastWakeWordScore.Value, runtimeSnapshot.WakeWordThreshold.Value)}."
+                : $"Wake summary: detector {wakeEngine} awaiting a scored candidate.";
         _wakeCandidateLabel.Text = FormatRuntimeWakeCandidateReadout(runtimeSnapshot);
         _wakeScoreLabel.Text = runtimeSnapshot.LastWakeWordScore.HasValue && runtimeSnapshot.WakeWordThreshold.HasValue
             ? runtimeSnapshot.LastWakeWordScore.Value >= runtimeSnapshot.WakeWordThreshold.Value
                 ? $"Last wake accepted: {runtimeSnapshot.LastWakeWordScore.Value:P0} confidence / {runtimeSnapshot.WakeWordThreshold.Value:P0} threshold via {runtimeSnapshot.LastWakeWordEngine ?? wakeEngine}."
                 : $"Last wake candidate rejected below threshold: {runtimeSnapshot.LastWakeWordScore.Value:P0} confidence / {runtimeSnapshot.WakeWordThreshold.Value:P0} threshold via {runtimeSnapshot.LastWakeWordEngine ?? wakeEngine}."
                 : "No wake score reported by the service yet.";
+        _wakeMarginLabel.Text = runtimeSnapshot.LastWakeWordScore.HasValue && runtimeSnapshot.WakeWordThreshold.HasValue
+            ? $"Wake margin: {FormatWakeMargin(runtimeSnapshot.LastWakeWordScore.Value, runtimeSnapshot.WakeWordThreshold.Value)} via {runtimeSnapshot.LastWakeWordEngine ?? wakeEngine}."
+            : "Wake margin unavailable.";
             _wakeQualityLabel.Text = runtimeSnapshot.WakeWordAudioQualityWarnings is { Count: > 0 }
                 ? string.Join(" ", runtimeSnapshot.WakeWordAudioQualityWarnings)
                 : runtimeIsStale
@@ -3420,8 +7189,15 @@ public sealed class MainForm : Form
             _sessionPhaseLabel.Text = $"Phase: {FormatOverlayPhase(_session.State.ToString())}";
             _sessionNextActionLabel.Text = FormatSessionHint(_session.State.ToString(), _session.VerifiedCallsign, _session.PendingCommand);
             _sessionHintLabel.Text = GetSessionHintDetails(_session.State.ToString(), _session.VerifiedCallsign, _session.PendingCommand);
+            _sessionReadinessLabel.Text = FormatSessionReadinessText(_activeProfile, _session.State);
+            UpdateSessionStatusStrip(
+                _voiceCommandService.IsListening ? "Listener: running" : "Listener: stopped",
+                _session.VerifiedCallsign == null ? "Identity: not verified" : $"Identity: verified {_session.VerifiedCallsign}",
+                FormatLocalCommandLabel(),
+                FormatSessionHint(_session.State.ToString(), _session.VerifiedCallsign, _session.PendingCommand),
+                FormatSessionReadinessText(_activeProfile, _session.State));
             _sessionIdentityLabel.Text = _session.VerifiedCallsign == null
-                ? "Waiting for identity."
+                ? "Say your callsign."
                 : $"Verified: {_session.VerifiedCallsign}";
             _sessionCommandLabel.Text = FormatLocalCommandLabel();
 
@@ -3444,7 +7220,22 @@ public sealed class MainForm : Form
             _runtimeProofLabel.Text = _voiceCommandService.CurrentAudioTelemetry == null
                 ? "Runtime proof unavailable; no service snapshot or local microphone telemetry yet."
                 : $"Runtime proof: local preview listener; CanHearAudio={(_voiceCommandService.IsSpeechActive ? "true" : "false")}; packet age=local; mic=local preview microphone.";
+            var wakeDetection = _voiceCommandService.LastWakeWordDetection;
+            UpdateWakeStatusStrip(
+                _voiceCommandService.IsSpeechActive ? "Wake: listening" : "Wake: local preview",
+                wakeDetection != null
+                    ? (wakeDetection.Score >= wakeDetection.Threshold ? "Summary: accepted" : "Summary: below threshold")
+                        : "Summary: listening for a scored candidate",
+                BuildWakeQualityBadgeText(wakeDetection?.Score, wakeDetection?.Threshold),
+                wakeDetection != null ? $"Score: {wakeDetection.Score:P0}" : "Score: unavailable",
+                wakeDetection != null ? $"Margin: {FormatWakeMargin(wakeDetection.Score, wakeDetection.Threshold)}" : "Margin: unavailable");
+            _wakeSummaryLabel.Text = wakeDetection != null
+                ? $"Wake summary: {(wakeDetection.Score >= wakeDetection.Threshold ? "accepted" : "below threshold")} at {wakeDetection.Score:P0} confidence with {FormatWakeMargin(wakeDetection.Score, wakeDetection.Threshold)}."
+                : "Wake summary: local preview listening for a wake candidate.";
             _wakeCandidateLabel.Text = FormatLocalWakeCandidateReadout();
+            _wakeMarginLabel.Text = wakeDetection != null
+                ? $"Wake margin: {FormatWakeMargin(wakeDetection.Score, wakeDetection.Threshold)}."
+                : "Wake margin unavailable.";
             _micDetailLabel.Text = _voiceCommandService.CurrentAudioTelemetry == null
                 ? "No microphone telemetry yet."
                 : $"Raw RMS {_voiceCommandService.CurrentAudioTelemetry.RawRms:0.000}, peak {_voiceCommandService.CurrentAudioTelemetry.RawPeak:0.00}, gain {_voiceCommandService.CurrentAudioTelemetry.AppliedGainDb:0.0} dB, noise floor {_voiceCommandService.CurrentAudioTelemetry.NoiseFloorRms:0.000}, threshold {_voiceCommandService.CurrentAudioTelemetry.SpeechThresholdRms:0.000}.";
@@ -3483,9 +7274,11 @@ public sealed class MainForm : Form
         var wakeOverlayStatusText = runtimeSnapshot != null
             ? FormatRuntimeWakeCandidateReadout(runtimeSnapshot)
             : FormatLocalWakeCandidateReadout();
+        var wakeOverlayQualityText = BuildWakeOverlayQualityText(runtimeSnapshot);
         var wakeOverlayAuthorityText = BuildWakeOverlayAuthorityText(runtimeSnapshot);
+        var wakeOverlayCalibrationText = BuildWakeOverlayCalibrationText(runtimeSnapshot);
         SyncWakeOverlay(wakeOverlayShouldBeVisible, wakeOverlayReadout, wakeOverlayPhase,
-            runtimeSnapshot?.RecentTranscriptHistory ?? GetLocalTranscriptHistory(), wakeOverlayActivityLevel, wakeOverlayActivityText, wakeOverlayCaptionText, wakeOverlayStatusText, wakeOverlayAuthorityText);
+            runtimeSnapshot?.RecentTranscriptHistory ?? GetLocalTranscriptHistory(), wakeOverlayActivityLevel, wakeOverlayActivityText, wakeOverlayCaptionText, wakeOverlayStatusText, wakeOverlayQualityText, wakeOverlayAuthorityText, wakeOverlayCalibrationText);
     }
 
     private void UpdateLiveSpeechCueFromActivity()
@@ -3544,7 +7337,7 @@ public sealed class MainForm : Form
                 return $"Identity rejected: {runtimeSnapshot.LastIdentityRejectReason}";
         }
 
-        return "Waiting for identity.";
+        return "Identity not yet verified.";
     }
 
     private void ApplyRuntimeUiRequests(RuntimeStateSnapshot runtimeSnapshot)
@@ -3605,37 +7398,51 @@ public sealed class MainForm : Form
         }
 
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-repair-wakeword", StringComparison.OrdinalIgnoreCase))
-            return "Repair Wakeword requested.";
+            return "Wakeword repair opened.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-train-voice-identity", StringComparison.OrdinalIgnoreCase))
-            return "Train Voice Identity requested.";
+            return "Voice identity training opened.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-create-account", StringComparison.OrdinalIgnoreCase))
-            return "Create New Account requested.";
+            return "Create account opened.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-save-account", StringComparison.OrdinalIgnoreCase))
-            return "Save Account requested.";
+            return "Account saved.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-delete-account", StringComparison.OrdinalIgnoreCase))
-            return "Delete Account requested.";
+            return "Account delete opened.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-open-data-folder", StringComparison.OrdinalIgnoreCase))
-            return "Open Data Folder requested.";
+            return "Data folder opened.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-open-logs-folder", StringComparison.OrdinalIgnoreCase))
-            return "Open Logs Folder requested.";
+            return "Logs folder opened.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-open-app-folder", StringComparison.OrdinalIgnoreCase))
-            return "Open App Folder requested.";
+            return "App folder opened.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-open-packs", StringComparison.OrdinalIgnoreCase))
-            return "Open Packs requested.";
+            return "Packs opened.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-open-shortcuts", StringComparison.OrdinalIgnoreCase))
-            return "Open Voice Shortcuts requested.";
+            return "Voice shortcuts opened.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-start-listening", StringComparison.OrdinalIgnoreCase))
-            return "Start Listening requested.";
+            return "Listening started.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-stop-listening", StringComparison.OrdinalIgnoreCase))
-            return "Stop Listening requested.";
+            return "Listening stopped.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-voice-help", StringComparison.OrdinalIgnoreCase))
-            return "Voice Help requested.";
+            return "Voice help opened.";
+        if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-voice-help-system", StringComparison.OrdinalIgnoreCase))
+            return "Voice help filtered to system commands.";
+        if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-voice-help-browser", StringComparison.OrdinalIgnoreCase))
+            return "Voice help filtered to browser commands.";
+        if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-voice-help-dictation", StringComparison.OrdinalIgnoreCase))
+            return "Voice help filtered to dictation commands.";
+        if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-voice-help-visible", StringComparison.OrdinalIgnoreCase))
+            return "Voice help filtered to visible commands.";
+        if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-voice-help-extensions", StringComparison.OrdinalIgnoreCase))
+            return "Voice help filtered to extension commands.";
+        if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-voice-help-safety", StringComparison.OrdinalIgnoreCase))
+            return "Voice help filtered to safety commands.";
+        if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-voice-help-free", StringComparison.OrdinalIgnoreCase))
+            return "Voice help filtered to free commands.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-next-control", StringComparison.OrdinalIgnoreCase))
-            return "Next Control requested.";
+            return "Next control selected.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-previous-control", StringComparison.OrdinalIgnoreCase))
-            return "Previous Control requested.";
+            return "Previous control selected.";
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "ui-activate-control", StringComparison.OrdinalIgnoreCase))
-            return "Activate Control requested.";
+            return "Control activated.";
 
         if (string.Equals(runtimeSnapshot.RequestedUiMode, "Next", StringComparison.OrdinalIgnoreCase))
             return "Voice navigation moved to the next tab.";
@@ -3674,7 +7481,12 @@ public sealed class MainForm : Form
         var normalized = NormalizeSpeechText(mode);
         const string visibleControlLabelPrefix = "ui activate label ";
         const string visibleControlDoubleClickLabelPrefix = "ui double click label ";
+        const string visibleControlTripleClickLabelPrefix = "ui triple click label ";
         const string visibleControlRightClickLabelPrefix = "ui right click label ";
+        const string visibleControlToggleLabelPrefix = "ui toggle label ";
+        const string visibleControlExpandLabelPrefix = "ui expand label ";
+        const string visibleControlCollapseLabelPrefix = "ui collapse label ";
+        const string visibleSliderMovePrefix = "ui move slider ";
         const string voiceModePrefix = "ui set voice mode ";
         const string addVocabularyPrefix = "ui add vocabulary ";
         const string dictationOptionPrefix = "ui set dictation option ";
@@ -3692,10 +7504,40 @@ public sealed class MainForm : Form
             return TryMouseActionVisibleControlByLabel(visibleLabel, DesktopVisibleControlMouseAction.DoubleClick);
         }
 
+        if (normalized.StartsWith(visibleControlTripleClickLabelPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            var visibleLabel = normalized[visibleControlTripleClickLabelPrefix.Length..].Trim();
+            return TryMouseActionVisibleControlByLabel(visibleLabel, DesktopVisibleControlMouseAction.TripleClick);
+        }
+
         if (normalized.StartsWith(visibleControlRightClickLabelPrefix, StringComparison.OrdinalIgnoreCase))
         {
             var visibleLabel = normalized[visibleControlRightClickLabelPrefix.Length..].Trim();
             return TryMouseActionVisibleControlByLabel(visibleLabel, DesktopVisibleControlMouseAction.RightClick);
+        }
+
+        if (normalized.StartsWith(visibleControlToggleLabelPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            var visibleLabel = normalized[visibleControlToggleLabelPrefix.Length..].Trim();
+            return TryToggleVisibleControlByLabel(visibleLabel);
+        }
+
+        if (normalized.StartsWith(visibleControlExpandLabelPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            var visibleLabel = normalized[visibleControlExpandLabelPrefix.Length..].Trim();
+            return TrySetExpandedVisibleControlByLabel(visibleLabel, expanded: true);
+        }
+
+        if (normalized.StartsWith(visibleControlCollapseLabelPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            var visibleLabel = normalized[visibleControlCollapseLabelPrefix.Length..].Trim();
+            return TrySetExpandedVisibleControlByLabel(visibleLabel, expanded: false);
+        }
+
+        if (normalized.StartsWith(visibleSliderMovePrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            var sliderAction = normalized[visibleSliderMovePrefix.Length..].Trim();
+            return TryMoveVisibleSlider(sliderAction);
         }
 
         if (normalized.StartsWith(voiceModePrefix, StringComparison.OrdinalIgnoreCase))
@@ -3742,6 +7584,48 @@ public sealed class MainForm : Form
             case "ui open packs":
                 ShowPacksTab();
                 return true;
+            case "ui import pack":
+                ShowPacksTab();
+                ImportCommunityPack();
+                return true;
+            case "ui import pack folder":
+                ShowPacksTab();
+                ImportCommunityPackFolder();
+                return true;
+            case "ui update pack":
+                ShowPacksTab();
+                UpdateCommunityPack();
+                return true;
+            case "ui rollback pack":
+                ShowPacksTab();
+                RollbackSelectedPack();
+                return true;
+            case "ui refresh packs":
+                ShowPacksTab();
+                RefreshPacksPanel(forceReload: true);
+                return true;
+            case "ui open packs folder":
+                ShowPacksTab();
+                OpenPacksFolder();
+                return true;
+            case "ui enable selected pack":
+                ShowPacksTab();
+                ToggleSelectedPack(enabled: true);
+                return true;
+            case "ui disable selected pack":
+                ShowPacksTab();
+                ToggleSelectedPack(enabled: false);
+                return true;
+            case "ui remove selected pack":
+                ShowPacksTab();
+                RemoveSelectedPack();
+                return true;
+            case "ui open plans":
+                ShowPlansTab();
+                return true;
+            case "ui open updates":
+                ShowUpdatesTab();
+                return true;
             case "ui open shortcuts":
                 ShowShortcutsTab();
                 return true;
@@ -3780,6 +7664,9 @@ public sealed class MainForm : Form
             case "ui start listening":
                 StartVoiceListening();
                 return true;
+            case "ui restart listening":
+                RestartVoiceListening();
+                return true;
             case "ui stop listening":
                 StopVoiceListening();
                 return true;
@@ -3789,8 +7676,145 @@ public sealed class MainForm : Form
             case "ui reset session":
                 ResetSession();
                 return true;
+            case "ui blocked external side effect":
+                UpdateStatus("Blocked external side effect. Callsign will not submit, send, upload, post, pay, accept terms, or run downloaded software from an alpha voice command.");
+                RecordVisibleUiActionAudit(
+                    "blocked_external_side_effect",
+                    "blocked",
+                    normalized,
+                    "Submit/send/upload/post/pay/download-and-execute requests are external side effects and remain blocked unless a later accepted design adds explicit approval and verification.",
+                    false,
+                    "External side-effect denial was shown in the visible Callsign status surface.");
+                return true;
             case "ui voice help":
                 ShowVoiceHelp();
+                return true;
+            case "ui voice help system":
+                ShowVoiceHelp("category:System");
+                return true;
+            case "ui voice help browser":
+                ShowVoiceHelp("category:Browser");
+                return true;
+            case "ui voice help dictation":
+                ShowVoiceHelp("category:Dictation");
+                return true;
+            case "ui voice help visible":
+                ShowVoiceHelp("category:Visible controls");
+                return true;
+            case "ui voice help extensions":
+                ShowVoiceHelp("extension");
+                return true;
+            case "ui voice help safety":
+                ShowVoiceHelp("safety");
+                return true;
+            case "ui voice help free":
+                ShowVoiceHelp("free");
+                return true;
+            case "ui voice help paid":
+                ShowVoiceHelp("paid");
+                return true;
+            case "ui voice help pro":
+                ShowVoiceHelp("tier:pro");
+                return true;
+            case "ui voice help advanced":
+                ShowVoiceHelp("tier:advanced");
+                return true;
+            case "ui check updates now":
+                UpdateStatus("Checking for updates now.");
+                _ = CheckForUpdatesAsync(force: true, attemptInstall: true);
+                return true;
+            case "ui open release proof":
+                ShowStartupWalkthrough(openReleaseProof: true);
+                return true;
+            case "ui open release evidence":
+                OpenReleaseEvidenceFolder();
+                return true;
+            case "ui open proof notes":
+                OpenProofNotesFolder();
+                return true;
+            case "ui open manual evidence template":
+                OpenManualEvidenceTemplate();
+                return true;
+            case "ui open manual evidence":
+                OpenManualEvidenceTemplate();
+                return true;
+            case "ui open manual evidence checklist":
+                OpenManualEvidenceChecklist();
+                return true;
+            case "ui open installer":
+                OpenPendingInstallerDownload();
+                return true;
+            case "ui read updates status":
+                ReadUpdatesStatusAloud();
+                return true;
+            case "ui read check-in status":
+                ReadCheckInStatusAloud();
+                return true;
+            case "ui read evidence status":
+                ReadEvidenceStatusAloud();
+                return true;
+            case "ui read evidence header":
+                ReadEvidenceHeaderAloud();
+                return true;
+            case "ui read release blockers":
+                ReadReleaseBlockersAloud();
+                return true;
+            case "ui read next proof":
+                ReadNextProofAloud();
+                return true;
+            case "ui read release gates":
+                ReadReleaseGatesAloud();
+                return true;
+            case "ui read next proof instructions":
+                ReadNextProofInstructionsAloud();
+                return true;
+            case "ui read proof notes status":
+                ReadProofNotesStatusAloud();
+                return true;
+            case "ui create next proof note":
+                CreateNextProofNote();
+                return true;
+            case "ui create all proof notes":
+                CreateAllProofNotes();
+                return true;
+            case "ui create evidence draft":
+                CreateManualEvidenceDraft();
+                return true;
+            case "ui open evidence draft":
+                OpenManualEvidenceDraft();
+                return true;
+            case "ui read evidence draft":
+                ReadEvidenceDraftAloud();
+                return true;
+            case "ui read restart proof":
+                ReadRestartProofAloud();
+                return true;
+            case "ui read release proof":
+                ReadReleaseProofAloud();
+                return true;
+            case "ui read visual status":
+                ReadVisualStatusAloud();
+                return true;
+            case "ui read voice mode status":
+                ReadVoiceModeStatusAloud();
+                return true;
+            case "ui read plans status":
+                ReadPlansStatusAloud();
+                return true;
+            case "ui read clock status":
+                ReadClockStatusAloud();
+                return true;
+            case "ui read update summary again":
+                RepeatUpdateSplashSummary();
+                return true;
+            case "ui read import summary again":
+            case "ui repeat import summary":
+            case "ui read import again":
+            case "ui repeat import again":
+                RepeatImportSplashSummary();
+                return true;
+            case "ui read watch status":
+                ReadPacksWatchStatusAloud();
                 return true;
             case "ui read status":
                 ReadCurrentStatusAloud();
@@ -3804,6 +7828,9 @@ public sealed class MainForm : Form
             case "ui hide command palette":
                 HideCommandPalette();
                 return true;
+            case "ui hide import splash":
+                HideImportSplash();
+                return true;
             case "ui hide update splash":
                 HideUpdateSplash();
                 return true;
@@ -3815,6 +7842,11 @@ public sealed class MainForm : Form
                 return true;
             case "ui hide visible controls":
                 HideVisibleControlsOverlay();
+                return true;
+            case "ui hide browser overlays":
+                HideVisibleControlsOverlay();
+                HideMouseGrid();
+                UpdateStatus("Browser overlays hidden.");
                 return true;
             case "ui show keyboard":
                 ShowKeyboardOverlay();
@@ -4387,8 +8419,11 @@ public sealed class MainForm : Form
                     }
 
                     UpdateStatus($"Voice shortcut '{commandResolution.CommandDisplayName}' running step {index + 1} of {steps.Count}: {spokenCommand}");
-                    var transcript = $"Callsign {_activeProfile.Callsign} {spokenCommand}";
-                    var intent = AlphaVoiceIntentParser.ParseVerifiedTranscript(transcript, "Callsign", _activeProfile.Callsign);
+                    var wakeWord = string.IsNullOrWhiteSpace(_activeProfile.Settings.WakeWord)
+                        ? "Callsign"
+                        : _activeProfile.Settings.WakeWord;
+                    var transcript = $"{wakeWord} {_activeProfile.Callsign} {spokenCommand}";
+                    var intent = AlphaVoiceIntentParser.ParseVerifiedTranscript(transcript, wakeWord, _activeProfile.Callsign);
                     if (!TryExecuteVerifiedIntent(intent, shortcutDepth, activeExtensionCommands))
                     {
                         return new CallsignCommandExecutionResult(false, $"Voice shortcut step '{spokenCommand}' could not be routed.");
@@ -4492,6 +8527,90 @@ public sealed class MainForm : Form
         }
     }
 
+    private void ReadVoiceModeStatusAloud()
+    {
+        var readout = BuildVoiceModeStatusReadout();
+        if (string.IsNullOrWhiteSpace(readout))
+        {
+            UpdateStatus("No voice mode status is available to read.");
+            RecordVoiceControlAudit(
+                "voice_mode_readback",
+                "failed",
+                "voice_mode",
+                "empty_status",
+                false,
+                "Voice mode readback failure was shown in the visible voice-mode surface.");
+            return;
+        }
+
+        try
+        {
+            _statusReadbackSynthesizer ??= new SpeechSynthesizer();
+            _statusReadbackSynthesizer.SpeakAsyncCancelAll();
+            _statusReadbackSynthesizer.SpeakAsync(readout);
+            UpdateStatus("Reading the current voice mode aloud locally.");
+            RecordVoiceControlAudit(
+                "voice_mode_readback",
+                "succeeded",
+                "voice_mode",
+                "local_speech_synthesis_started",
+                true,
+                "Current voice mode readback was shown in the visible voice-mode surface and used local speech synthesis.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to read voice mode aloud: {ex.Message}");
+            RecordVoiceControlAudit(
+                "voice_mode_readback",
+                "failed",
+                "voice_mode",
+                ex.Message,
+                false,
+                "Voice mode readback failure was shown in the visible voice-mode surface.");
+        }
+    }
+
+    public static string BuildClockStatusReadout(DateTimeOffset? now = null)
+    {
+        var timestamp = now ?? DateTimeOffset.Now;
+        var localTimestamp = timestamp.ToLocalTime();
+        var culture = CultureInfo.CurrentCulture;
+        var timeText = localTimestamp.ToString("t", culture);
+        var dateText = localTimestamp.ToString("D", culture);
+        return $"The local time is {timeText}. Today's date is {dateText}.";
+    }
+
+    private void ReadClockStatusAloud()
+    {
+        var readout = BuildClockStatusReadout();
+
+        try
+        {
+            _statusReadbackSynthesizer ??= new SpeechSynthesizer();
+            _statusReadbackSynthesizer.SpeakAsyncCancelAll();
+            _statusReadbackSynthesizer.SpeakAsync(readout);
+            UpdateStatus("Reading the local time and date aloud.");
+            RecordVoiceControlAudit(
+                "clock_status_readback",
+                "succeeded",
+                "clock_status",
+                "local_speech_synthesis_started",
+                true,
+                "Local time and date readback was shown in the visible status surface and used local speech synthesis.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to read local time and date aloud: {ex.Message}");
+            RecordVoiceControlAudit(
+                "clock_status_readback",
+                "failed",
+                "clock_status",
+                ex.Message,
+                false,
+                "Clock readback failure was shown in the visible status surface.");
+        }
+    }
+
     private void StopStatusReadback()
     {
         if (_statusReadbackSynthesizer == null)
@@ -4559,6 +8678,7 @@ public sealed class MainForm : Form
     {
         var lines = new List<string>();
         AddStatusReadoutLine(lines, _statusLabel?.Text);
+        AddStatusReadoutLine(lines, _voiceRecognitionModeLabel?.Text);
         AddStatusReadoutLine(lines, _sessionSpeechCueLabel?.Text);
         AddStatusReadoutLine(lines, _lastHeardLabel?.Text);
         AddStatusReadoutLine(lines, _sessionNextActionLabel?.Text);
@@ -4568,6 +8688,16 @@ public sealed class MainForm : Form
         AddStatusReadoutLine(lines, _browserLastActionLabel?.Text);
         AddStatusReadoutLine(lines, _fileSearchLastActionLabel?.Text);
         AddStatusReadoutLine(lines, _systemStatusLabel?.Text);
+        return string.Join(". ", lines);
+    }
+
+    private string BuildVoiceModeStatusReadout()
+    {
+        var lines = new List<string>();
+        AddStatusReadoutLine(lines, _voiceRecognitionModeLabel?.Text);
+        AddStatusReadoutLine(lines, _voiceModeCommandsOnlyRadio?.Checked == true ? "Commands only mode is selected." : null);
+        AddStatusReadoutLine(lines, _voiceModeDictationOnlyRadio?.Checked == true ? "Dictation only mode is selected." : null);
+        AddStatusReadoutLine(lines, _voiceModeDefaultRadio?.Checked == true ? "Commands plus dictation mode is selected." : null);
         return string.Join(". ", lines);
     }
 
@@ -4890,7 +9020,13 @@ public sealed class MainForm : Form
     private bool TryMouseActionVisibleControlByLabel(string label, DesktopVisibleControlMouseAction action)
     {
         var normalizedLabel = NormalizeVisibleControlLabel(label);
-        var actionName = action == DesktopVisibleControlMouseAction.DoubleClick ? "double_click" : "right_click";
+        var actionName = action switch
+        {
+            DesktopVisibleControlMouseAction.DoubleClick => "double_click",
+            DesktopVisibleControlMouseAction.TripleClick => "triple_click",
+            DesktopVisibleControlMouseAction.RightClick => "right_click",
+            _ => "mouse_action"
+        };
         if (string.IsNullOrWhiteSpace(normalizedLabel))
         {
             UpdateStatus("No visible control label was provided.");
@@ -4961,6 +9097,291 @@ public sealed class MainForm : Form
             "Visible control mouse action failure was shown in the visible status surface.");
         return true;
     }
+
+    private bool TryToggleVisibleControlByLabel(string label)
+    {
+        var normalizedLabel = NormalizeVisibleControlLabel(label);
+        if (string.IsNullOrWhiteSpace(normalizedLabel))
+        {
+            UpdateStatus("No visible control label was provided.");
+            return true;
+        }
+
+        if (TryToggleVisibleControlByNumber(normalizedLabel, out var numberMessage))
+        {
+            UpdateStatus(numberMessage);
+            UpdateVisibleControlsOverlay();
+            var succeeded = !IsVisibleControlActionFailure(numberMessage);
+            RecordVisibleUiActionAudit(
+                "visible_control_toggle",
+                succeeded ? "succeeded" : "failed",
+                normalizedLabel,
+                numberMessage,
+                succeeded,
+                succeeded
+                    ? "Visible numbered control toggle was shown in the visible status surface."
+                    : "Visible control toggle failure was shown in the visible status surface.");
+            return true;
+        }
+
+        var desktopEntry = _desktopVisibleControlsSummary.FirstOrDefault(entry => DesktopVisibleControlService.LabelsMatch(entry.Label, normalizedLabel));
+        if (desktopEntry != null)
+        {
+            var succeeded = _desktopVisibleControlService.TryToggle(desktopEntry, out var desktopMessage);
+            UpdateStatus(desktopMessage);
+            UpdateVisibleControlsOverlay();
+            RecordVisibleUiActionAudit(
+                "visible_control_toggle",
+                succeeded ? "succeeded" : "failed",
+                desktopEntry.Label,
+                desktopMessage,
+                succeeded,
+                succeeded
+                    ? "Visible desktop control toggle was shown in the visible status surface."
+                    : "Visible control toggle failure was shown in the visible status surface.");
+            return true;
+        }
+
+        if (TryFindVisibleControlByLabel(this, normalizedLabel, out var control) && control is not null && TryToggleLocalVisibleControl(control, out var localMessage))
+        {
+            UpdateStatus(localMessage);
+            UpdateVisibleControlsOverlay();
+            RecordVisibleUiActionAudit(
+                "visible_control_toggle",
+                "succeeded",
+                GetControlVoiceLabel(control),
+                localMessage,
+                true,
+                "Visible Callsign control toggle was shown in the visible status surface.");
+            return true;
+        }
+
+        UpdateStatus($"No toggle-capable visible control matched '{label}'.");
+        RecordVisibleUiActionAudit(
+            "visible_control_toggle",
+            "failed",
+            normalizedLabel,
+            "no_matching_toggle_control",
+            false,
+            "Visible control toggle failure was shown in the visible status surface.");
+        return true;
+    }
+
+    private bool TrySetExpandedVisibleControlByLabel(string label, bool expanded)
+    {
+        var normalizedLabel = NormalizeVisibleControlLabel(label);
+        if (string.IsNullOrWhiteSpace(normalizedLabel))
+        {
+            UpdateStatus("No visible control label was provided.");
+            return true;
+        }
+
+        if (TrySetExpandedVisibleControlByNumber(normalizedLabel, expanded, out var numberMessage))
+        {
+            UpdateStatus(numberMessage);
+            UpdateVisibleControlsOverlay();
+            var succeeded = !IsVisibleControlActionFailure(numberMessage);
+            RecordVisibleUiActionAudit(
+                expanded ? "visible_control_expand" : "visible_control_collapse",
+                succeeded ? "succeeded" : "failed",
+                normalizedLabel,
+                numberMessage,
+                succeeded,
+                succeeded
+                    ? "Visible numbered control expand/collapse was shown in the visible status surface."
+                    : "Visible control expand/collapse failure was shown in the visible status surface.");
+            return true;
+        }
+
+        var desktopEntry = _desktopVisibleControlsSummary.FirstOrDefault(entry => DesktopVisibleControlService.LabelsMatch(entry.Label, normalizedLabel));
+        if (desktopEntry != null)
+        {
+            var succeeded = _desktopVisibleControlService.TrySetExpanded(desktopEntry, expanded, out var desktopMessage);
+            UpdateStatus(desktopMessage);
+            UpdateVisibleControlsOverlay();
+            RecordVisibleUiActionAudit(
+                expanded ? "visible_control_expand" : "visible_control_collapse",
+                succeeded ? "succeeded" : "failed",
+                desktopEntry.Label,
+                desktopMessage,
+                succeeded,
+                succeeded
+                    ? "Visible desktop control expand/collapse was shown in the visible status surface."
+                    : "Visible control expand/collapse failure was shown in the visible status surface.");
+            return true;
+        }
+
+        if (TryFindVisibleControlByLabel(this, normalizedLabel, out var control) && control is not null && TrySetExpandedLocalVisibleControl(control, expanded, out var localMessage))
+        {
+            UpdateStatus(localMessage);
+            UpdateVisibleControlsOverlay();
+            RecordVisibleUiActionAudit(
+                expanded ? "visible_control_expand" : "visible_control_collapse",
+                "succeeded",
+                GetControlVoiceLabel(control),
+                localMessage,
+                true,
+                "Visible Callsign control expand/collapse was shown in the visible status surface.");
+            return true;
+        }
+
+        UpdateStatus($"No expand-capable visible control matched '{label}'.");
+        RecordVisibleUiActionAudit(
+            expanded ? "visible_control_expand" : "visible_control_collapse",
+            "failed",
+            normalizedLabel,
+            "no_matching_expand_collapse_control",
+            false,
+            "Visible control expand/collapse failure was shown in the visible status surface.");
+        return true;
+    }
+
+    private bool TryMoveVisibleSlider(string action)
+    {
+        var tokens = action.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (tokens.Length < 2)
+        {
+            UpdateStatus("Slider movement needs a direction and step count.");
+            return true;
+        }
+
+        var direction = tokens[0];
+        if (!IsSliderDirection(direction))
+        {
+            UpdateStatus("Slider direction must be up, down, left, or right.");
+            return true;
+        }
+
+        if (!int.TryParse(tokens[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var steps) || steps is < 1 or > 10)
+        {
+            UpdateStatus("Slider movement is limited to 1-10 steps.");
+            return true;
+        }
+
+        var label = tokens.Length > 2
+            ? NormalizeVisibleControlLabel(string.Join(' ', tokens.Skip(2)))
+            : string.Empty;
+
+        if (TryMoveDesktopVisibleSlider(label, direction, steps, out var desktopMessage, out var desktopTarget, out var desktopSucceeded))
+        {
+            UpdateStatus(desktopMessage);
+            UpdateVisibleControlsOverlay();
+            RecordVisibleUiActionAudit(
+                "visible_control_slider",
+                desktopSucceeded ? "succeeded" : "failed",
+                desktopTarget,
+                desktopMessage,
+                desktopSucceeded,
+                desktopSucceeded
+                    ? "Visible desktop slider movement was shown in the visible status surface."
+                    : "Visible slider movement failure was shown in the visible status surface.");
+            return true;
+        }
+
+        if (TryMoveLocalVisibleSlider(label, direction, steps, out var localMessage, out var localTarget, out var localSucceeded))
+        {
+            UpdateStatus(localMessage);
+            UpdateVisibleControlsOverlay();
+            RecordVisibleUiActionAudit(
+                "visible_control_slider",
+                localSucceeded ? "succeeded" : "failed",
+                localTarget,
+                localMessage,
+                localSucceeded,
+                localSucceeded
+                    ? "Visible Callsign slider movement was shown in the visible status surface."
+                    : "Visible slider movement failure was shown in the visible status surface.");
+            return true;
+        }
+
+        var noMatchMessage = string.IsNullOrWhiteSpace(label)
+            ? "No visible slider was available. Say 'show numbers' first, then try again."
+            : $"No visible slider matched '{label}'.";
+        UpdateStatus(noMatchMessage);
+        RecordVisibleUiActionAudit(
+            "visible_control_slider",
+            "failed",
+            string.IsNullOrWhiteSpace(label) ? "slider" : label,
+            "no_matching_visible_slider",
+            false,
+            "Visible slider movement failure was shown in the visible status surface.");
+        return true;
+    }
+
+    private bool TryMoveDesktopVisibleSlider(string normalizedLabel, string direction, int steps, out string message, out string target, out bool succeeded)
+    {
+        message = string.Empty;
+        target = string.IsNullOrWhiteSpace(normalizedLabel) ? "slider" : normalizedLabel;
+        succeeded = false;
+
+        var entry = _desktopVisibleControlsSummary.FirstOrDefault(candidate =>
+            DesktopVisibleControlService.IsSlider(candidate)
+            && (string.IsNullOrWhiteSpace(normalizedLabel)
+                || DesktopVisibleControlService.LabelsMatch(candidate.Label, normalizedLabel)));
+        if (entry == null)
+            return false;
+
+        target = entry.Label;
+        succeeded = _desktopVisibleControlService.TryMoveSlider(entry, direction, steps, out message);
+        return true;
+    }
+
+    private bool TryMoveLocalVisibleSlider(string normalizedLabel, string direction, int steps, out string message, out string target, out bool succeeded)
+    {
+        message = string.Empty;
+        target = string.IsNullOrWhiteSpace(normalizedLabel) ? "slider" : normalizedLabel;
+        succeeded = false;
+
+        TrackBar? trackBar = null;
+        string? label = null;
+        if (!string.IsNullOrWhiteSpace(normalizedLabel))
+        {
+            var entry = _visibleControlsSummary.FirstOrDefault(candidate =>
+                candidate.Control is TrackBar
+                && DesktopVisibleControlService.LabelsMatch(candidate.Label, normalizedLabel));
+            if (entry != null)
+            {
+                trackBar = (TrackBar)entry.Control;
+                label = entry.Label;
+            }
+        }
+
+        if (trackBar == null)
+        {
+            var entry = _visibleControlsSummary.FirstOrDefault(candidate => candidate.Control is TrackBar);
+            if (entry != null)
+            {
+                trackBar = (TrackBar)entry.Control;
+                label = entry.Label;
+            }
+        }
+
+        if (trackBar == null)
+            return false;
+
+        target = label ?? GetControlVoiceLabel(trackBar);
+        if (!trackBar.Visible || !trackBar.Enabled)
+        {
+            message = $"Visible slider '{target}' is no longer available.";
+            return true;
+        }
+
+        var sign = direction.Equals("up", StringComparison.OrdinalIgnoreCase)
+            || direction.Equals("right", StringComparison.OrdinalIgnoreCase)
+                ? 1
+                : -1;
+        var next = Math.Clamp(trackBar.Value + sign * Math.Max(trackBar.SmallChange, 1) * steps, trackBar.Minimum, trackBar.Maximum);
+        trackBar.Value = next;
+        message = $"Moved slider '{target}' {direction} {steps.ToString(CultureInfo.InvariantCulture)} step{(steps == 1 ? string.Empty : "s")}.";
+        succeeded = true;
+        return true;
+    }
+
+    private static bool IsSliderDirection(string direction) =>
+        direction.Equals("up", StringComparison.OrdinalIgnoreCase)
+        || direction.Equals("down", StringComparison.OrdinalIgnoreCase)
+        || direction.Equals("left", StringComparison.OrdinalIgnoreCase)
+        || direction.Equals("right", StringComparison.OrdinalIgnoreCase);
 
     private bool TryActivateVisibleControlByNumber(string normalizedLabel, out string message)
     {
@@ -5064,6 +9485,116 @@ public sealed class MainForm : Form
         return TryPerformControlMouseAction(control, action, out message, entry.Label);
     }
 
+    private bool TryToggleVisibleControlByNumber(string normalizedLabel, out string message)
+    {
+        message = string.Empty;
+
+        if (!int.TryParse(normalizedLabel, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) || number <= 0)
+            return false;
+
+        var desktopEntry = _desktopVisibleControlsSummary.FirstOrDefault(item => item.Number == number);
+        if (desktopEntry != null)
+        {
+            _desktopVisibleControlService.TryToggle(desktopEntry, out message);
+            return true;
+        }
+
+        var entry = _visibleControlsSummary.FirstOrDefault(item => item.Number == number);
+        if (entry is null)
+        {
+            message = "Show visible controls first, then say a number from the list.";
+            return true;
+        }
+
+        if (!entry.Control.Visible || !entry.Control.Enabled)
+        {
+            message = $"Visible control {number} is no longer available.";
+            return true;
+        }
+
+        if (TryToggleLocalVisibleControl(entry.Control, out message))
+            return true;
+
+        message = $"Visible control {number} does not expose a toggle action.";
+        return true;
+    }
+
+    private bool TrySetExpandedVisibleControlByNumber(string normalizedLabel, bool expanded, out string message)
+    {
+        message = string.Empty;
+
+        if (!int.TryParse(normalizedLabel, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) || number <= 0)
+            return false;
+
+        var desktopEntry = _desktopVisibleControlsSummary.FirstOrDefault(item => item.Number == number);
+        if (desktopEntry != null)
+        {
+            _desktopVisibleControlService.TrySetExpanded(desktopEntry, expanded, out message);
+            return true;
+        }
+
+        var entry = _visibleControlsSummary.FirstOrDefault(item => item.Number == number);
+        if (entry is null)
+        {
+            message = "Show visible controls first, then say a number from the list.";
+            return true;
+        }
+
+        if (!entry.Control.Visible || !entry.Control.Enabled)
+        {
+            message = $"Visible control {number} is no longer available.";
+            return true;
+        }
+
+        if (TrySetExpandedLocalVisibleControl(entry.Control, expanded, out message))
+            return true;
+
+        message = $"Visible control {number} does not expose an expand or collapse action.";
+        return true;
+    }
+
+    private static bool TryToggleLocalVisibleControl(Control control, out string message)
+    {
+        var label = GetControlVoiceLabel(control);
+        switch (control)
+        {
+            case CheckBox checkBox when checkBox.Enabled:
+                checkBox.Checked = !checkBox.Checked;
+                message = $"Toggled '{label}' from visible controls.";
+                return true;
+            case RadioButton radioButton when radioButton.Enabled:
+                radioButton.Checked = true;
+                message = $"Selected '{label}' from visible controls.";
+                return true;
+            default:
+                message = $"Visible control '{label}' does not expose a toggle action.";
+                return false;
+        }
+    }
+
+    private static bool TrySetExpandedLocalVisibleControl(Control control, bool expanded, out string message)
+    {
+        var label = GetControlVoiceLabel(control);
+        if (control is ComboBox comboBox && comboBox.Enabled)
+        {
+            comboBox.Focus();
+            comboBox.DroppedDown = expanded;
+            message = expanded
+                ? $"Expanded '{label}' from visible controls."
+                : $"Collapsed '{label}' from visible controls.";
+            return true;
+        }
+
+        message = $"Visible control '{label}' does not expose an expand or collapse action.";
+        return false;
+    }
+
+    private static bool IsVisibleControlActionFailure(string message) =>
+        message.Contains("Show visible controls first", StringComparison.OrdinalIgnoreCase)
+        || message.Contains("no longer", StringComparison.OrdinalIgnoreCase)
+        || message.Contains("does not expose", StringComparison.OrdinalIgnoreCase)
+        || message.Contains("Unable to", StringComparison.OrdinalIgnoreCase);
+
     private bool TryPerformControlMouseAction(Control control, DesktopVisibleControlMouseAction action, out string message, string? label = null)
     {
         if (!control.Visible || !control.Enabled)
@@ -5089,6 +9620,15 @@ public sealed class MainForm : Form
                 mouse_event(MouseEventLeftDown, 0, 0, 0, UIntPtr.Zero);
                 mouse_event(MouseEventLeftUp, 0, 0, 0, UIntPtr.Zero);
                 message = $"Double-clicked '{label ?? GetControlVoiceLabel(control)}' from visible controls.";
+                return true;
+            case DesktopVisibleControlMouseAction.TripleClick:
+                mouse_event(MouseEventLeftDown, 0, 0, 0, UIntPtr.Zero);
+                mouse_event(MouseEventLeftUp, 0, 0, 0, UIntPtr.Zero);
+                mouse_event(MouseEventLeftDown, 0, 0, 0, UIntPtr.Zero);
+                mouse_event(MouseEventLeftUp, 0, 0, 0, UIntPtr.Zero);
+                mouse_event(MouseEventLeftDown, 0, 0, 0, UIntPtr.Zero);
+                mouse_event(MouseEventLeftUp, 0, 0, 0, UIntPtr.Zero);
+                message = $"Triple-clicked '{label ?? GetControlVoiceLabel(control)}' from visible controls.";
                 return true;
             case DesktopVisibleControlMouseAction.RightClick:
                 mouse_event(MouseEventRightDown, 0, 0, 0, UIntPtr.Zero);
@@ -5245,24 +9785,83 @@ public sealed class MainForm : Form
         string.Equals(normalizedLabel, "voice", StringComparison.OrdinalIgnoreCase)
         || string.Equals(normalizedLabel, "voice control", StringComparison.OrdinalIgnoreCase);
 
-    private void ShowVoiceHelp()
+    private void ShowVoiceHelp(string? filter = null)
     {
-        _tabs.SelectedIndex = 1;
-        _voiceHelpTextBox.Text = BuildVoiceHelpText();
-        ShowCommandPalette();
-        UpdateStatus("Opened voice help.");
+        SelectTab("Help");
+        if (_helpSearchTextBox != null)
+            _helpSearchTextBox.Text = filter ?? string.Empty;
+        RefreshHelpTab();
+        _voiceHelpTextBox.Text = BuildVoiceHelpText(filter);
+        ShowCommandPalette(filter);
+        UpdateStatus(string.IsNullOrWhiteSpace(filter)
+            ? "Opened voice help."
+            : $"Opened voice help filtered by {filter}.");
         RecordHelpDiscoveryAudit(
             "help_command_palette",
             "succeeded",
-            "what_can_i_say",
+            string.IsNullOrWhiteSpace(filter) ? "what_can_i_say" : filter,
             "opened_command_palette",
             true,
             "Command palette was shown in the visible help surface.");
     }
 
-    private void ShowStartupWalkthrough()
+    private void RefreshHelpTab()
     {
-        using var walkthrough = new StartupWalkthroughForm(tabName => SelectTab(tabName));
+        if (_helpTextBox == null || _helpSearchTextBox == null || _helpScopeBadge == null || _helpDiscoveryBadge == null || _helpBrowserBadge == null || _helpCommandsList == null)
+            return;
+
+        var filter = _helpSearchTextBox.Text.Trim();
+        _helpTextBox.Text = BuildVoiceHelpText(filter);
+        _helpScopeBadge.Text = string.IsNullOrWhiteSpace(filter)
+            ? "Scope: all commands"
+            : $"Scope: {filter}";
+        _helpDiscoveryBadge.Text = "Discovery: open core + extensions";
+        _helpBrowserBadge.Text = "Browser: helpers visible";
+
+        var commands = CommandDiscoveryService.GetCommands()
+            .Where(command => string.IsNullOrWhiteSpace(filter) || CommandDiscoveryService.MatchesHelpFilter(command, filter))
+            .Select(command => new HelpCommandListItem(command, $"{command.Category} | {command.Phrase}"))
+            .ToArray();
+
+        _helpCommandsList.BeginUpdate();
+        try
+        {
+            _helpCommandsList.Items.Clear();
+            foreach (var item in commands)
+                _helpCommandsList.Items.Add(item);
+
+            if (_helpCommandsList.Items.Count > 0)
+                _helpCommandsList.SelectedIndex = 0;
+        }
+        finally
+        {
+            _helpCommandsList.EndUpdate();
+        }
+
+        RefreshHelpSelection();
+    }
+
+    private void RefreshHelpSelection()
+    {
+        if (_helpSelectedLabel == null || _helpCommandsList == null)
+            return;
+
+        if (_helpCommandsList.SelectedItem is not HelpCommandListItem item)
+        {
+            _helpSelectedLabel.Text = "Selected: none";
+            return;
+        }
+
+        var command = item.Command;
+        var aliases = command.VoicePhrases is { Count: > 1 }
+            ? string.Join(", ", command.VoicePhrases.Skip(1).Take(4))
+            : "none";
+        _helpSelectedLabel.Text = $"Selected: {command.Category} | {command.Phrase} | {command.Source} | Tier: {command.Tier} | {command.Availability} | Risk: {command.RiskTier} | Approval: {command.ApprovalRequirement} | aliases: {aliases}";
+    }
+
+    private void ShowStartupWalkthrough(bool openReleaseProof = false)
+    {
+        using var walkthrough = CreateStartupWalkthrough(openReleaseProof);
         var result = walkthrough.ShowDialog(this);
         _startupWalkthroughShownThisSession = true;
 
@@ -5277,6 +9876,26 @@ public sealed class MainForm : Form
             result.ToString(),
             true,
             "Getting Started walkthrough was shown in the visible help surface.");
+    }
+
+    private StartupWalkthroughForm CreateStartupWalkthrough(bool openReleaseProof = false)
+    {
+        var walkthrough = new StartupWalkthroughForm(
+            tabName => SelectTab(tabName),
+            filter => ShowVoiceHelp(filter),
+            () => OpenReleaseEvidenceFolder(),
+            () => OpenManualEvidenceTemplate(),
+            () => OpenPendingInstallerDownload(),
+            () => ImportCommunityPack(),
+            () => ImportCommunityPackFolder(),
+            repeatUpdateSummary: () => RepeatUpdateSplashSummary(),
+            repeatImportSummary: () => RepeatImportSplashSummary(),
+            openPacksFolder: () => OpenPacksFolder(),
+            releaseProofSummaryProvider: () => BuildReleaseProofText(_updateCheckService.PendingManifest));
+        if (openReleaseProof)
+            walkthrough.OpenReleaseProofStep();
+
+        return walkthrough;
     }
 
     private void ShowPacksTab()
@@ -5295,17 +9914,50 @@ public sealed class MainForm : Form
             "Extension pack management was shown in the visible help surface.");
     }
 
-    private static string BuildVoiceHelpText()
+    private void ShowPlansTab()
     {
-        return CommandDiscoveryService.BuildHelpText();
+        var plansTab = _tabs.TabPages.Cast<TabPage>().FirstOrDefault(page => string.Equals(page.Text, "Plans", StringComparison.OrdinalIgnoreCase));
+        if (plansTab != null)
+            _tabs.SelectedTab = plansTab;
+
+        UpdateStatus("Opened plans.");
+        RecordHelpDiscoveryAudit(
+            "help_plans",
+            "succeeded",
+            "plans",
+            "opened_plans",
+            true,
+            "Tier boundary and paid-extension plan were shown in the visible help surface.");
     }
 
-    private void ShowCommandPalette()
+    private void ShowUpdatesTab()
+    {
+        var updatesTab = _tabs.TabPages.Cast<TabPage>().FirstOrDefault(page => string.Equals(page.Text, "Updates", StringComparison.OrdinalIgnoreCase));
+        if (updatesTab != null)
+            _tabs.SelectedTab = updatesTab;
+
+        RefreshUpdatesPanel();
+        UpdateStatus("Opened updates.");
+        RecordHelpDiscoveryAudit(
+            "help_updates",
+            "succeeded",
+            "updates",
+            "opened_updates",
+            true,
+            "Update cadence and manifest state were shown in the visible help surface.");
+    }
+
+    private static string BuildVoiceHelpText(string? filter = null)
+    {
+        return CommandDiscoveryService.BuildHelpText(filter);
+    }
+
+    private void ShowCommandPalette(string? initialFilter = null)
     {
         if (_commandPalette == null || _commandPalette.IsDisposed)
             _commandPalette = new CommandPaletteForm();
 
-        _commandPalette.ShowPalette(this, CommandDiscoveryService.GetCommands());
+        _commandPalette.ShowPalette(this, CommandDiscoveryService.GetCommands(), initialFilter);
     }
 
     private void HideCommandPalette()
@@ -5612,10 +10264,10 @@ public sealed class MainForm : Form
                     entry.Label,
                     ReferenceEquals(entry.Control, focusedControl)))
                 .ToList();
-        ShowVisibleControlsOverlay(overlayBounds, summary, cue, heard, items, annotations);
+        ShowVisibleControlsOverlay(overlayBounds, summary, cue, heard, items, annotations, BuildVisibleControlsScopeLabel(_visibleControlsScope));
     }
 
-    private void ShowVisibleControlsOverlay(Rectangle overlayBounds, string summary, string cue, string heard, IReadOnlyList<string> numberedItems, IReadOnlyList<VisibleControlOverlayAnnotation> annotations)
+    private void ShowVisibleControlsOverlay(Rectangle overlayBounds, string summary, string cue, string heard, IReadOnlyList<string> numberedItems, IReadOnlyList<VisibleControlOverlayAnnotation> annotations, string? scopeText = null)
     {
         if (_visibleControlsOverlay == null)
         {
@@ -5630,7 +10282,7 @@ public sealed class MainForm : Form
             }
         }
 
-        _visibleControlsOverlay.ShowOverlay(overlayBounds, summary, cue, heard, numberedItems, annotations);
+        _visibleControlsOverlay.ShowOverlay(overlayBounds, summary, cue, heard, numberedItems, annotations, scopeText);
         if (!_visibleControlsRefreshTimer.Enabled)
             _visibleControlsRefreshTimer.Start();
     }
@@ -6314,6 +10966,18 @@ public sealed class MainForm : Form
             visibleControls.Select(entry => $"{entry.Number}. {entry.Label}"));
     }
 
+    private string BuildVisibleControlsScopeLabel(VisibleControlsScope scope)
+    {
+        return scope switch
+        {
+            VisibleControlsScope.Taskbar => "Scope: taskbar",
+            VisibleControlsScope.NamedWindow when !string.IsNullOrWhiteSpace(_visibleControlsNamedWindowTarget) => $"Scope: {_visibleControlsNamedWindowTarget}",
+            VisibleControlsScope.NamedWindow => "Scope: named window",
+            _ when _desktopVisibleControlsSummary.Count > 0 => "Scope: foreground app",
+            _ => "Scope: Callsign setup"
+        };
+    }
+
     private bool IsInSelectedTab(Control control)
     {
         var selectedTab = _tabs?.SelectedTab;
@@ -6401,7 +11065,7 @@ public sealed class MainForm : Form
 
     private void RefreshDictationPanel()
     {
-        if (_dictationStatusLabel == null || _startDictationButton == null || _dictationHistoryList == null || _dictationLastHeardLabel == null || _dictationSpeechCueLabel == null)
+        if (_dictationStatusLabel == null || _startDictationButton == null || _dictationHistoryList == null || _dictationLastHeardLabel == null || _dictationSpeechCueLabel == null || _dictationModeBadge == null || _dictationReviewBadge == null || _dictationReadbackBadge == null || _dictationPreviewLabel == null || _dictationBoundaryBadge == null)
             return;
 
         if (!_dictationActive)
@@ -6421,7 +11085,7 @@ public sealed class MainForm : Form
                 ? "Speech cue: Hearing dictation..."
                 : _dictationLastTranscriptUtc.HasValue && !string.IsNullOrWhiteSpace(_dictationLastTranscriptText)
                     ? $"Speech cue: Heard {_dictationLastTranscriptText}"
-                    : "Speech cue: dictation is waiting for speech.";
+                    : "Speech cue: dictation is listening for speech.";
         }
         else if (_dictationLastTranscriptUtc.HasValue)
         {
@@ -6433,7 +11097,7 @@ public sealed class MainForm : Form
         else if (_dictationStartedUtc.HasValue && DateTime.UtcNow - _dictationStartedUtc.Value > TimeSpan.FromSeconds(6))
         {
             _dictationStatusLabel.Text = "No speech detected yet. Check microphone permission or speak closer to the mic.";
-            _dictationSpeechCueLabel.Text = "Speech cue: waiting for speech.";
+            _dictationSpeechCueLabel.Text = "Speech cue: dictation is listening for speech.";
         }
         else
         {
@@ -6448,9 +11112,86 @@ public sealed class MainForm : Form
         _stopDictationReadbackButton.Enabled = true;
         _pasteDictationButton.Enabled = !string.IsNullOrWhiteSpace(_dictationTextBox.Text);
         _clearDictationButton.Enabled = !string.IsNullOrWhiteSpace(_dictationTextBox.Text);
+        if (_showDictationCorrectionsButton != null)
+            _showDictationCorrectionsButton.Enabled = !string.IsNullOrWhiteSpace(_dictationTextBox.Text);
+        if (_capitalizeDictationButton != null)
+        {
+            var hasDictation = !string.IsNullOrWhiteSpace(_dictationTextBox.Text);
+            _capitalizeDictationButton.Enabled = hasDictation;
+            _titleCaseDictationButton.Enabled = hasDictation;
+            _uppercaseDictationButton.Enabled = hasDictation;
+            _lowercaseDictationButton.Enabled = hasDictation;
+        }
         _dictationLastHeardLabel.Text = _dictationLastTranscriptUtc.HasValue && !string.IsNullOrWhiteSpace(_dictationLastTranscriptText)
             ? FormatLastHeardLabel(_dictationLastTranscriptText)
             : "Last heard: nothing yet.";
+        _dictationPreviewLabel.Text = string.IsNullOrWhiteSpace(_dictationTextBox.Text)
+            ? "Preview: nothing yet."
+            : $"Preview: {FormatDictationPreviewText(_dictationTextBox.Text)}";
+        UpdateDictationStatusStrip();
+    }
+
+    private void UpdateDictationStatusStrip()
+    {
+        if (_dictationModeBadge == null || _dictationReviewBadge == null || _dictationReadbackBadge == null || _dictationSafetyBadge == null || _dictationBoundaryBadge == null)
+            return;
+
+        _dictationModeBadge.Text = _dictationActive
+            ? $"Mode: {_voiceCommandService.CurrentModeDescription}"
+            : "Mode: stopped";
+        _dictationReviewBadge.Text = $"Review: {_dictationTextBox.TextLength} chars";
+        _dictationReadbackBadge.Text = _dictationTextBox.TextLength > 0
+            ? "Readback: local and visible"
+            : "Readback: paused";
+        _dictationSafetyBadge.Text = _dictationTextBox.TextLength > 0
+            ? "Safety: review before paste"
+            : "Safety: paste blocked until reviewed";
+        _dictationBoundaryBadge.Text = "Boundary: review stays local";
+    }
+
+    private static string FormatDictationPreviewText(string text)
+    {
+        var normalized = text.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+            return "nothing yet.";
+
+        normalized = normalized.Replace(Environment.NewLine, " ", StringComparison.Ordinal);
+        if (normalized.Length <= 88)
+            return normalized;
+
+        return normalized[..85].TrimEnd() + "...";
+    }
+
+    private void ShowDictationCorrectionsFromPicker()
+    {
+        if (_dictationCorrectionScopePicker == null)
+            return;
+
+        var scope = _dictationCorrectionScopePicker.SelectedIndex switch
+        {
+            1 => DictationReplacementScope.PreviousSentence,
+            2 => DictationReplacementScope.PreviousParagraph,
+            3 => DictationReplacementScope.AllText,
+            _ => DictationReplacementScope.PreviousWord
+        };
+
+        ShowDictationCorrectionChoices(scope);
+    }
+
+    private void ApplyDictationFormatFromControls(DictationTextFormat format)
+    {
+        if (_dictationFormatScopePicker == null)
+            return;
+
+        var scope = _dictationFormatScopePicker.SelectedIndex switch
+        {
+            1 => DictationReplacementScope.PreviousSentence,
+            2 => DictationReplacementScope.PreviousParagraph,
+            3 => DictationReplacementScope.AllText,
+            _ => DictationReplacementScope.PreviousWord
+        };
+
+        ApplyDictationFormatCommand(new DictationFormatCommand(scope, format));
     }
 
     private string FormatActiveDictationCasingSuffix() =>
@@ -6458,12 +11199,134 @@ public sealed class MainForm : Form
             ? string.Empty
             : $" ({FormatDictationCasingMode(_dictationCasingMode)})";
 
+    private static Label CreateDictationBadge(string text, string description)
+    {
+        return new Label
+        {
+            AutoSize = true,
+            Margin = new Padding(0, 0, 8, 0),
+            Padding = new Padding(10, 4, 10, 4),
+            BackColor = Color.FromArgb(237, 242, 255),
+            ForeColor = Color.FromArgb(30, 64, 175),
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            Text = text,
+            TextAlign = ContentAlignment.MiddleLeft,
+            AccessibleName = text,
+            AccessibleDescription = description
+        };
+    }
+
+    private static Label CreateVoiceBadge(string text, string description, Color backColor, Color foreColor)
+    {
+        return new Label
+        {
+            AutoSize = true,
+            Margin = new Padding(0, 0, 8, 0),
+            Padding = new Padding(10, 4, 10, 4),
+            BackColor = backColor,
+            ForeColor = foreColor,
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            Text = text,
+            TextAlign = ContentAlignment.MiddleLeft,
+            AccessibleName = text,
+            AccessibleDescription = description
+        };
+    }
+
+    private static Label CreateBrowserBadge(string text, string description)
+    {
+        return new Label
+        {
+            AutoSize = true,
+            Margin = new Padding(0, 0, 8, 0),
+            Padding = new Padding(10, 4, 10, 4),
+            BackColor = Color.FromArgb(236, 244, 255),
+            ForeColor = Color.FromArgb(30, 64, 175),
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            Text = text,
+            TextAlign = ContentAlignment.MiddleLeft,
+            AccessibleName = text,
+            AccessibleDescription = description
+        };
+    }
+
+    private static Label CreateSystemBadge(string text, string description, Color backColor, Color foreColor)
+    {
+        return new Label
+        {
+            AutoSize = true,
+            Margin = new Padding(0, 0, 8, 0),
+            Padding = new Padding(10, 4, 10, 4),
+            BackColor = backColor,
+            ForeColor = foreColor,
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            Text = text,
+            TextAlign = ContentAlignment.MiddleLeft,
+            AccessibleName = text,
+            AccessibleDescription = description
+        };
+    }
+
+    private static Label CreateFileSearchBadge(string text, string description, Color backColor, Color foreColor)
+    {
+        return new Label
+        {
+            AutoSize = true,
+            Margin = new Padding(0, 0, 8, 0),
+            Padding = new Padding(10, 4, 10, 4),
+            BackColor = backColor,
+            ForeColor = foreColor,
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            Text = text,
+            TextAlign = ContentAlignment.MiddleLeft,
+            AccessibleName = text,
+            AccessibleDescription = description
+        };
+    }
+
+    private static Label CreateShellBadge(string text, string description, Color backColor, Color foreColor)
+    {
+        return new Label
+        {
+            AutoSize = true,
+            Margin = new Padding(0, 0, 8, 0),
+            Padding = new Padding(10, 4, 10, 4),
+            BackColor = backColor,
+            ForeColor = foreColor,
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            Text = text,
+            TextAlign = ContentAlignment.MiddleLeft,
+            AccessibleName = text,
+            AccessibleDescription = description
+        };
+    }
+
+    private static Label CreateSessionBadge(string text, string description, Color backColor, Color foreColor)
+    {
+        return new Label
+        {
+            AutoSize = true,
+            Margin = new Padding(0, 0, 8, 0),
+            Padding = new Padding(10, 4, 10, 4),
+            BackColor = backColor,
+            ForeColor = foreColor,
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            Text = text,
+            TextAlign = ContentAlignment.MiddleLeft,
+            AccessibleName = text,
+            AccessibleDescription = description
+        };
+    }
+
     private void RefreshBrowserPanel()
     {
         if (_browserStatusLabel == null)
             return;
 
         var value = _browserInputText?.Text?.Trim();
+        _browserTargetBadge.Text = string.IsNullOrWhiteSpace(value)
+            ? "Target: none"
+            : $"Target: {value}";
         _browserStatusLabel.Text = string.IsNullOrWhiteSpace(value)
             ? "Browser target not opened yet."
             : $"Ready to open: {value}";
@@ -6484,24 +11347,45 @@ public sealed class MainForm : Form
             _browserLastHeardLabel.Text = string.IsNullOrWhiteSpace(_lastHeardTranscriptText)
                 ? "Last heard: nothing yet."
                 : FormatLastHeardLabel(_lastHeardTranscriptText, _lastHeardTranscriptConfidence);
-        _browserLastActionLabel.Text = _lastLocalBrowserActionLabel;
+            _browserLastActionLabel.Text = _lastLocalBrowserActionLabel;
         }
+        _browserCueBadge.Text = string.IsNullOrWhiteSpace(value)
+            ? "Cue: enter a target"
+            : _browserVoiceCueLabel.Text.StartsWith("Voice cue:", StringComparison.OrdinalIgnoreCase)
+                ? $"Cue: {_browserVoiceCueLabel.Text["Voice cue:".Length..].Trim()}"
+                : $"Cue: {_browserVoiceCueLabel.Text}";
+        _browserActionBadge.Text = string.IsNullOrWhiteSpace(_browserLastActionLabel.Text)
+            ? "Action: none"
+            : $"Action: {_browserLastActionLabel.Text.Replace("Last action: ", string.Empty, StringComparison.OrdinalIgnoreCase)}";
+        _browserNextBadge.Text = string.IsNullOrWhiteSpace(value)
+            ? "Next: open a web target"
+            : $"Next: open {value}";
+        _browserSafetyBadge.Text = "Safety: web only";
+        _browserBoundaryBadge.Text = "Boundary: visible shortcuts";
         _openBrowserButton.Enabled = !string.IsNullOrWhiteSpace(value);
         _searchBrowserButton.Enabled = !string.IsNullOrWhiteSpace(value);
         _copyBrowserTargetButton.Enabled = !string.IsNullOrWhiteSpace(value);
         _browserAddressTextButton.Enabled = !string.IsNullOrWhiteSpace(_browserAddressTextInput?.Text?.Trim());
         _browserFindTextButton.Enabled = !string.IsNullOrWhiteSpace(_browserFindTextInput?.Text?.Trim());
+        var hasOverlay = _visibleControlsOverlay?.Visible == true || _mouseGridOverlay?.Visible == true;
+        _browserShowNumbersButton.Enabled = true;
+        _browserShowGridButton.Enabled = true;
+        _browserHideOverlaysButton.Enabled = hasOverlay;
     }
 
     private void RefreshSystemPanel()
     {
-        if (_systemStatusLabel == null)
+        if (_systemStatusLabel == null || _systemStatusStrip == null || _systemActionBadge == null || _systemSelectedBadge == null || _systemNextBadge == null || _systemCueBadge == null || _systemSafetyBadge == null || _systemWindowingBadge == null)
             return;
 
         var selectedSystemButton = FindFocusedSystemButton();
         _systemSelectedActionLabel.Text = selectedSystemButton == null
             ? "Selected action: none."
             : $"Selected action: {selectedSystemButton.Text}.";
+        _systemSelectedBadge.Text = selectedSystemButton == null
+            ? "Selected: none"
+            : $"Selected: {selectedSystemButton.Text}";
+        _systemNextBadge.Text = BuildSystemNextBadgeText(selectedSystemButton);
 
         var runtimeSnapshot = _runtimeStateMonitor.Read();
         var runtimeIsFresh = runtimeSnapshot != null
@@ -6513,6 +11397,14 @@ public sealed class MainForm : Form
                 : BuildRuntimeSessionSpeechCueText(runtimeSnapshot);
             _systemLastHeardLabel.Text = FormatRuntimeLastHeardLabel(runtimeSnapshot);
             _systemLastActionLabel.Text = FormatRuntimeLastActionLabel(runtimeSnapshot);
+            _systemActionBadge.Text = string.IsNullOrWhiteSpace(_systemLastActionLabel.Text)
+                ? "Action: none"
+                : _systemLastActionLabel.Text.StartsWith("Last action:", StringComparison.OrdinalIgnoreCase)
+                    ? _systemLastActionLabel.Text.Replace("Last action:", "Action:", StringComparison.OrdinalIgnoreCase)
+                    : $"Action: {_systemLastActionLabel.Text}";
+            _systemCueBadge.Text = runtimeSnapshot.ServiceDictationActive
+                ? "Cue: dictation live"
+                : "Cue: choose an action";
         }
         else
         {
@@ -6521,7 +11413,17 @@ public sealed class MainForm : Form
                 ? "Last heard: nothing yet."
                 : FormatLastHeardLabel(_lastHeardTranscriptText, _lastHeardTranscriptConfidence);
             _systemLastActionLabel.Text = _lastLocalSystemActionLabel;
+            _systemActionBadge.Text = string.IsNullOrWhiteSpace(_lastLocalSystemActionLabel)
+                ? "Action: none"
+                : _lastLocalSystemActionLabel.StartsWith("Last action:", StringComparison.OrdinalIgnoreCase)
+                    ? _lastLocalSystemActionLabel.Replace("Last action:", "Action:", StringComparison.OrdinalIgnoreCase)
+                    : $"Action: {_lastLocalSystemActionLabel}";
+            _systemCueBadge.Text = _voiceCommandService.IsSpeechActive
+                ? "Cue: local listener"
+                : "Cue: choose an action";
         }
+        _systemSafetyBadge.Text = "Safety: visible";
+        _systemWindowingBadge.Text = BuildSystemWindowingBadgeText(selectedSystemButton);
 
         var hasPendingWindowSwitch = _pendingWindowSwitchResolution?.IsAmbiguous == true;
         _systemWindowChoiceList.Enabled = hasPendingWindowSwitch;
@@ -6532,7 +11434,7 @@ public sealed class MainForm : Form
 
     private void RefreshFileSearchPanel()
     {
-        if (_fileSearchStatusLabel == null)
+        if (_fileSearchStatusLabel == null || _fileSearchStatusStrip == null || _fileSearchQueryBadge == null || _fileSearchResultBadge == null || _fileSearchCueBadge == null || _fileSearchSafetyBadge == null || _fileSearchScopeBadge == null || _fileSearchSelectionBadge == null || _fileSearchBoundaryBadge == null || _fileSearchReviewBadge == null)
             return;
 
         var query = _fileSearchQueryText?.Text?.Trim();
@@ -6542,6 +11444,10 @@ public sealed class MainForm : Form
             : resultCount > 0
                 ? $"Found {resultCount} result{(resultCount == 1 ? string.Empty : "s")} for: {query}"
                 : $"Ready to search for: {query}";
+        _fileSearchQueryBadge.Text = string.IsNullOrWhiteSpace(query)
+            ? "Query: none"
+            : $"Query: {query}";
+        _fileSearchResultBadge.Text = $"Results: {resultCount}";
         var runtimeSnapshot = _runtimeStateMonitor.Read();
         var runtimeIsFresh = runtimeSnapshot != null
             && DateTime.UtcNow - runtimeSnapshot.UpdatedUtc.ToUniversalTime() <= TimeSpan.FromSeconds(15);
@@ -6561,6 +11467,17 @@ public sealed class MainForm : Form
                 : FormatLastHeardLabel(_lastHeardTranscriptText, _lastHeardTranscriptConfidence);
             _fileSearchLastActionLabel.Text = _lastLocalFileSearchActionLabel;
         }
+        _fileSearchCueBadge.Text = _voiceCommandService.IsSpeechActive
+            ? "Cue: hearing speech"
+            : "Cue: say a file name";
+        _fileSearchNextBadge.Text = BuildFileSearchNextBadgeText(query, _fileSearchResultsList?.SelectedItem as FileSearchResult, resultCount);
+        _fileSearchSafetyBadge.Text = "Safety: local";
+        _fileSearchScopeBadge.Text = "Scope: local folders";
+        _fileSearchSelectionBadge.Text = _fileSearchResultsList?.SelectedItem is FileSearchResult selectedSearchItem
+            ? $"Selected: {selectedSearchItem.Name}"
+            : "Selected: none";
+        _fileSearchBoundaryBadge.Text = "Boundary: reveal in Explorer";
+        _fileSearchReviewBadge.Text = "Review: select before open";
         _searchFilesButton.Enabled = !string.IsNullOrWhiteSpace(query);
         var hasResults = resultCount > 0;
         if (_fileSearchResultNumber != null)
@@ -6578,9 +11495,65 @@ public sealed class MainForm : Form
         _openFileFolderButton.Enabled = _fileSearchResultsList?.SelectedItem is FileSearchResult;
         _openFileResultByNumberButton.Enabled = hasResults;
         _openFileFolderByNumberButton.Enabled = hasResults;
-        _fileSearchSelectionLabel.Text = _fileSearchResultsList?.SelectedItem is FileSearchResult selected
-            ? FileSearchService.DescribeResult(selected, _fileSearchResultsList.Items.Count)
+        _fileSearchSelectionLabel.Text = _fileSearchResultsList?.SelectedItem is FileSearchResult selectedResult
+            ? FileSearchService.DescribeResult(selectedResult, _fileSearchResultsList.Items.Count)
             : "Selected result: none.";
+    }
+
+    private string BuildSystemNextBadgeText(Button? selectedSystemButton)
+    {
+        if (_pendingWindowSwitchResolution?.IsAmbiguous == true)
+            return "Next: confirm a window choice";
+
+        var switchTarget = _systemSwitchWindowText?.Text?.Trim();
+        if (!string.IsNullOrWhiteSpace(switchTarget) && selectedSystemButton == _systemSwitchWindowButton)
+            return $"Next: switch to {switchTarget}";
+
+        if (selectedSystemButton == null)
+            return "Next: choose an action";
+
+        return $"Next: run {selectedSystemButton.Text}";
+    }
+
+    private static string BuildSystemWindowingBadgeText(Button? selectedSystemButton)
+    {
+        if (selectedSystemButton == null)
+            return "Windowing: Task View + Snap Layouts";
+
+        return selectedSystemButton.AccessibleName switch
+        {
+            "System task view" => "Windowing: Task View",
+            "System show snap layouts" => "Windowing: Snap Layouts",
+            "System show desktop" => "Windowing: show desktop",
+            "System new virtual desktop" => "Windowing: new desktop",
+            "System next virtual desktop" => "Windowing: next desktop",
+            "System previous virtual desktop" => "Windowing: previous desktop",
+            "System next window" => "Windowing: switch windows",
+            "System previous window" => "Windowing: switch windows",
+            _ => "Windowing: Task View + Snap Layouts"
+        };
+    }
+
+    private string BuildFileSearchNextBadgeText(string? query, FileSearchResult? selectedResult, int resultCount)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return "Next: search local files";
+
+        if (selectedResult != null)
+        {
+            if (selectedResult.IsDirectory)
+                return $"Next: open folder result {selectedResult.Rank}".Trim();
+
+            if (FileSearchService.IsBlockedOpenTarget(selectedResult.FullPath))
+                return $"Next: reveal result {selectedResult.Rank} in Explorer".Trim();
+
+            return $"Next: open result {selectedResult.Rank}".Trim();
+        }
+
+        if (resultCount > 0)
+            return "Next: select a result to open or reveal";
+
+        return $"Next: search for {query}";
     }
 
     private Button? FindFocusedSystemButton()
@@ -6624,7 +11597,9 @@ public sealed class MainForm : Form
                 _voiceCommandService.IsSpeechActive,
                 captionText,
                 FormatLocalWakeCandidateReadout(),
-                BuildWakeOverlayAuthorityText());
+                BuildWakeOverlayQualityText(),
+                BuildWakeOverlayAuthorityText(),
+                BuildWakeOverlayCalibrationText());
         }
         UpdateVisibleControlsOverlay();
         RefreshSystemPanel();
@@ -6657,9 +11632,11 @@ public sealed class MainForm : Form
         if (_activeProfile != null && _callsignText.ReadOnly)
         {
             _activeProfile.Callsign = normalizedCallsign;
+            _activeProfile.Settings.UpdateServerUrl = NormalizeUpdateServerUrl(_updateServerUrlText?.Text);
             UpdateProfileMetadata(_activeProfile);
             SaveVoiceState(_activeProfile);
             _profileStore.Save(_activeProfile);
+            ApplyProfileEntitlements(_activeProfile);
             LoadProfiles();
             var loadedIndex = _profiles.FindIndex(p => string.Equals(p.Callsign, normalizedCallsign, StringComparison.OrdinalIgnoreCase));
             if (loadedIndex >= 0)
@@ -6683,11 +11660,16 @@ public sealed class MainForm : Form
             DisplayName = _displayNameText.Text.Trim(),
             Email = string.IsNullOrWhiteSpace(_emailText.Text) ? null : _emailText.Text.Trim(),
             Department = string.IsNullOrWhiteSpace(_departmentText.Text) ? null : _departmentText.Text.Trim(),
-            Notes = _notesText.Text
+            Notes = _notesText.Text,
+            Settings = new UserSettings
+            {
+                UpdateServerUrl = NormalizeUpdateServerUrl(_updateServerUrlText?.Text)
+            }
         };
 
         SaveVoiceState(profile);
         _profileStore.Save(profile);
+        ApplyProfileEntitlements(profile);
         LoadProfiles();
         var createdProfileIndex = _profiles.FindIndex(p => string.Equals(p.Callsign, profile.Callsign, StringComparison.OrdinalIgnoreCase));
         if (createdProfileIndex >= 0)
@@ -6852,7 +11834,7 @@ public sealed class MainForm : Form
     private void WakeSession()
     {
         _session.DetectWakeWord(AlphaSessionStateMachine.ManualUiSource);
-        ShowWakeOverlay(activityLevel: BuildLocalOverlayActivityLevel(), activityText: BuildLocalActivityTextForWakeOverlay(), speechActive: _voiceCommandService.IsSpeechActive, authorityText: BuildWakeOverlayAuthorityText());
+        ShowWakeOverlay(activityLevel: BuildLocalOverlayActivityLevel(), activityText: BuildLocalActivityTextForWakeOverlay(), speechActive: _voiceCommandService.IsSpeechActive, qualityText: BuildWakeOverlayQualityText(), authorityText: BuildWakeOverlayAuthorityText(), calibrationText: BuildWakeOverlayCalibrationText());
         RefreshSessionPanel();
         UpdateStatus(_session.StatusMessage);
     }
@@ -6887,11 +11869,7 @@ public sealed class MainForm : Form
         if (!IsVoiceEnrolled(profile.Settings) && !await ActivateVoiceForProfileAsync(profile, startingListener: true))
             return;
 
-        _spokenCallsignText.Text = string.Empty;
-        _spokenCommandText.Text = string.Empty;
-        _appNameText.Text = string.Empty;
-        _session.Reset();
-        RefreshSessionPanel();
+        ResetListeningSessionFields();
 
         var runtimeStartResult = TryStartInstalledUserRuntime(out var runtimeMessage);
         if (runtimeStartResult != InstalledUserRuntimeStartResult.Unavailable)
@@ -6909,42 +11887,12 @@ public sealed class MainForm : Form
             return;
         }
 
-        _usingLocalPreviewListener = true;
-        _voiceCommandService.Start(
-            profile.Settings.LanguageCode,
-            profile.Settings.WakeWord,
-            profile.Callsign,
-            profile.Settings.VoiceWakeThreshold,
-            profile.Settings.VoiceWakeSensitivity,
-            profile.Settings.VoiceWakeDiagnosticsEnabled,
-            MicrophoneAudioSettings.From(profile.Settings),
-            profile.Settings.VoiceSilenceMilliseconds);
-        UpdateListeningPanel();
-        if (_voiceCommandService.IsListening)
-        {
-            var warning = string.IsNullOrWhiteSpace(_voiceCommandService.LastStartupWarning)
-                ? string.Empty
-                : $" {_voiceCommandService.LastStartupWarning}";
-            UpdateStatus($"Listening with {_voiceCommandService.CurrentModeDescription} Say 'Callsign', your callsign, and the app you want to launch.{warning}");
-            RecordVoiceControlAudit(
-                "voice_listening_start",
-                "succeeded",
-                "local_preview_listener",
-                _voiceCommandService.CurrentModeDescription,
-                true,
-                "Voice listening start was shown in the visible status surface.");
-        }
-        else
-        {
-            UpdateStatus("Unable to start voice listening.");
-            RecordVoiceControlAudit(
-                "voice_listening_start",
-                "failed",
-                "local_preview_listener",
-                "listener_not_started",
-                false,
-                "Voice listening start failure was shown in the visible status surface.");
-        }
+        TryStartLocalPreviewListener(
+            profile,
+            $"Listening with {_voiceCommandService.CurrentModeDescription} Say 'Callsign', your callsign, and the app you want to launch.",
+            "Unable to start voice listening.",
+            "voice_listening_start",
+            "Voice listening start was shown in the visible status surface.");
     }
 
     private void TryStartListenerForActiveProfile()
@@ -6962,6 +11910,7 @@ public sealed class MainForm : Form
     {
         _dictationActive = false;
         RefreshDictationPanel();
+        _runtimeRestartRequestedUtc = null;
 
         if (!_usingLocalPreviewListener)
         {
@@ -7004,6 +11953,123 @@ public sealed class MainForm : Form
             "listener_stopped",
             true,
             "Voice listening stop was shown in the visible status surface.");
+    }
+
+    private async void RestartVoiceListening()
+    {
+        StopVoiceSampleRecording();
+        _dictationActive = false;
+        RefreshDictationPanel();
+
+        if (!EnsureActiveProfile(out var profile))
+            return;
+
+        if (!IsVoiceEnrolled(profile.Settings) && !await ActivateVoiceForProfileAsync(profile, startingListener: true))
+            return;
+
+        ResetListeningSessionFields();
+
+        if (_usingLocalPreviewListener && _voiceCommandService.IsListening)
+        {
+            _voiceCommandService.Stop();
+            _usingLocalPreviewListener = false;
+            TryStartLocalPreviewListener(
+                profile,
+                $"Voice listener restarted with {_voiceCommandService.CurrentModeDescription}.",
+                "Unable to restart voice listening.",
+                "voice_listening_restart",
+                "Voice listening restart was shown in the visible status surface.");
+            return;
+        }
+
+        _runtimeRestartRequestedUtc = DateTime.UtcNow;
+
+        if (_voiceCommandService.IsListening || IsInstalledUserRuntimeListening())
+        {
+            RuntimeControlFiles.RequestStopUserRuntime();
+            _runtimeStopRequestedUtc = DateTime.UtcNow;
+            UpdateListeningPanel();
+            UpdateStatus("Requested background user runtime restart. Waiting for the runtime to stop, then Callsign will start it again.");
+            RecordVoiceControlAudit(
+                "voice_listening_restart",
+                "succeeded",
+                "background_user_runtime",
+                "runtime_restart_requested",
+                true,
+                "Voice listening restart was shown in the visible status surface.");
+            return;
+        }
+
+        _runtimeRestartRequestedUtc = null;
+        if (!TryStartLocalPreviewListener(
+            profile,
+            $"Voice listener restarted with {_voiceCommandService.CurrentModeDescription}.",
+            "Unable to restart voice listening.",
+            "voice_listening_restart",
+            "Voice listening restart was shown in the visible status surface."))
+        {
+            StartVoiceListening();
+        }
+    }
+
+    private bool IsInstalledUserRuntimeListening()
+    {
+        var runtimeSnapshot = _runtimeStateMonitor.Read();
+        return runtimeSnapshot is
+        {
+            RuntimeRole: "user-runtime",
+            IsListening: true
+        } && DateTime.UtcNow - runtimeSnapshot.UpdatedUtc.ToUniversalTime() <= TimeSpan.FromSeconds(30);
+    }
+
+    private void ResetListeningSessionFields()
+    {
+        _spokenCallsignText.Text = string.Empty;
+        _spokenCommandText.Text = string.Empty;
+        _appNameText.Text = string.Empty;
+        _session.Reset();
+        RefreshSessionPanel();
+    }
+
+    private bool TryStartLocalPreviewListener(UserProfile profile, string successMessage, string failureMessage, string auditAction, string auditSummary)
+    {
+        _usingLocalPreviewListener = true;
+        _voiceCommandService.Start(
+            profile.Settings.LanguageCode,
+            profile.Settings.WakeWord,
+            profile.Callsign,
+            profile.Settings.VoiceWakeThreshold,
+            profile.Settings.VoiceWakeSensitivity,
+            profile.Settings.VoiceWakeDiagnosticsEnabled,
+            MicrophoneAudioSettings.From(profile.Settings),
+            profile.Settings.VoiceSilenceMilliseconds);
+        UpdateListeningPanel();
+        if (_voiceCommandService.IsListening)
+        {
+            var warning = string.IsNullOrWhiteSpace(_voiceCommandService.LastStartupWarning)
+                ? string.Empty
+                : $" {_voiceCommandService.LastStartupWarning}";
+            UpdateStatus($"{successMessage}{warning}");
+            RecordVoiceControlAudit(
+                auditAction,
+                "succeeded",
+                "local_preview_listener",
+                _voiceCommandService.CurrentModeDescription,
+                true,
+                auditSummary);
+            return true;
+        }
+
+        _usingLocalPreviewListener = false;
+        UpdateStatus(failureMessage);
+        RecordVoiceControlAudit(
+            auditAction,
+            "failed",
+            "local_preview_listener",
+            "listener_not_started",
+            false,
+            auditSummary);
+        return false;
     }
 
     private enum InstalledUserRuntimeStartResult
@@ -7289,7 +12355,7 @@ public sealed class MainForm : Form
 
         RunOnUiThread(() =>
         {
-            _wakeReliabilityLabel.Text = $"Wake accepted by {e.Result.Engine}.";
+            _wakeReliabilityLabel.Text = BuildWakeReliabilityText(e.Result.Engine, AlphaSessionStateMachine.AudioWakeDetectorSource, wakeAccepted: true, calibrationSampleCount: _activeProfile?.Settings.VoiceWakeCalibrationSampleCount);
             _wakeScoreLabel.Text = $"{e.Result.Score:P0} confidence / {e.Result.Threshold:P0} threshold.";
             _wakeQualityLabel.Text = e.Result.AudioQualityWarnings.Count == 0
                 ? "Audio quality looks clean."
@@ -7297,7 +12363,7 @@ public sealed class MainForm : Form
 
             if (!_dictationActive)
             {
-                ShowWakeOverlay(activityLevel: BuildLocalOverlayActivityLevel(), activityText: BuildLocalActivityTextForWakeOverlay(), speechActive: _voiceCommandService.IsSpeechActive, wakeStatusText: FormatLocalWakeCandidateReadout(), authorityText: BuildWakeOverlayAuthorityText());
+                ShowWakeOverlay(activityLevel: BuildLocalOverlayActivityLevel(), activityText: BuildLocalActivityTextForWakeOverlay(), speechActive: _voiceCommandService.IsSpeechActive, wakeStatusText: FormatLocalWakeCandidateReadout(), qualityText: BuildWakeOverlayQualityText(), authorityText: BuildWakeOverlayAuthorityText(), calibrationText: BuildWakeOverlayCalibrationText());
             }
 
             if (!_dictationActive && _session.State is AlphaSessionState.Idle or AlphaSessionState.Completed)
@@ -7306,7 +12372,7 @@ public sealed class MainForm : Form
                 RefreshSessionPanel();
             }
 
-            UpdateStatus($"Wake word detected by {e.Result.Engine}; waiting for callsign identity.");
+            UpdateStatus($"Wake word detected by {e.Result.Engine}; prompting callsign identity.");
         });
     }
 
@@ -7331,7 +12397,26 @@ public sealed class MainForm : Form
             ? setupScriptPresent ? "runtime or packages" : "repair helper"
             : "bundled wake model";
 
-        return $"Wake detection is not ready. Missing or damaged piece: {missing}. Use Repair Wakeword on the Account tab to restore the installed wake model and runtime.";
+        return $"Wake detection is not ready. Missing or damaged piece: {missing}. Next: choose Repair Wakeword on the Account tab to restore the installed wake model and runtime.";
+    }
+
+    private static string BuildWakeReliabilityText(string? wakeEngine, string? wakeTransitionSource = null, bool wakeAccepted = false, int? calibrationSampleCount = null)
+    {
+        var sampleText = calibrationSampleCount.HasValue && calibrationSampleCount.Value > 0
+            ? $" Samples: {calibrationSampleCount.Value}."
+            : string.Empty;
+
+        if (wakeAccepted)
+        {
+            var sourceText = string.IsNullOrWhiteSpace(wakeTransitionSource) ? "audio-wake-detector" : wakeTransitionSource.Trim();
+            return $"Wake accepted by {wakeEngine ?? "the wake detector"}. Last wake source: {sourceText}.{sampleText} Next: verify identity.";
+        }
+
+        if (string.IsNullOrWhiteSpace(wakeEngine))
+            return $"Wake detector unavailable.{sampleText}{GetOpenWakeWordSetupHint(wakeEngine)}";
+
+        var source = string.IsNullOrWhiteSpace(wakeTransitionSource) ? "none" : wakeTransitionSource.Trim();
+        return $"Current wake detector: {wakeEngine}. Last wake source: {source}.{sampleText} Next: say Callsign to wake.";
     }
 
     private void VoiceRecognitionError(object? sender, VoiceRecognitionErrorEventArgs e)
@@ -7391,22 +12476,30 @@ public sealed class MainForm : Form
             var phase = _dictationActive
                 ? "Dictation"
                 : FormatOverlayPhase(_session.State.ToString());
-            ShowWakeOverlay(
-                _dictationActive ? BuildLocalDictationReadout(transcript) : BuildLocalOverlayReadout(transcript),
-                phase,
-                GetLocalTranscriptHistory(),
-                BuildLocalOverlayActivityLevel(),
-                BuildLocalActivityTextForWakeOverlay(),
-                _voiceCommandService.IsSpeechActive,
-                _dictationActive
-                    ? BuildLocalDictationOverlayCaptionText(displayTranscript)
-                    : BuildLocalOverlayCaptionText(_session.State, _voiceCommandService.IsSpeechActive, latestTranscript: displayTranscript),
-                FormatLocalWakeCandidateReadout(),
-                BuildWakeOverlayAuthorityText());
+                ShowWakeOverlay(
+                    _dictationActive ? BuildLocalDictationReadout(transcript) : BuildLocalOverlayReadout(transcript),
+                    phase,
+                    GetLocalTranscriptHistory(),
+                    BuildLocalOverlayActivityLevel(),
+                    BuildLocalActivityTextForWakeOverlay(),
+                    _voiceCommandService.IsSpeechActive,
+                    _dictationActive
+                        ? BuildLocalDictationOverlayCaptionText(displayTranscript)
+                        : BuildLocalOverlayCaptionText(_session.State, _voiceCommandService.IsSpeechActive, latestTranscript: displayTranscript),
+                    FormatLocalWakeCandidateReadout(),
+                    BuildWakeOverlayQualityText(),
+                    BuildWakeOverlayAuthorityText(),
+                    BuildWakeOverlayCalibrationText());
         }
 
         if (_dictationActive)
         {
+            if (HasLocalDictationExceededDuration())
+            {
+                StopDictationBecauseBoundReached($"Dictation reached the {DictationReviewTextService.MaxCaptureSeconds / 60}-minute capture limit. Review text is preserved.");
+                return;
+            }
+
             if (IsPauseDictationCommand(transcript))
             {
                 PauseDictation();
@@ -7554,6 +12647,9 @@ public sealed class MainForm : Form
                 {
                     _sessionResultLabel.Text = $"Voice action: {intent.Target}.";
                     RefreshSessionPanel();
+                    if (intent.Target.StartsWith("ui-blocked-external-side-effect", StringComparison.OrdinalIgnoreCase))
+                        return true;
+
                     UpdateStatus($"Voice action executed: {intent.Target.Replace("ui-", string.Empty, StringComparison.OrdinalIgnoreCase).Replace("-", " ", StringComparison.OrdinalIgnoreCase)}.");
                     return true;
                 }
@@ -7874,24 +12970,240 @@ public sealed class MainForm : Form
 
     private static string FormatBuiltInIntentStatus(string action, string fallback)
     {
-        if (string.IsNullOrWhiteSpace(action))
-            return $"{fallback} requested.";
+        var baseLabel = string.IsNullOrWhiteSpace(action)
+            ? fallback
+            : action
+                .Replace("system-", string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Replace("ui-", string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Replace("-", " ", StringComparison.OrdinalIgnoreCase);
 
-        return action
-            .Replace("system-", string.Empty, StringComparison.OrdinalIgnoreCase)
-            .Replace("ui-", string.Empty, StringComparison.OrdinalIgnoreCase)
-            .Replace("-", " ", StringComparison.OrdinalIgnoreCase)
-            + " requested.";
+        return FormatVisibleActionStatus(action, $"{baseLabel} requested.");
     }
 
     private static string FormatBrowserIntentStatus(string action)
     {
         if (BrowserLaunchService.TryParseFindTextAction(action, out var findText))
-            return $"Browser find text requested: {findText}";
+            return $"Browser find text: {findText}.";
 
-        return action.Replace("browser-", "Browser ", StringComparison.OrdinalIgnoreCase)
-            .Replace("-", " ", StringComparison.OrdinalIgnoreCase)
-            + " requested.";
+        var baseLabel = action
+            .Replace("browser-", "Browser ", StringComparison.OrdinalIgnoreCase)
+            .Replace("-", " ", StringComparison.OrdinalIgnoreCase);
+
+        return FormatVisibleActionStatus(action, $"{baseLabel} requested.");
+    }
+
+    private static string FormatVisibleActionStatus(string action, string statusMessage)
+    {
+        if (string.IsNullOrWhiteSpace(statusMessage))
+            return string.Empty;
+
+        var trimmedMessage = statusMessage.Trim();
+        if (BrowserLaunchService.TryParseFindTextAction(action, out var findText))
+            return $"Browser find text: {findText}.";
+
+        if (BrowserLaunchService.TryParseAddressTextAction(action, out var addressText))
+            return $"Browser navigated to {addressText}.";
+
+        if (!trimmedMessage.EndsWith("requested.", StringComparison.OrdinalIgnoreCase))
+            return trimmedMessage;
+
+        var baseLabel = trimmedMessage[..^"requested.".Length].Trim();
+        if (string.IsNullOrWhiteSpace(baseLabel))
+            return "Action completed.";
+
+        if (action.StartsWith("browser-", StringComparison.OrdinalIgnoreCase))
+            return FormatBrowserOutcomeStatus(action, baseLabel);
+
+        if (action.StartsWith("system-", StringComparison.OrdinalIgnoreCase))
+            return FormatSystemOutcomeStatus(action, baseLabel);
+
+        if (action.StartsWith("ui-", StringComparison.OrdinalIgnoreCase))
+            return $"{baseLabel} opened.";
+
+        return $"{baseLabel} completed.";
+    }
+
+    private static string FormatBrowserOutcomeStatus(string action, string baseLabel)
+    {
+        return action.ToLowerInvariant() switch
+        {
+            "browser-back" => "Browser back navigated.",
+            "browser-forward" => "Browser forward navigated.",
+            "browser-refresh" => "Browser refreshed.",
+            "browser-new-tab" => "Browser new tab opened.",
+            "browser-new-window" => "Browser new window opened.",
+            "browser-private-window" => "Browser private window opened.",
+            "browser-bookmark-page" => "Browser page bookmarked.",
+            "browser-open-bookmarks" => "Browser bookmarks opened.",
+            "browser-save-page" => "Browser page save dialog opened.",
+            "browser-print-page" => "Browser print dialog opened.",
+            "browser-next-tab" => "Browser moved to the next tab.",
+            "browser-previous-tab" => "Browser moved to the previous tab.",
+            "browser-close-tab" => "Browser tab closed.",
+            "browser-reopen-closed-tab" => "Browser reopened the last closed tab.",
+            "browser-focus-address-bar" => "Browser address bar focused.",
+            "browser-home" => "Browser home page opened.",
+            "browser-open-downloads" => "Browser downloads opened.",
+            "browser-open-history" => "Browser history opened.",
+            "browser-find" => "Browser find opened.",
+            "browser-find-next" => "Browser moved to the next match.",
+            "browser-find-previous" => "Browser moved to the previous match.",
+            "browser-start-scroll-up" => "Browser scrolling up started.",
+            "browser-start-scroll-down" => "Browser scrolling down started.",
+            "browser-start-scroll-left" => "Browser scrolling left started.",
+            "browser-start-scroll-right" => "Browser scrolling right started.",
+            "browser-stop-scroll" => "Browser scrolling stopped.",
+            "browser-scroll-up" => "Browser scrolled up.",
+            "browser-scroll-down" => "Browser scrolled down.",
+            _ when TryParseBrowserPageScrollOutcome(action, "browser-scroll-up-pages:", "up", out var pageScrollOutcome) => pageScrollOutcome,
+            _ when TryParseBrowserPageScrollOutcome(action, "browser-scroll-down-pages:", "down", out var pageScrollOutcome) => pageScrollOutcome,
+            "browser-scroll-left" => "Browser scrolled left.",
+            "browser-scroll-right" => "Browser scrolled right.",
+            "browser-scroll-top" => "Browser scrolled to the top.",
+            "browser-scroll-bottom" => "Browser scrolled to the bottom.",
+            "browser-fullscreen" => "Browser fullscreen toggled.",
+            "browser-zoom-in" => "Browser zoomed in.",
+            "browser-zoom-out" => "Browser zoomed out.",
+            "browser-zoom-reset" => "Browser zoom reset.",
+            _ when baseLabel.Contains("address bar target", StringComparison.OrdinalIgnoreCase) => $"{baseLabel}.",
+            _ => $"{baseLabel} completed."
+        };
+    }
+
+    private static bool TryParseBrowserPageScrollOutcome(string action, string prefix, string direction, out string outcome)
+    {
+        outcome = string.Empty;
+        if (!BrowserLaunchService.TryParsePageScrollAction(action, prefix, out var pageCount))
+            return false;
+
+        outcome = $"Browser scrolled {direction} {pageCount} pages.";
+        return true;
+    }
+
+    private static string FormatSystemOutcomeStatus(string action, string baseLabel)
+    {
+        var normalizedAction = action.ToLowerInvariant();
+        if (normalizedAction.StartsWith("system-open-"))
+            return $"{baseLabel} opened.";
+
+        if (normalizedAction.StartsWith("system-close-"))
+            return $"{baseLabel} closed.";
+
+        if (normalizedAction.StartsWith("system-press-"))
+            return $"{baseLabel} pressed.";
+
+        if (normalizedAction.StartsWith("system-volume-"))
+            return $"{baseLabel} adjusted.";
+
+        if (normalizedAction.StartsWith("system-media-"))
+            return $"{baseLabel} updated.";
+
+        if (normalizedAction is "system-mouse-click")
+            return "Mouse clicked.";
+
+        if (normalizedAction is "system-mouse-double-click")
+            return "Mouse double-clicked.";
+
+        if (normalizedAction is "system-mouse-triple-click")
+            return "Mouse triple-clicked.";
+
+        if (normalizedAction is "system-mouse-right-click")
+            return "Mouse right-clicked.";
+
+        if (normalizedAction.StartsWith("system-mouse-button-down"))
+            return "Mouse button pressed down.";
+
+        if (normalizedAction.StartsWith("system-mouse-button-up"))
+            return "Mouse button released.";
+
+        if (normalizedAction is "system-scroll-top")
+            return "Scrolled to top.";
+
+        if (normalizedAction is "system-scroll-bottom")
+            return "Scrolled to bottom.";
+
+        if (normalizedAction is "system-scroll-left-edge")
+            return "Scrolled to left edge.";
+
+        if (normalizedAction is "system-scroll-right-edge")
+            return "Scrolled to right edge.";
+
+        if (normalizedAction.StartsWith("system-start-scrolling:"))
+        {
+            var direction = normalizedAction["system-start-scrolling:".Length..].Replace('-', ' ');
+            return $"Started scrolling {direction}.";
+        }
+
+        if (normalizedAction is "system-stop-scrolling")
+            return "Stopped scrolling.";
+
+        if (normalizedAction.StartsWith("system-mouse-scroll-"))
+            return $"{baseLabel.Replace("scroll ", "scrolled ", StringComparison.OrdinalIgnoreCase)}.";
+
+        if (normalizedAction.StartsWith("system-mouse-start-moving") || normalizedAction.StartsWith("system-mouse-move-"))
+            return $"{baseLabel.Replace("move ", "moved ", StringComparison.OrdinalIgnoreCase)}.";
+
+        if (normalizedAction.StartsWith("system-mouse-drag-"))
+            return $"{baseLabel.Replace("drag ", "dragged ", StringComparison.OrdinalIgnoreCase)}.";
+
+        if (normalizedAction.StartsWith("system-switch-window"))
+            return "Window switched.";
+
+        if (normalizedAction is "system-next-window")
+            return "Next window selected.";
+
+        if (normalizedAction is "system-previous-window")
+            return "Previous window selected.";
+
+        if (normalizedAction is "system-new-virtual-desktop")
+            return "New virtual desktop opened.";
+
+        if (normalizedAction is "system-next-virtual-desktop")
+            return "Next virtual desktop selected.";
+
+        if (normalizedAction is "system-previous-virtual-desktop")
+            return "Previous virtual desktop selected.";
+
+        if (normalizedAction is "system-show-desktop")
+            return "Desktop shown.";
+
+        if (normalizedAction is "system-open-task-view")
+            return "Task view opened.";
+
+        if (normalizedAction is "system-open-task-manager")
+            return "Task Manager opened.";
+
+        if (normalizedAction is "system-open-settings")
+            return "Windows Settings opened.";
+
+        if (normalizedAction is "system-open-magnifier")
+            return "Magnifier opened.";
+
+        if (normalizedAction is "system-open-file")
+            return "Open file dialog opened.";
+
+        if (normalizedAction is "system-save-as")
+            return "Save As dialog opened.";
+
+        if (normalizedAction is "system-find-next")
+            return "Active app moved to the next match.";
+
+        if (normalizedAction is "system-find-previous")
+            return "Active app moved to the previous match.";
+
+        if (normalizedAction is "system-print")
+            return "Print dialog opened.";
+
+        if (normalizedAction is "system-copy" || normalizedAction is "system-paste" || normalizedAction is "system-cut" || normalizedAction is "system-select-all" || normalizedAction is "system-save" || normalizedAction is "system-undo" || normalizedAction is "system-redo")
+            return $"{baseLabel} completed.";
+
+        if (baseLabel.Contains("settings", StringComparison.OrdinalIgnoreCase) || baseLabel.Contains("dialog", StringComparison.OrdinalIgnoreCase))
+            return $"{baseLabel} opened.";
+
+        if (baseLabel.Contains("window", StringComparison.OrdinalIgnoreCase))
+            return $"{baseLabel} selected.";
+
+        return $"{baseLabel} completed.";
     }
 
     private static bool IsIgnorableSpeechTranscript(string? transcript)
@@ -7954,17 +13266,50 @@ public sealed class MainForm : Form
         AppendDictationHistory(displayText);
         if (_dictationLastHeardLabel != null)
             _dictationLastHeardLabel.Text = FormatLastHeardLabel(displayText);
-        _dictationTextBox.Text = DictationReviewTextService.AppendReviewedText(
+        var appendResult = DictationReviewTextService.AppendReviewedTextWithBounds(
             _dictationTextBox.Text,
             normalized,
             _dictationCasingMode,
             IsFluidDictationEnabled(),
             IsAutomaticPunctuationEnabled(),
             IsProfanityFilterEnabled());
+        _dictationTextBox.Text = appendResult.Text;
         _dictationTextBox.SelectionStart = _dictationTextBox.TextLength;
         _dictationTextBox.SelectionLength = 0;
         RefreshDictationPanel();
+        if (appendResult.WasTruncated)
+        {
+            StopDictationBecauseBoundReached($"Dictation reached the {appendResult.MaxCharacters:N0}-character review limit. Review text is preserved.");
+            return;
+        }
+
         UpdateStatus("Dictation updated.");
+    }
+
+    private bool HasLocalDictationExceededDuration() =>
+        _dictationStartedUtc.HasValue
+        && DateTime.UtcNow - _dictationStartedUtc.Value >= TimeSpan.FromSeconds(DictationReviewTextService.MaxCaptureSeconds);
+
+    private void StopDictationBecauseBoundReached(string message)
+    {
+        _dictationActive = false;
+        _dictationCasingMode = DictationCasingMode.Default;
+        _dictationStartedUtc = null;
+        if (_voiceCommandService.IsListening)
+            _voiceCommandService.Stop();
+
+        RefreshDictationPanel();
+        UpdateListeningPanel();
+        UpdateStatus(message);
+        if (_dictationStatusLabel != null)
+            _dictationStatusLabel.Text = message;
+        RecordDictationActionAudit(
+            "dictation_bound_reached",
+            "blocked",
+            "capture_bound",
+            message,
+            true,
+            "Dictation stopped at the visible capture boundary and preserved the review buffer.");
     }
 
     private void AppendDictationHistory(string transcript)
@@ -8347,10 +13692,14 @@ public sealed class MainForm : Form
 
     private static string FormatPendingWindowSwitchStatus(VisibleWindowSwitchResolution resolution)
     {
-        var choices = resolution.Candidates.Count == 0
+        var choiceCount = resolution.Candidates.Count;
+        var choices = choiceCount == 0
             ? "No window choices were found."
             : string.Join(", ", resolution.Candidates.Take(5).Select((candidate, index) => $"{index + 1}. {candidate.DisplayName}"));
-        return $"Window choice needed for '{resolution.RequestedName}'. {choices} Say '1', 'click 1', 'choose window 1', 'confirm window', or 'cancel'.";
+        var nextStep = choiceCount == 0
+            ? "Next: try a different window name or cancel."
+            : $"Next: say '1', 'click 1', 'choose window 1', or 'confirm window' from {choiceCount} visible choice{(choiceCount == 1 ? string.Empty : "s")}.";
+        return $"Window choice needed for '{resolution.RequestedName}'. {choices} {nextStep}";
     }
 
     private void CaptureCommand()
@@ -9768,12 +15117,12 @@ public sealed class MainForm : Form
         _dictationTextBox.SelectionStart = Math.Clamp(result.SelectionStart, 0, _dictationTextBox.TextLength);
         _dictationTextBox.SelectionLength = Math.Clamp(result.SelectionLength, 0, _dictationTextBox.TextLength - _dictationTextBox.SelectionStart);
         RefreshDictationPanel();
-        UpdateStatus($"Formatted {FormatDictationCorrectionScope(command.Scope)}.");
+        UpdateStatus($"Formatted {DictationFormattingService.FormatDescription(command)}.");
         RecordDictationActionAudit(
             "dictation_format",
             "succeeded",
             command.Format.ToString(),
-            command.Scope.ToString(),
+            string.IsNullOrWhiteSpace(command.TargetText) ? command.Scope.ToString() : $"target:{command.TargetText}",
             true,
             "Dictation formatting was shown in the visible Dictation review surface.");
     }
@@ -9804,6 +15153,8 @@ public sealed class MainForm : Form
             DictationTargetTextAction.Select => $"Selected '{result.MatchedText}' in the dictated text.",
             DictationTargetTextAction.MoveBefore => $"Moved before '{result.MatchedText}' in the dictated text.",
             DictationTargetTextAction.MoveAfter => $"Moved after '{result.MatchedText}' in the dictated text.",
+            DictationTargetTextAction.InsertBefore => $"Inserted text before '{result.MatchedText}' in the dictated text.",
+            DictationTargetTextAction.InsertAfter => $"Inserted text after '{result.MatchedText}' in the dictated text.",
             DictationTargetTextAction.Delete => $"Deleted '{result.MatchedText}' from the dictated text.",
             DictationTargetTextAction.Replace => $"Replaced '{result.MatchedText}' in the dictated text.",
             _ => "Updated dictated text."
@@ -10060,6 +15411,8 @@ public sealed class MainForm : Form
                     DictationTargetTextAction.Select => $"select '{targetTextCommand.TargetText}'",
                     DictationTargetTextAction.MoveBefore => $"move before '{targetTextCommand.TargetText}'",
                     DictationTargetTextAction.MoveAfter => $"move after '{targetTextCommand.TargetText}'",
+                    DictationTargetTextAction.InsertBefore => $"insert before '{targetTextCommand.TargetText}'",
+                    DictationTargetTextAction.InsertAfter => $"insert after '{targetTextCommand.TargetText}'",
                     DictationTargetTextAction.Delete => $"delete '{targetTextCommand.TargetText}'",
                     DictationTargetTextAction.Replace => $"replace '{targetTextCommand.TargetText}'",
                     _ => "edit dictated text"
@@ -10395,14 +15748,15 @@ public sealed class MainForm : Form
     {
         if (string.IsNullOrWhiteSpace(_dictationTextBox.Text))
         {
-            UpdateStatus("There is no dictated text to paste.");
+            var emptyMessage = BuildDictationTransferPreservedMessage("There is no dictated text to paste.");
+            UpdateStatus(emptyMessage);
             RecordDictationActionAudit(
                 "dictation_paste",
                 "failed",
                 "paste",
                 "empty_review_buffer",
                 false,
-                "Dictation paste failure was shown in the visible Dictation review surface.");
+                "Dictation paste failure was shown in the visible Dictation review surface and review text was preserved.");
             return;
         }
 
@@ -10417,20 +15771,45 @@ public sealed class MainForm : Form
                 "paste",
                 blockedMessage,
                 false,
-                "Dictation paste block was shown in the visible Dictation review surface.");
+                "Dictation paste block was shown in the visible Dictation review surface and review text was preserved.");
             return;
         }
 
-        Clipboard.SetText(_dictationTextBox.Text);
-        SendKeys.SendWait("^v");
-        UpdateStatus("Dictated text copied to the clipboard and sent as a paste request.");
-        RecordDictationActionAudit(
-            "dictation_paste",
-            "succeeded",
-            "paste",
-            "paste_request_sent",
-            true,
-            "Dictation paste request was shown in the visible Dictation review surface.");
+        try
+        {
+            Clipboard.SetText(_dictationTextBox.Text);
+            SendKeys.SendWait("^v");
+            UpdateStatus("Dictated text copied to the clipboard and sent as a paste request. Review text remains visible until you clear it.");
+            RecordDictationActionAudit(
+                "dictation_paste",
+                "succeeded",
+                "paste",
+                "paste_request_sent_review_preserved",
+                true,
+                "Dictation paste request was shown in the visible Dictation review surface and review text remained visible.");
+        }
+        catch (Exception ex)
+        {
+            var failureMessage = BuildDictationTransferPreservedMessage($"Dictation paste failed: {ex.Message}");
+            UpdateStatus(failureMessage);
+            if (_dictationStatusLabel != null)
+                _dictationStatusLabel.Text = failureMessage;
+            RecordDictationActionAudit(
+                "dictation_paste",
+                "failed",
+                "paste",
+                "paste_transfer_failed_review_preserved",
+                false,
+                "Dictation paste failure was shown in the visible Dictation review surface and review text was preserved.");
+        }
+    }
+
+    private static string BuildDictationTransferPreservedMessage(string reason)
+    {
+        var trimmedReason = string.IsNullOrWhiteSpace(reason)
+            ? "Dictation transfer failed."
+            : reason.Trim();
+        return $"{trimmedReason} Review text is preserved in Callsign so you can retry, copy, edit, or discard it.";
     }
 
     private static bool TryAllowDictationPasteTarget(out string message)
@@ -10442,7 +15821,7 @@ public sealed class MainForm : Form
         if (!DictationTargetSafetyService.IsSensitiveTarget(target, out var reason))
             return true;
 
-        message = $"Dictation paste blocked. {reason} Review the text and paste manually only if this is intended.";
+        message = BuildDictationTransferPreservedMessage($"Dictation paste blocked. {reason} Review the text and paste manually only if this is intended.");
         return false;
     }
 
@@ -10538,7 +15917,8 @@ public sealed class MainForm : Form
             return;
         }
 
-        _lastLocalBrowserActionLabel = FormatLocalSystemActionLabel(action, statusMessage, succeeded: true);
+        var visibleStatus = FormatVisibleActionStatus(action, statusMessage);
+        _lastLocalBrowserActionLabel = FormatLocalSystemActionLabel(action, visibleStatus, succeeded: true);
         if (profileForAudit != null)
         {
             _auditLog.TryRecordCommand(
@@ -10549,13 +15929,13 @@ public sealed class MainForm : Form
                 out _,
                 commandFamily: "browser",
                 actionTarget: action,
-                details: statusMessage,
+                details: visibleStatus,
                 success: true,
                 verificationMethod: "visible_status",
                 verificationSummary: "Browser action request was shown in the visible Browser tab status.");
         }
 
-        UpdateStatus(statusMessage);
+        UpdateStatus(visibleStatus);
     }
 
     private void ExecuteSystemAction(string action, string statusMessage)
@@ -10648,9 +16028,10 @@ public sealed class MainForm : Form
                 return;
             }
 
+            var switchVisibleStatus = FormatVisibleActionStatus(action, switchMessage);
             if (_systemStatusLabel != null)
-                _systemStatusLabel.Text = switchMessage;
-            _lastLocalSystemActionLabel = FormatLocalSystemActionLabel(action, switchMessage, succeeded: true);
+                _systemStatusLabel.Text = switchVisibleStatus;
+            _lastLocalSystemActionLabel = FormatLocalSystemActionLabel(action, switchVisibleStatus, succeeded: true);
             if (profileForAudit != null)
             {
                 _auditLog.TryRecordCommand(
@@ -10661,13 +16042,13 @@ public sealed class MainForm : Form
                     out _,
                     commandFamily: "system",
                     actionTarget: resolution.SelectedCandidate.DisplayName,
-                    details: switchMessage,
+                    details: switchVisibleStatus,
                     success: true,
                     verificationMethod: "visible_status",
                     verificationSummary: "Visible window-switch request was shown in the System tab status before focus changed.");
             }
 
-            UpdateStatus(switchMessage);
+            UpdateStatus(switchVisibleStatus);
             RefreshSystemPanel();
             return;
         }
@@ -10698,9 +16079,10 @@ public sealed class MainForm : Form
             return;
         }
 
+        var visibleStatus = FormatVisibleActionStatus(action, statusMessage);
         if (_systemStatusLabel != null)
-            _systemStatusLabel.Text = statusMessage;
-        _lastLocalSystemActionLabel = FormatLocalSystemActionLabel(action, statusMessage, succeeded: true);
+            _systemStatusLabel.Text = visibleStatus;
+        _lastLocalSystemActionLabel = FormatLocalSystemActionLabel(action, visibleStatus, succeeded: true);
         if (profileForAudit != null)
         {
             _auditLog.TryRecordCommand(
@@ -10711,13 +16093,13 @@ public sealed class MainForm : Form
                 out _,
                 commandFamily: "system",
                 actionTarget: action,
-                details: statusMessage,
+                details: visibleStatus,
                 success: true,
                 verificationMethod: "visible_status",
                 verificationSummary: "System action request was shown in the visible System tab status before returning to the session.");
         }
 
-        UpdateStatus(statusMessage);
+        UpdateStatus(visibleStatus);
         RefreshSystemPanel();
     }
 
@@ -11385,6 +16767,71 @@ public sealed class MainForm : Form
         ImportCommunityPacks(CallsignCommandRegistry.ExpandImportablePackPaths(new[] { dialog.SelectedPath }));
     }
 
+    private void UpdateCommunityPack()
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = "Update Callsign command pack",
+            Filter = "Callsign command pack (*.dll)|*.dll",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            RecordExtensionPackUiAudit(
+                "extension_pack_update",
+                "cancelled",
+                "file_dialog",
+                "user_cancelled",
+                false,
+                "Extension pack update cancellation was shown in the visible Packs surface.");
+            return;
+        }
+
+        ImportCommunityPacks(dialog.FileNames, allowOverwrite: true);
+    }
+
+    private void RollbackSelectedPack()
+    {
+        if (_packsList?.SelectedItem is not PackListItem packItem)
+        {
+            UpdateStatus("Select a pack first.");
+            RecordExtensionPackUiAudit(
+                "extension_pack_rollback",
+                "failed",
+                "rollback",
+                "no_pack_selected",
+                false,
+                "Extension pack rollback failure was shown in the visible Packs surface.");
+            return;
+        }
+
+        var rolledBack = CallsignCommandRegistry.Shared.RollbackPack(packItem.Pack.PackId, out var message);
+        if (!rolledBack)
+        {
+            UpdateStatus(message ?? $"Pack '{packItem.Pack.DisplayName}' could not be rolled back.");
+            RecordExtensionPackUiAudit(
+                "extension_pack_rollback",
+                "failed",
+                packItem.Pack.PackId,
+                message ?? "rollback_failed",
+                false,
+                "Extension pack rollback failure was shown in the visible Packs surface.");
+            return;
+        }
+
+        RefreshPacksPanel(forceReload: true, preferredPackId: packItem.Pack.PackId);
+        UpdateStatus(message ?? $"Rolled back pack '{packItem.Pack.DisplayName}'.");
+        RecordExtensionPackUiAudit(
+            "extension_pack_rollback",
+            "succeeded",
+            packItem.Pack.PackId,
+            "rolled_back",
+            true,
+            "Extension pack rollback was shown in the visible Packs surface.");
+    }
+
     private void PacksDrop(Control target, DragEventArgs e)
     {
         if (e.Data == null || !e.Data.GetDataPresent(DataFormats.FileDrop))
@@ -11446,7 +16893,7 @@ public sealed class MainForm : Form
         e.Effect = DragDropEffects.None;
     }
 
-    private void ImportCommunityPacks(IEnumerable<string> sourcePackPaths)
+    private void ImportCommunityPacks(IEnumerable<string> sourcePackPaths, bool allowOverwrite = false)
     {
         var packPaths = sourcePackPaths
             .Where(path => !string.IsNullOrWhiteSpace(path))
@@ -11457,6 +16904,8 @@ public sealed class MainForm : Form
         if (packPaths.Length == 0)
         {
             UpdateStatus("No command pack paths were provided.");
+            _packsImportSummaryLabel.Text = "Last import: no command pack paths were provided.";
+            _packsImportBadge.Text = "Import: no paths";
             RecordExtensionPackUiAudit(
                 "extension_pack_import",
                 "failed",
@@ -11475,7 +16924,7 @@ public sealed class MainForm : Form
         {
             foreach (var path in packPaths)
             {
-                var result = CallsignCommandRegistry.Shared.ImportPack(path, enableImmediately: false);
+                var result = CallsignCommandRegistry.Shared.ImportPack(path, enableImmediately: false, allowOverwrite: allowOverwrite);
                 if (result.Succeeded)
                 {
                     successes.Add($"{Path.GetFileName(path)}");
@@ -11495,6 +16944,13 @@ public sealed class MainForm : Form
 
             if (successes.Count > 0)
             {
+                var importedPreview = BuildImportedPackFeaturePreview(importedPacks, CallsignCommandRegistry.Shared);
+                _packsImportSummaryLabel.Text = successes.Count == 1
+                    ? $"Last import: {successes[0]} imported disabled for review. Review and enable it from Packs. {importedPreview}"
+                    : $"Last import: {successes.Count} packs imported disabled for review. Review and enable them from Packs. {importedPreview}";
+                _packsImportBadge.Text = successes.Count == 1
+                    ? $"Import: {successes[0]} review"
+                    : $"Import: {successes.Count} review";
                 UpdateStatus($"Imported {successes.Count} command pack(s). Review and enable each before running commands.");
                 RecordExtensionPackUiAudit(
                     "extension_pack_import",
@@ -11507,6 +16963,16 @@ public sealed class MainForm : Form
 
             if (failures.Count > 0)
             {
+                if (successes.Count == 0)
+                {
+                    _packsImportSummaryLabel.Text = $"Last import: {failures.Count} pack import failure(s).";
+                    _packsImportBadge.Text = "Import: failed";
+                }
+                else
+                {
+                    _packsImportSummaryLabel.Text = $"Last import: {successes.Count} imported, {failures.Count} failed.";
+                    _packsImportBadge.Text = $"Import: {successes.Count} ok / {failures.Count} fail";
+                }
                 RecordExtensionPackUiAudit(
                     "extension_pack_import",
                     successes.Count > 0 ? "partial" : "failed",
@@ -11523,11 +16989,13 @@ public sealed class MainForm : Form
             }
 
             if (importedPacks.Length > 0)
-                ShowPackImportSplash(BuildPackImportManifest(importedPacks, CallsignCommandRegistry.Shared));
+                ShowPackImportSplash(BuildPackImportManifest(importedPacks, CallsignCommandRegistry.Shared, "User imported these packs from the visible Packs surface."));
         }
         catch (Exception ex)
         {
             UpdateStatus($"Unable to import command pack(s): {ex.Message}");
+            _packsImportSummaryLabel.Text = $"Last import: failed - {ex.Message}";
+            _packsImportBadge.Text = "Import: failed";
             RecordExtensionPackUiAudit(
                 "extension_pack_import",
                 "failed",
@@ -11539,7 +17007,10 @@ public sealed class MainForm : Form
         }
     }
 
-    public static CallsignUpdateManifest BuildPackImportManifest(IReadOnlyList<CallsignPackInfo> importedPacks, CallsignCommandRegistry? registry = null)
+    public static CallsignUpdateManifest BuildPackImportManifest(
+        IReadOnlyList<CallsignPackInfo> importedPacks,
+        CallsignCommandRegistry? registry = null,
+        string? summaryPrefix = null)
     {
         var packList = importedPacks
             .Where(pack => pack.WasImported)
@@ -11565,16 +17036,36 @@ public sealed class MainForm : Form
                 pack.DisplayName,
                 pack.Version,
                 pack.Tier,
-                BuildPackImportSummary(pack),
-                pack.SignatureStatus))
+                BuildPackImportSummary(pack, registry),
+                pack.SignatureStatus,
+                pack.IsCommunity))
             .ToArray();
 
-        var summary = packList.Length switch
+        var commandNames = addedCommands
+            .Select(command => $"{command.CommandId} ({command.DisplayName})")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToArray();
+        var commandCountText = addedCommands.Length == 1
+            ? "1 command"
+            : $"{addedCommands.Length} commands";
+        var commandPreviewText = commandNames.Length switch
+        {
+            0 => "no named commands",
+            1 => commandNames[0],
+            _ => string.Join(", ", commandNames)
+        };
+
+        var summaryBody = packList.Length switch
         {
             0 => "Imported command pack metadata was reviewed locally.",
-            1 => $"Imported {packList[0].DisplayName}. Review and enable it from Packs.",
-            _ => $"Imported {packList.Length} command packs. Review and enable each from Packs."
+            1 => $"Imported {(packList[0].IsCommunity ? "community" : "trusted")} {packList[0].DisplayName} v{packList[0].Version} with {commandCountText} ({commandPreviewText}) (signature={(string.IsNullOrWhiteSpace(packList[0].SignatureStatus) ? "unknown" : packList[0].SignatureStatus)}; {(packList[0].LoadStatus == CallsignPackLoadStatus.Disabled ? "disabled for review" : packList[0].LoadStatus.ToString().ToLowerInvariant())}). Review and enable it from Packs.",
+            _ => $"Imported {packList.Length} command packs ({packList.Count(pack => pack.IsCommunity)} community, {packList.Count(pack => !pack.IsCommunity)} trusted) with {commandCountText} ({commandPreviewText}). Review and enable each from Packs."
         };
+
+        var summary = string.IsNullOrWhiteSpace(summaryPrefix)
+            ? summaryBody
+            : $"{summaryPrefix.Trim()} {summaryBody}";
 
         return new CallsignUpdateManifest(
             Version: $"pack-import-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}",
@@ -11667,23 +17158,40 @@ public sealed class MainForm : Form
 
     private void RefreshPacksPanel(bool forceReload = false, string? preferredPackId = null)
     {
-        if (_packsRootLabel == null || _packsStatusLabel == null || _packsList == null || _packCommandsList == null)
+        if (_packsRootLabel == null || _packsStatusLabel == null || _packsStatusStrip == null || _packsCountBadge == null || _packsFilterBadge == null || _packsSelectionBadge == null || _packsImportBadge == null || _packsEnablementBadge == null || _packsBoundaryBadge == null || _packsList == null || _packCommandsList == null || _packsFilterText == null || _packsBackupLabel == null)
             return;
 
         if (forceReload)
             RefreshCommandRegistry();
 
         var packs = CallsignCommandRegistry.Shared.GetPacks();
+        var filter = _packsFilterText.Text;
+        UpdatePackFilterButtonStates(filter);
+        var visiblePacks = packs.Where(pack => MatchesPackFilter(pack, filter)).ToArray();
         _packsRootLabel.Text = CallsignCommandRegistry.Shared.PackRoot;
+        _packsWatchBadge.Text = CallsignCommandRegistry.Shared.IsWatchingPackRoot
+            ? "Watch: active"
+            : "Watch: unavailable";
+        _packsWatchActivityBadge.Text = _lastPackRegistryChangeUtc.HasValue
+            ? $"Last watch: {_lastPackRegistryChangeUtc.Value.ToLocalTime():g}"
+            : "Last watch: never yet";
         _packsStatusLabel.Text = packs.Count == 0
-            ? "No packs were discovered. Import a DLL via the button or drag-and-drop into the list, then refresh."
-            : $"{packs.Count} pack(s) discovered.";
+            ? "No packs were discovered. The watched folder is active; import a DLL via the button or drag-and-drop into the list, then refresh."
+            : visiblePacks.Length == packs.Count
+                ? $"{visiblePacks.Length} pack(s) discovered. The watched folder is active."
+                : $"{visiblePacks.Length} of {packs.Count} pack(s) match the current filter. The watched folder is active.";
+        if (string.IsNullOrWhiteSpace(_packsImportSummaryLabel.Text) || _packsImportSummaryLabel.Text.StartsWith("Last import: none yet.", StringComparison.OrdinalIgnoreCase))
+            _packsImportBadge.Text = "Import: none yet";
+        _packsCountBadge.Text = $"Packs: {packs.Count}";
+        _packsFilterBadge.Text = string.IsNullOrWhiteSpace(filter)
+            ? "Filter: all"
+            : $"Filter: {filter}";
 
         _packsList.BeginUpdate();
         try
         {
             _packsList.Items.Clear();
-            foreach (var pack in packs)
+            foreach (var pack in visiblePacks)
                 _packsList.Items.Add(new PackListItem(pack));
         }
         finally
@@ -11691,7 +17199,7 @@ public sealed class MainForm : Form
             _packsList.EndUpdate();
         }
 
-        var preferredIndex = FindPreferredPackIndex(packs, preferredPackId);
+        var preferredIndex = FindPreferredPackIndex(visiblePacks, preferredPackId);
         if (preferredIndex >= 0)
             _packsList.SelectedIndex = preferredIndex;
 
@@ -11699,25 +17207,2514 @@ public sealed class MainForm : Form
             _packsList.SelectedIndex = 0;
 
         RefreshSelectedPackCommands();
+        _packsSelectionBadge.Text = _packsList.SelectedItem is PackListItem selectedPack
+            ? $"Selected: {selectedPack.Pack.DisplayName}"
+            : "Selected: none";
+        _packsBoundaryBadge.Text = $"Boundary: {string.Join(", ", CallsignCommandRegistry.Shared.Entitlements.EnabledTiers.OrderBy(tier => tier.ToString(), StringComparer.OrdinalIgnoreCase).Select(tier => tier.ToString()))}";
     }
 
     private void RefreshUpdatesPanel()
     {
-        if (_updatesServerLabel == null || _updatesCadenceLabel == null || _updatesStateLabel == null || _updatesPendingLabel == null)
+        if (_updatesServerLabel == null || _updatesCadenceLabel == null || _updatesStateLabel == null || _updatesCheckInLabel == null || _updatesPendingLabel == null || _updatesDeviceLabel == null || _updatesInstallerLabel == null || _updatesDownloadedInstallerLabel == null || _updatesWebsiteLabel == null || _updatesReleaseProofLabel == null || _updatesRestartLabel == null || _updatesEvidenceLabel == null || _updatesManualEvidenceLabel == null || _updatesReleaseGatesLabel == null || _updatesNextProofInstructionsLabel == null || _updatesProofNotesLabel == null || _updatesAutomationLabel == null || _updatesStatusStrip == null || _updatesServerBadge == null || _updatesCadenceBadge == null || _updatesStateBadge == null || _updatesPendingBadge == null || _updatesDeviceBadge == null || _updatesInstallerBadge == null || _updatesDownloadedInstallerBadge == null || _updatesWebsiteBadge == null || _updatesAutomationBadge == null || _updatesManualEvidenceStrip == null || _updatesManualSuppliedBadge == null || _updatesManualRemainingBadge == null || _updatesManualCategoriesBadge == null || _updatesManualProofBadge == null || _updatesManualCategoryBadge == null || _updatesManualNextBadge == null || _updatesReleaseGatesStrip == null || _updatesGateInstalledBadge == null || _updatesGateSpokenBadge == null || _updatesGateFailureBadge == null || _updatesGateCleanBadge == null || _checkUpdatesButton == null || _repeatUpdateSummaryButton == null || _readUpdatesStatusButton == null || _readCheckInStatusButton == null || _readEvidenceStatusButton == null || _readEvidenceHeaderButton == null || _readReleaseBlockersButton == null || _readNextProofButton == null || _readReleaseGatesButton == null || _readNextProofInstructionsButton == null || _readProofNotesStatusButton == null || _createEvidenceDraftButton == null || _openEvidenceDraftButton == null || _readEvidenceDraftButton == null || _openInstallerButton == null || _openReleaseProofButton == null || _openReleaseEvidenceButton == null || _openProofNotesFolderButton == null)
             return;
 
         _updatesServerLabel.Text = $"Update server: {_updateCheckService.ServerUrl} ({_updateCheckService.Channel})";
         _updatesCadenceLabel.Text = $"Cadence: checks on startup and every {_updateCheckService.CheckInterval.TotalHours:0} hours while Callsign is running.";
         _updatesStateLabel.Text = _updateCheckService.DescribeStatus(DateTimeOffset.UtcNow);
         var pendingManifest = _updateCheckService.PendingManifest;
+        var deviceId = _activeProfile?.Settings.UpdateDeviceId;
+        _updatesCheckInLabel.Text = _updateCheckService.LastCheckInUtc.HasValue
+            ? $"Check-in: {_updateCheckService.LastCheckInUtc.Value.ToLocalTime():g}."
+            : "Check-in: never yet. Callsign phones home on startup and while running.";
         _updatesPendingLabel.Text = pendingManifest == null
-            ? "Pending update: none yet."
-            : $"Pending update: v{pendingManifest.Version}; installer {(string.IsNullOrWhiteSpace(pendingManifest.InstallerUrl) ? "not staged" : "staged or downloading")}; splash summary {(string.IsNullOrWhiteSpace(pendingManifest.SplashSummary) ? "not provided" : "available")}.";
+            ? "Pending manifest: none yet."
+            : $"Pending manifest: v{pendingManifest.Version}; installer {(string.IsNullOrWhiteSpace(pendingManifest.InstallerUrl) ? "not staged" : "staged or downloading")}; splash summary {(string.IsNullOrWhiteSpace(pendingManifest.SplashSummary) ? "not provided" : "available")}.";
+        _updatesDeviceLabel.Text = string.IsNullOrWhiteSpace(deviceId)
+            ? "Update privacy id: none yet. Callsign will create a local device id and send only a hash when this profile phones home."
+            : $"Update privacy id: local stable id is hashed before check-in. Local id hint: {FormatDeviceIdentityHint(deviceId)}.";
+        _updatesInstallerLabel.Text = pendingManifest == null
+            ? "Installer download: none yet."
+            : !string.IsNullOrWhiteSpace(_updateCheckService.LastDownloadedInstallerPath) && File.Exists(_updateCheckService.LastDownloadedInstallerPath)
+                ? $"Installer download: v{pendingManifest.Version} downloaded and ready to open."
+                : string.IsNullOrWhiteSpace(pendingManifest.InstallerUrl)
+                ? $"Installer download: v{pendingManifest.Version} has no staged download."
+                : $"Installer download: v{pendingManifest.Version} ready to open.";
+        _updatesDownloadedInstallerLabel.Text = !string.IsNullOrWhiteSpace(_updateCheckService.LastDownloadedInstallerPath) && File.Exists(_updateCheckService.LastDownloadedInstallerPath)
+            ? $"Last downloaded installer: {_updateCheckService.LastDownloadedInstallerPath}."
+            : "Last downloaded installer: none yet.";
+        var websiteTarget = !string.IsNullOrWhiteSpace(pendingManifest?.InstallerUrl)
+            ? pendingManifest!.InstallerUrl
+            : "/downloads/Callsign-Setup.exe";
+        _updatesWebsiteLabel.Text = $"Website download target: {websiteTarget}.";
+        _updatesReleaseProofLabel.Text = BuildReleaseProofText(pendingManifest);
+        _updatesRestartLabel.Text = BuildRestartProofText();
+        _updatesEvidenceLabel.Text = BuildEvidenceStatusText();
+        var manualEvidenceProgress = BuildManualEvidenceProgressSummary();
+        _updatesManualEvidenceLabel.Text = manualEvidenceProgress.LabelText;
+        _updatesAutomationLabel.Text = "Automation: updates download and install visibly.";
+        _updatesServerBadge.Text = $"Server: {_updateCheckService.Channel}";
+        _updatesCadenceBadge.Text = $"Cadence: every {_updateCheckService.CheckInterval.TotalHours:0} hours";
+        _updatesStateBadge.Text = _updateCheckService.LastCheckUtc.HasValue
+            ? $"State: {_updateCheckService.LastCheckUtc.Value.ToLocalTime():g}"
+            : "State: never checked";
+        _updatesPendingBadge.Text = pendingManifest == null
+            ? "Pending: none"
+            : $"Pending: v{pendingManifest.Version}";
+        _updatesDeviceBadge.Text = string.IsNullOrWhiteSpace(deviceId)
+            ? "Privacy id: none"
+            : $"Privacy id: {FormatDeviceIdentityHint(deviceId)}";
+        _updatesInstallerBadge.Text = pendingManifest == null
+            ? "Installer: none"
+            : !string.IsNullOrWhiteSpace(_updateCheckService.LastDownloadedInstallerPath) && File.Exists(_updateCheckService.LastDownloadedInstallerPath)
+                ? "Installer: downloaded"
+                : string.IsNullOrWhiteSpace(pendingManifest.InstallerUrl)
+                ? "Installer: not staged"
+                : "Installer: ready";
+        _updatesDownloadedInstallerBadge.Text = !string.IsNullOrWhiteSpace(_updateCheckService.LastDownloadedInstallerPath) && File.Exists(_updateCheckService.LastDownloadedInstallerPath)
+            ? "Download: ready"
+            : "Download: none";
+        _updatesWebsiteBadge.Text = websiteTarget.Contains("/downloads/Callsign-Setup.exe", StringComparison.OrdinalIgnoreCase)
+            ? "Website: /downloads/Callsign-Setup.exe"
+            : "Website: custom target";
+        _updatesAutomationBadge.Text = "Auto: download + install";
+        _updatesManualSuppliedBadge.Text = manualEvidenceProgress.SuppliedBadgeText;
+        _updatesManualRemainingBadge.Text = manualEvidenceProgress.RemainingBadgeText;
+        _updatesManualCategoriesBadge.Text = manualEvidenceProgress.CategoriesBadgeText;
+        _updatesManualProofBadge.Text = manualEvidenceProgress.ProofBadgeText;
+        _updatesManualCategoryBadge.Text = manualEvidenceProgress.CategoryBadgeText;
+        _updatesManualNextBadge.Text = manualEvidenceProgress.NextBadgeText;
+        var releaseGateSummary = BuildReleaseGateSummary();
+        _updatesReleaseGatesLabel.Text = releaseGateSummary.LabelText;
+        _updatesGateInstalledBadge.Text = releaseGateSummary.InstalledBadgeText;
+        _updatesGateSpokenBadge.Text = releaseGateSummary.SpokenBadgeText;
+        _updatesGateFailureBadge.Text = releaseGateSummary.FailureBadgeText;
+        _updatesGateCleanBadge.Text = releaseGateSummary.CleanBadgeText;
+        _updatesNextProofInstructionsLabel.Text = BuildNextProofInstructionSummary().LabelText;
+        _updatesProofNotesLabel.Text = BuildProofNotesStatusText();
+        _openInstallerButton.Enabled = (pendingManifest != null && !string.IsNullOrWhiteSpace(pendingManifest.InstallerUrl))
+            || (!string.IsNullOrWhiteSpace(_updateCheckService.LastDownloadedInstallerPath) && File.Exists(_updateCheckService.LastDownloadedInstallerPath));
+        _openReleaseProofButton.Enabled = true;
+        _openReleaseEvidenceButton.Enabled = true;
+    }
+
+    private void ApplyUpdateServerUrl()
+    {
+        if (_activeProfile == null || string.IsNullOrWhiteSpace(_activeProfile.Callsign))
+        {
+            UpdateStatus("Choose an account before saving the update server.");
+            return;
+        }
+
+        _activeProfile.Settings.UpdateServerUrl = NormalizeUpdateServerUrl(_updateServerUrlText?.Text);
+        SaveProfile();
+        RefreshUpdateServerBinding(_activeProfile);
+        UpdateStatus(string.IsNullOrWhiteSpace(_activeProfile.Settings.UpdateServerUrl)
+            ? "Saved the default update server for this account."
+            : $"Saved update server '{_activeProfile.Settings.UpdateServerUrl}' for this account.");
+    }
+
+    private string BuildRestartProofText()
+    {
+        var installerPath = _updateCheckService.LastDownloadedInstallerPath;
+        var installerText = !string.IsNullOrWhiteSpace(installerPath) && File.Exists(installerPath)
+            ? $"Downloaded installer path: {installerPath}; "
+            : "Downloaded installer path: none yet; ";
+
+        return $"Restart proof: the update service reloads last known version, pending manifest, and next-due timing from updates-state.json; {installerText}downloaded installer path available after restart so the visible Updates tab keeps that installer available after restart.";
+    }
+
+    private string BuildPacksWatchStatusReadout()
+    {
+        if (_packsRootLabel == null || _packsStatusLabel == null || _packsWatchBadge == null || _packsWatchActivityBadge == null || _packsImportSummaryLabel == null)
+            return string.Empty;
+
+        return string.Join(
+            " ",
+            "Packs watch status.",
+            $"Watched folder: {_packsRootLabel.Text}.",
+            _packsWatchBadge.Text,
+            _packsWatchActivityBadge.Text,
+            _packsStatusLabel.Text,
+            _packsImportSummaryLabel.Text,
+            "Imported packs stay disabled until reviewed, and policy still decides what can run.");
+    }
+
+    private string BuildPlansStatusReadout()
+    {
+        if (_plansRoadmapLabel == null || _plansFreeLabel == null || _plansProLabel == null || _plansAdvancedLabel == null || _plansBoundaryLabel == null)
+            return string.Empty;
+
+        var entitlements = CallsignCommandRegistry.Shared.Entitlements;
+        var enabledTiers = entitlements.EnabledTiers.OrderBy(tier => tier.ToString(), StringComparer.OrdinalIgnoreCase).Select(tier => tier.ToString()).ToArray();
+        var entitlementSummary = enabledTiers.Length == 0 ? "none" : string.Join(", ", enabledTiers);
+
+        return string.Join(
+            " ",
+            "Plans status.",
+            _plansRoadmapLabel.Text,
+            $"Current entitlement: {entitlementSummary}.",
+            _plansFreeLabel.Text,
+            _plansProLabel.Text,
+            _plansAdvancedLabel.Text,
+            _plansBoundaryLabel.Text,
+            "The Windows Voice Access parity baseline stays Free and open-core; paid packs start beyond parity. Entitlement still only decides whether a paid pack may load, and policy still decides whether any command may run.");
+    }
+
+    private string BuildReleaseProofText(CallsignUpdateManifest? pendingManifest)
+    {
+        var installerPath = _updateCheckService.LastDownloadedInstallerPath;
+        if (!string.IsNullOrWhiteSpace(installerPath) && File.Exists(installerPath))
+        {
+            try
+            {
+                using var stream = File.OpenRead(installerPath);
+                var hash = Convert.ToHexString(SHA256.HashData(stream));
+                var shortHash = hash.Length >= 8 ? hash[..8] : hash;
+                if (pendingManifest != null && !string.IsNullOrWhiteSpace(pendingManifest.InstallerSha256) && pendingManifest.InstallerSha256.Length >= 8)
+                {
+                    var expectedHash = pendingManifest.InstallerSha256[..8];
+                    var expectedSize = pendingManifest.InstallerSizeBytes > 0 ? $"{pendingManifest.InstallerSizeBytes:n0} bytes" : "unknown size";
+                    return $"Release proof: local installer {installerPath} has SHA-256 {shortHash}... expected manifest SHA-256 {expectedHash}... and {expectedSize}; last downloaded installer {installerPath}; open the release evidence folder and compare it with /downloads/Callsign-Setup.exe.";
+                }
+
+                return $"Release proof: local installer {installerPath} has SHA-256 {shortHash}... last downloaded installer {installerPath}; open the release evidence folder and compare it with /downloads/Callsign-Setup.exe.";
+            }
+            catch
+            {
+                return "Release proof: installer is ready, but the local SHA-256 could not be read.";
+            }
+        }
+
+        if (pendingManifest == null)
+            return "Release proof: open the walkthrough to compare the local installer, release evidence folder, and public download.";
+
+        if (string.IsNullOrWhiteSpace(pendingManifest.InstallerUrl))
+            return "Release proof: the manifest has no staged installer URL yet.";
+
+        var manifestSize = pendingManifest.InstallerSizeBytes > 0 ? $"{pendingManifest.InstallerSizeBytes:n0} bytes" : "unknown size";
+        var manifestHash = pendingManifest.InstallerSha256.Length >= 8 ? pendingManifest.InstallerSha256[..8] : pendingManifest.InstallerSha256;
+        return $"Release proof: compare the local installer with {pendingManifest.InstallerUrl}; open the release evidence folder; manifest SHA-256 {manifestHash}... and {manifestSize}.";
+    }
+
+    private static string BuildEvidenceStatusText()
+    {
+        var evidenceFolder = TryGetReleaseEvidenceFolder();
+        var releasePacketPath = TryGetReleasePacketSummaryPath();
+        var parityEvidencePath = TryGetParityEvidencePath();
+        var templatePath = TryGetManualEvidenceTemplatePath();
+        var checklistPath = TryGetManualEvidenceChecklistPath();
+
+        var folderText = string.IsNullOrWhiteSpace(evidenceFolder)
+            ? "release evidence folder missing"
+            : "release evidence folder ready";
+        var packetText = string.IsNullOrWhiteSpace(releasePacketPath)
+            ? "release packet missing"
+            : $"release packet {BuildReleasePacketSummaryText(releasePacketPath)}";
+        var parityText = string.IsNullOrWhiteSpace(parityEvidencePath)
+            ? "parity evidence missing"
+            : $"parity evidence {BuildParityEvidenceSummaryText(parityEvidencePath)}";
+        var templateText = string.IsNullOrWhiteSpace(templatePath) || !File.Exists(templatePath)
+            ? "manual template missing"
+            : "manual template ready";
+        var checklistText = string.IsNullOrWhiteSpace(checklistPath) || !File.Exists(checklistPath)
+            ? "manual checklist missing"
+            : "manual checklist ready";
+
+        return $"Evidence status: {folderText}; {packetText}; {parityText}; {templateText}; {checklistText}.";
+    }
+
+    private static string BuildEvidenceHeaderReadout()
+    {
+        var templatePath = TryGetManualEvidenceTemplatePath();
+        if (string.IsNullOrWhiteSpace(templatePath) || !File.Exists(templatePath))
+            return "Manual evidence header. The generated manual evidence template is missing. Run the parity evidence script with WriteManualEvidenceTemplate, then open the checklist.";
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(templatePath));
+            var root = document.RootElement;
+            if (!root.TryGetProperty("evidence_header", out var header) || header.ValueKind != JsonValueKind.Object)
+                return "Manual evidence header. The generated manual evidence template does not contain an evidence_header block. Rerun the evidence script before release.";
+
+            var requiredFields = new[]
+            {
+                "commit",
+                "build_id",
+                "tested_utc",
+                "tester",
+                "windows_version_edition_build",
+                "architecture",
+                "machine_or_vm",
+                "microphone",
+                "install_mode",
+                "ui_runtime_versions",
+                "wake_identity_transcription_models"
+            };
+            var missingFields = requiredFields
+                .Where(field => string.IsNullOrWhiteSpace(TryGetJsonString(header, field)))
+                .ToArray();
+            var artifactHashesReady = header.TryGetProperty("artifact_hashes", out var hashes)
+                && hashes.ValueKind == JsonValueKind.Array
+                && hashes.GetArrayLength() > 0;
+            var localInstallerHash = TryGetJsonString(root, "local_installer_sha256");
+            var websiteHash = TryGetJsonString(root, "website_installer_sha256");
+            var websiteUrl = TryGetJsonString(root, "website_download_url");
+            var localSize = TryGetJsonInt64(root, "local_installer_size_bytes");
+            var websiteSize = TryGetJsonInt64(root, "website_installer_size_bytes");
+
+            var missingText = missingFields.Length == 0
+                ? "Required header fields are filled."
+                : $"Missing header fields: {string.Join(", ", missingFields)}.";
+            var artifactText = artifactHashesReady
+                ? "Artifact hashes are present."
+                : "Artifact hashes are missing; include the current installer SHA-256 and any attached artifact hashes.";
+            var installerText = string.IsNullOrWhiteSpace(localInstallerHash)
+                ? "Local installer hash is missing."
+                : $"Local installer SHA-256 starts {localInstallerHash[..Math.Min(12, localInstallerHash.Length)]}; size {FormatByteCount(localSize)}.";
+            var websiteText = string.IsNullOrWhiteSpace(websiteUrl) || string.IsNullOrWhiteSpace(websiteHash) || !websiteSize.HasValue || websiteSize.Value <= 0
+                ? "Website download proof is missing; verify the public downloads Callsign-Setup.exe hash and size."
+                : $"Website proof targets {websiteUrl}; SHA-256 starts {websiteHash[..Math.Min(12, websiteHash.Length)]}; size {FormatByteCount(websiteSize)}.";
+
+            return string.Join(
+                " ",
+                "Manual evidence header.",
+                missingText,
+                artifactText,
+                installerText,
+                websiteText,
+                "Fill the header before marking manual parity evidence complete.");
+        }
+        catch
+        {
+            return "Manual evidence header. The generated manual evidence template is unreadable. Rerun the evidence script before release.";
+        }
+    }
+
+    private static string BuildEvidenceDraftReadout()
+    {
+        var draftPath = TryGetManualEvidenceDraftPath();
+        if (string.IsNullOrWhiteSpace(draftPath) || !File.Exists(draftPath))
+            return "Manual evidence draft. No draft exists yet. Use Create Evidence Draft to prefill safe local build facts before completing live parity proof.";
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(draftPath));
+            var root = document.RootElement;
+            var checksCount = root.TryGetProperty("checks", out var checks) && checks.ValueKind == JsonValueKind.Array
+                ? checks.GetArrayLength()
+                : 0;
+            var passedCount = checksCount > 0
+                ? checks.EnumerateArray().Count(check => TryGetJsonBoolean(check, "passed") == true)
+                : 0;
+            var nextDraftCheck = checksCount > 0
+                ? BuildNextEvidenceDraftCheckText(checks)
+                : "No next draft check is available.";
+            var localInstallerHash = TryGetJsonString(root, "local_installer_sha256");
+            var localInstallerSize = TryGetJsonInt64(root, "local_installer_size_bytes");
+            var websiteUrl = TryGetJsonString(root, "website_download_url");
+            var header = root.TryGetProperty("evidence_header", out var headerElement) && headerElement.ValueKind == JsonValueKind.Object
+                ? headerElement
+                : default;
+            var artifactHashCount = header.ValueKind == JsonValueKind.Object
+                && header.TryGetProperty("artifact_hashes", out var hashes)
+                && hashes.ValueKind == JsonValueKind.Array
+                ? hashes.GetArrayLength()
+                : 0;
+            var tester = header.ValueKind == JsonValueKind.Object ? TryGetJsonString(header, "tester") : null;
+            var microphone = header.ValueKind == JsonValueKind.Object ? TryGetJsonString(header, "microphone") : null;
+
+            var installerText = string.IsNullOrWhiteSpace(localInstallerHash)
+                ? "Local installer hash missing."
+                : $"Local installer SHA-256 starts {localInstallerHash[..Math.Min(12, localInstallerHash.Length)]}; size {FormatByteCount(localInstallerSize)}.";
+            var websiteText = string.IsNullOrWhiteSpace(websiteUrl)
+                ? "Website proof still needs the public download URL, hash, and size."
+                : $"Website proof URL is {websiteUrl}.";
+            var humanText = string.IsNullOrWhiteSpace(tester) || string.IsNullOrWhiteSpace(microphone)
+                ? "Human fields still need tester and microphone details."
+                : "Tester and microphone fields are filled.";
+
+            return string.Join(
+                " ",
+                "Manual evidence draft.",
+                $"{checksCount} checks in draft; {passedCount} marked passed.",
+                $"{artifactHashCount} artifact hash{(artifactHashCount == 1 ? string.Empty : "es")} recorded.",
+                installerText,
+                websiteText,
+                humanText,
+                nextDraftCheck,
+                "Open the draft, complete live walkthrough results, then rerun evidence with RequireManualEvidence.");
+        }
+        catch
+        {
+            return "Manual evidence draft. The draft exists but is unreadable. Recreate it from the generated manual evidence template.";
+        }
+    }
+
+    private static string BuildNextEvidenceDraftCheckText(JsonElement checks)
+    {
+        if (checks.ValueKind != JsonValueKind.Array)
+            return "No next draft check is available.";
+
+        foreach (var check in checks.EnumerateArray())
+        {
+            if (check.ValueKind != JsonValueKind.Object || TryGetJsonBoolean(check, "passed") == true)
+                continue;
+
+            var id = TryGetJsonString(check, "id") ?? "unknown";
+            var description = TryGetJsonString(check, "description") ?? "unnamed manual proof";
+            var evidenceCommand = TryGetJsonString(check, "evidence_command") ?? "Open the checklist and complete this manual proof step.";
+            var expectedResult = TryGetJsonString(check, "expected_result") ?? "Attach sanitized proof artifacts and mark the check passed only after the expected visible result is observed.";
+
+            return $"Next draft check: {id}. {description}. Do: {evidenceCommand} Expected: {expectedResult}";
+        }
+
+        return "No unchecked draft checks remain.";
+    }
+
+    private static string FormatByteCount(long? byteCount)
+    {
+        return byteCount.HasValue && byteCount.Value > 0
+            ? $"{byteCount.Value:n0} bytes"
+            : "unknown size";
+    }
+
+    private static ManualEvidenceProgressSummary BuildManualEvidenceProgressSummary()
+    {
+        var parityEvidencePath = TryGetParityEvidencePath();
+        if (string.IsNullOrWhiteSpace(parityEvidencePath) || !File.Exists(parityEvidencePath))
+        {
+            return new ManualEvidenceProgressSummary(
+                "Manual evidence progress: parity evidence JSON missing; run the evidence script, then open the checklist.",
+                "Manual: unknown",
+                "Remaining: unknown",
+                "Categories: unknown",
+                "Proof: unknown",
+                "Category: unknown",
+                "Next: run evidence");
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(parityEvidencePath));
+            var root = document.RootElement;
+            if (!root.TryGetProperty("release_blocker_summary", out var summary)
+                || summary.ValueKind != JsonValueKind.Object)
+            {
+                return new ManualEvidenceProgressSummary(
+                    "Manual evidence progress: blocker summary missing; open the evidence JSON and rerun the evidence script.",
+                    "Manual: unknown",
+                    "Remaining: unknown",
+                    "Categories: unknown",
+                    "Proof: unknown",
+                    "Category: unknown",
+                    "Next: rerun evidence");
+            }
+
+            var supplied = TryGetJsonBoolean(summary, "manual_evidence_supplied");
+            var remaining = TryGetJsonInt32(summary, "manual_checks_remaining_count");
+            var categoriesMissing = TryGetJsonInt32(summary, "manual_categories_missing_count");
+            var failedAutomated = TryGetJsonInt32(summary, "failed_automated_checks_count");
+            var nextAction = TryGetJsonString(summary, "next_action");
+            var suppliedText = supplied.HasValue
+                ? supplied.Value ? "manual evidence supplied" : "manual evidence not supplied"
+                : "manual evidence supply unknown";
+            var remainingText = remaining.HasValue
+                ? $"{remaining.Value} manual/live check{(remaining.Value == 1 ? string.Empty : "s")} remaining"
+                : "manual/live check count unknown";
+            var categoryText = categoriesMissing.HasValue
+                ? $"{categoriesMissing.Value} categor{(categoriesMissing.Value == 1 ? "y" : "ies")} missing"
+                : "category coverage unknown";
+            var failedText = failedAutomated.HasValue
+                ? $"{failedAutomated.Value} automated check{(failedAutomated.Value == 1 ? string.Empty : "s")} failed"
+                : "automated status unknown";
+            var nextText = string.IsNullOrWhiteSpace(nextAction)
+                ? "Open Checklist to capture live proof."
+                : nextAction.Trim();
+            var remainingPreview = TryGetManualEvidenceRemainingPreview(root);
+            var categoryPreview = TryGetManualEvidenceMissingCategoryPreview(root);
+            var previewText = remainingPreview.Count == 0
+                ? string.Empty
+                : $" Next proof: {remainingPreview[0]}.";
+            var categoryPreviewText = categoryPreview.Count == 0
+                ? string.Empty
+                : $" First missing category: {categoryPreview[0]}.";
+
+            return new ManualEvidenceProgressSummary(
+                $"Manual evidence progress: {suppliedText}; {remainingText}; {categoryText}; {failedText}; next: {nextText}.{previewText}{categoryPreviewText}",
+                supplied.HasValue && supplied.Value ? "Manual: supplied" : "Manual: not supplied",
+                remaining.HasValue ? $"Remaining: {remaining.Value}" : "Remaining: unknown",
+                categoriesMissing.HasValue ? $"Categories: {categoriesMissing.Value} missing" : "Categories: unknown",
+                remainingPreview.Count == 0 ? "Proof: none remaining" : $"Proof: {CompactBadgeText(remainingPreview[0], 42)}",
+                categoryPreview.Count == 0 ? "Category: none missing" : $"Category: {CompactBadgeText(categoryPreview[0], 42)}",
+                $"Next: {CompactBadgeText(nextText, 42)}");
+        }
+        catch
+        {
+            return new ManualEvidenceProgressSummary(
+                "Manual evidence progress: parity evidence JSON is present but unreadable; rerun the evidence script and open the checklist.",
+                "Manual: unreadable",
+                "Remaining: unknown",
+                "Categories: unknown",
+                "Proof: unknown",
+                "Category: unknown",
+                "Next: rerun evidence");
+        }
+    }
+
+    private static ReleaseGateSummary BuildReleaseGateSummary()
+    {
+        var parityEvidencePath = TryGetParityEvidencePath();
+        if (string.IsNullOrWhiteSpace(parityEvidencePath) || !File.Exists(parityEvidencePath))
+        {
+            return new ReleaseGateSummary(
+                "Release gates: parity evidence JSON missing; run the evidence script before release.",
+                "Installed gate: unknown",
+                "Spoken gate: unknown",
+                "Failure gate: unknown",
+                "Clean VM gate: unknown");
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(parityEvidencePath));
+            var root = document.RootElement;
+            var installed = BuildReleaseGateState(root, "installed_end_to_end_automated_checks", "Installed end-to-end automated checks against the built installer and installed runtime.", "Installed gate");
+            var spoken = BuildReleaseGateState(root, "human_spoken_core_walkthrough", "Human-spoken core walkthrough covering wake, identity, overlay/readout, command capture, and visible action.", "Spoken gate");
+            var failure = BuildReleaseGateState(root, "failure_state_walkthrough", "Failure-state walkthrough covering wrong identity, timeout, cancel/reset, microphone/runtime failures, and safe recovery.", "Failure gate");
+            var clean = BuildReleaseGateState(root, "clean_windows_user_or_vm_test", "Clean Windows user or VM test proving the public installer works without developer state.", "Clean VM gate");
+            var pendingCount = new[] { installed, spoken, failure, clean }.Count(gate => !gate.Passed);
+            var label = pendingCount == 0
+                ? "Release gates: installed automation, human-spoken walkthrough, failure-state walkthrough, and clean Windows proof are complete."
+                : $"Release gates: {pendingCount} of 4 documentation-pack gate{(pendingCount == 1 ? string.Empty : "s")} still need live proof; use Read Gates for the exact blockers.";
+
+            return new ReleaseGateSummary(
+                label,
+                installed.BadgeText,
+                spoken.BadgeText,
+                failure.BadgeText,
+                clean.BadgeText);
+        }
+        catch
+        {
+            return new ReleaseGateSummary(
+                "Release gates: parity evidence JSON is present but unreadable; rerun the evidence script before release.",
+                "Installed gate: unreadable",
+                "Spoken gate: unreadable",
+                "Failure gate: unreadable",
+                "Clean VM gate: unreadable");
+        }
+    }
+
+    private static ReleaseGateState BuildReleaseGateState(JsonElement root, string checkId, string description, string badgePrefix)
+    {
+        if (TryGetManualEvidenceData(root, out var manualEvidence)
+            && TryGetManualEvidenceCheckPassed(manualEvidence, checkId, out var passed))
+            return new ReleaseGateState(passed, $"{badgePrefix}: {(passed ? "passed" : "pending")}");
+
+        if (root.TryGetProperty("manual_evidence", out var generatedManualEvidence)
+            && generatedManualEvidence.ValueKind == JsonValueKind.Object
+            && generatedManualEvidence.TryGetProperty("remaining", out var remaining)
+            && remaining.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in remaining.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.String)
+                    continue;
+
+                var value = item.GetString();
+                if (string.IsNullOrWhiteSpace(value))
+                    continue;
+
+                if (value.Contains(checkId, StringComparison.OrdinalIgnoreCase)
+                    || value.Contains(description, StringComparison.OrdinalIgnoreCase))
+                    return new ReleaseGateState(false, $"{badgePrefix}: pending");
+            }
+
+            return new ReleaseGateState(true, $"{badgePrefix}: passed");
+        }
+
+        return new ReleaseGateState(false, $"{badgePrefix}: unknown");
+    }
+
+    private static NextProofInstructionSummary BuildNextProofInstructionSummary()
+    {
+        var remaining = TryGetFirstRemainingManualProof();
+        if (string.IsNullOrWhiteSpace(remaining))
+        {
+            return new NextProofInstructionSummary(
+                "Next proof instructions: no remaining manual proof item was found; rerun evidence or open the checklist.",
+                "unknown",
+                "unknown",
+                "unknown");
+        }
+
+        var templatePath = TryGetManualEvidenceTemplatePath();
+        if (string.IsNullOrWhiteSpace(templatePath) || !File.Exists(templatePath))
+        {
+            return new NextProofInstructionSummary(
+                $"Next proof instructions: {remaining}; manual evidence template missing, so open the checklist and regenerate evidence.",
+                "unknown",
+                "unknown",
+                remaining);
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(templatePath));
+            if (!document.RootElement.TryGetProperty("checks", out var checks)
+                || checks.ValueKind != JsonValueKind.Array)
+            {
+                return new NextProofInstructionSummary(
+                    $"Next proof instructions: {remaining}; manual evidence template has no checks array.",
+                    "unknown",
+                    "unknown",
+                    remaining);
+            }
+
+            foreach (var check in checks.EnumerateArray())
+            {
+                if (check.ValueKind != JsonValueKind.Object)
+                    continue;
+
+                var description = TryGetJsonString(check, "description");
+                var id = TryGetJsonString(check, "id");
+                if (!TextMatchesManualProof(remaining, description) && !TextMatchesManualProof(remaining, id))
+                    continue;
+
+                var evidenceCommand = TryGetJsonString(check, "evidence_command") ?? "Open the checklist and complete this manual proof step.";
+                var expectedResult = TryGetJsonString(check, "expected_result") ?? "Attach sanitized proof artifacts and mark the check passed only after the expected visible result is observed.";
+                var checkLabel = string.IsNullOrWhiteSpace(id) ? remaining : id;
+                return new NextProofInstructionSummary(
+                    $"Next proof instructions: {checkLabel}; do: {evidenceCommand} Expected: {expectedResult}",
+                    evidenceCommand,
+                    expectedResult,
+                    checkLabel);
+            }
+
+            return new NextProofInstructionSummary(
+                $"Next proof instructions: {remaining}; matching template check not found, so open the checklist and regenerate evidence.",
+                "unknown",
+                "unknown",
+                remaining);
+        }
+        catch
+        {
+            return new NextProofInstructionSummary(
+                $"Next proof instructions: {remaining}; manual evidence template is unreadable, so rerun the evidence script.",
+                "unknown",
+                "unknown",
+                remaining);
+        }
+    }
+
+    private static string? TryGetFirstRemainingManualProof()
+    {
+        var parityEvidencePath = TryGetParityEvidencePath();
+        if (string.IsNullOrWhiteSpace(parityEvidencePath) || !File.Exists(parityEvidencePath))
+            return null;
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(parityEvidencePath));
+            var remaining = TryGetManualEvidenceRemainingPreview(document.RootElement);
+            return remaining.Count == 0 ? null : remaining[0];
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool TextMatchesManualProof(string proof, string? candidate)
+    {
+        if (string.IsNullOrWhiteSpace(proof) || string.IsNullOrWhiteSpace(candidate))
+            return false;
+
+        return proof.Equals(candidate, StringComparison.OrdinalIgnoreCase)
+            || proof.Contains(candidate, StringComparison.OrdinalIgnoreCase)
+            || candidate.Contains(proof, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryGetManualEvidenceData(JsonElement root, out JsonElement manualEvidence)
+    {
+        manualEvidence = default;
+        if (!root.TryGetProperty("manual_evidence", out var container)
+            || container.ValueKind != JsonValueKind.Object
+            || !container.TryGetProperty("data", out var data)
+            || data.ValueKind != JsonValueKind.Object)
+            return false;
+
+        manualEvidence = data;
+        return true;
+    }
+
+    private static bool TryGetManualEvidenceCheckPassed(JsonElement manualEvidence, string checkId, out bool passed)
+    {
+        passed = false;
+        if (!manualEvidence.TryGetProperty("checks", out var checks)
+            || checks.ValueKind != JsonValueKind.Array)
+            return false;
+
+        foreach (var check in checks.EnumerateArray())
+        {
+            if (check.ValueKind != JsonValueKind.Object)
+                continue;
+
+            var id = TryGetJsonString(check, "id");
+            if (!string.Equals(id, checkId, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            passed = TryGetJsonBoolean(check, "passed") == true;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string CompactBadgeText(string value, int maxLength)
+    {
+        var trimmed = string.Join(' ', (value ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        if (maxLength <= 3 || trimmed.Length <= maxLength)
+            return trimmed;
+
+        return $"{trimmed[..(maxLength - 3)]}...";
+    }
+
+    private static string BuildReleasePacketSummaryText(string releasePacketPath)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(releasePacketPath));
+            var root = document.RootElement;
+            var mode = TryGetJsonString(root, "release_mode");
+            var releaseReady = TryGetJsonBoolean(root, "release_ready");
+            var readyText = releaseReady.HasValue
+                ? releaseReady.Value ? "release-ready true" : "release-ready false"
+                : "release-ready unknown";
+            return string.IsNullOrWhiteSpace(mode)
+                ? $"ready, {readyText}"
+                : $"ready, mode {mode}, {readyText}";
+        }
+        catch
+        {
+            return "present but unreadable";
+        }
+    }
+
+    private static string? TryGetJsonString(JsonElement root, string propertyName)
+    {
+        if (root.ValueKind == JsonValueKind.Object
+            && root.TryGetProperty(propertyName, out var value)
+            && value.ValueKind == JsonValueKind.String)
+            return value.GetString();
+
+        return null;
+    }
+
+    private static int? TryGetJsonInt32(JsonElement root, string propertyName)
+    {
+        if (root.ValueKind == JsonValueKind.Object
+            && root.TryGetProperty(propertyName, out var value)
+            && value.ValueKind == JsonValueKind.Number
+            && value.TryGetInt32(out var result))
+            return result;
+
+        return null;
+    }
+
+    private static long? TryGetJsonInt64(JsonElement root, string propertyName)
+    {
+        if (root.ValueKind == JsonValueKind.Object
+            && root.TryGetProperty(propertyName, out var value)
+            && value.ValueKind == JsonValueKind.Number
+            && value.TryGetInt64(out var result))
+            return result;
+
+        return null;
+    }
+
+    private static bool? TryGetJsonBoolean(JsonElement root, string propertyName)
+    {
+        if (root.ValueKind == JsonValueKind.Object
+            && root.TryGetProperty(propertyName, out var value)
+            && (value.ValueKind == JsonValueKind.True || value.ValueKind == JsonValueKind.False))
+            return value.GetBoolean();
+
+        return null;
+    }
+
+    private static IReadOnlyList<string> TryGetJsonStringArray(JsonElement root, string propertyName, int maxItems)
+    {
+        if (maxItems <= 0
+            || root.ValueKind != JsonValueKind.Object
+            || !root.TryGetProperty(propertyName, out var value)
+            || value.ValueKind != JsonValueKind.Array)
+            return Array.Empty<string>();
+
+        var items = new List<string>();
+        foreach (var item in value.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String)
+                continue;
+
+            var text = item.GetString();
+            if (string.IsNullOrWhiteSpace(text))
+                continue;
+
+            items.Add(text.Trim());
+            if (items.Count >= maxItems)
+                break;
+        }
+
+        return items;
+    }
+
+    private static string BuildParityEvidenceSummaryText(string parityEvidencePath)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(parityEvidencePath));
+            var root = document.RootElement;
+            var releaseReady = TryGetJsonBoolean(root, "release_ready");
+            var readyText = releaseReady.HasValue
+                ? releaseReady.Value ? "release-ready true" : "release-ready false"
+                : "release-ready unknown";
+
+            if (root.TryGetProperty("release_blocker_summary", out var summary)
+                && summary.ValueKind == JsonValueKind.Object)
+            {
+                var blockerCount = TryGetJsonInt32(summary, "blocker_count");
+                var manualEvidenceSupplied = TryGetJsonBoolean(summary, "manual_evidence_supplied");
+                var manualRemaining = TryGetJsonInt32(summary, "manual_checks_remaining_count");
+                var categoriesMissing = TryGetJsonInt32(summary, "manual_categories_missing_count");
+                var failedAutomated = TryGetJsonInt32(summary, "failed_automated_checks_count");
+                var nextAction = TryGetJsonString(summary, "next_action");
+                var remainingProof = TryGetManualEvidenceRemainingPreview(root);
+                var missingCategories = TryGetManualEvidenceMissingCategoryPreview(root);
+                var countText = blockerCount.HasValue
+                    ? $"{blockerCount.Value} blocker{(blockerCount.Value == 1 ? string.Empty : "s")}"
+                    : "blocker count unknown";
+                var suppliedText = manualEvidenceSupplied.HasValue
+                    ? manualEvidenceSupplied.Value ? "manual evidence supplied" : "manual evidence not supplied"
+                    : "manual evidence supply unknown";
+                var manualText = manualRemaining.HasValue
+                    ? $"{manualRemaining.Value} manual check{(manualRemaining.Value == 1 ? string.Empty : "s")} remaining"
+                    : "manual checks unknown";
+                var categoryText = categoriesMissing.HasValue
+                    ? $"{categoriesMissing.Value} categor{(categoriesMissing.Value == 1 ? "y" : "ies")} missing"
+                    : "category coverage unknown";
+                var failedText = failedAutomated.HasValue
+                    ? $"{failedAutomated.Value} automated check{(failedAutomated.Value == 1 ? string.Empty : "s")} failed"
+                    : "automated check status unknown";
+                var nextText = string.IsNullOrWhiteSpace(nextAction)
+                    ? string.Empty
+                    : $"; next: {nextAction}";
+                var remainingText = remainingProof.Count == 0
+                    ? string.Empty
+                    : $"; remaining proof: {string.Join(" | ", remainingProof)}";
+                var missingCategoryText = missingCategories.Count == 0
+                    ? string.Empty
+                    : $"; missing categories: {string.Join(" | ", missingCategories)}";
+                return $"ready, {readyText}, {countText}, {suppliedText}, {manualText}, {categoryText}, {failedText}{nextText}{remainingText}{missingCategoryText}";
+            }
+
+            return $"ready, {readyText}";
+        }
+        catch
+        {
+            return "present but unreadable";
+        }
+    }
+
+    private static IReadOnlyList<string> TryGetManualEvidenceRemainingPreview(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object
+            || !root.TryGetProperty("manual_evidence", out var manualEvidence)
+            || manualEvidence.ValueKind != JsonValueKind.Object)
+            return Array.Empty<string>();
+
+        return TryGetJsonStringArray(manualEvidence, "remaining", maxItems: 3);
+    }
+
+    private static IReadOnlyList<string> TryGetManualEvidenceMissingCategoryPreview(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object
+            || !root.TryGetProperty("manual_evidence", out var manualEvidence)
+            || manualEvidence.ValueKind != JsonValueKind.Object)
+            return Array.Empty<string>();
+
+        return TryGetJsonStringArray(manualEvidence, "categories_missing", maxItems: 3);
+    }
+
+    private void ReadUpdatesStatusAloud()
+    {
+        var readout = BuildUpdatesStatusReadout();
+        if (string.IsNullOrWhiteSpace(readout))
+        {
+            UpdateStatus("No update status is available to read.");
+            RecordVisibleUiActionAudit(
+                "updates_status_readback",
+                "failed",
+                "updates_status",
+                "empty_status",
+                false,
+                "Updates status readback failure was shown in the visible Updates surface.");
+            return;
+        }
+
+        try
+        {
+            _statusReadbackSynthesizer ??= new SpeechSynthesizer();
+            _statusReadbackSynthesizer.SpeakAsyncCancelAll();
+            _statusReadbackSynthesizer.SpeakAsync(readout);
+            UpdateStatus("Reading the current update status aloud locally.");
+            RecordVisibleUiActionAudit(
+                "updates_status_readback",
+                "succeeded",
+                "updates_status",
+                "local_speech_synthesis_started",
+                true,
+                "Updates status readback was shown in the visible Updates surface and used local speech synthesis.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to read update status aloud: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "updates_status_readback",
+                "failed",
+                "updates_status",
+                ex.Message,
+                false,
+                "Updates status readback failure was shown in the visible Updates surface.");
+        }
+    }
+
+    private void ReadPacksWatchStatusAloud()
+    {
+        var readout = BuildPacksWatchStatusReadout();
+        if (string.IsNullOrWhiteSpace(readout))
+        {
+            UpdateStatus("No watched-folder status is available to read.");
+            RecordVisibleUiActionAudit(
+                "packs_watch_status_readback",
+                "failed",
+                "packs_watch_status",
+                "empty_status",
+                false,
+                "Packs watched-folder readback failure was shown in the visible Packs surface.");
+            return;
+        }
+
+        try
+        {
+            _statusReadbackSynthesizer ??= new SpeechSynthesizer();
+            _statusReadbackSynthesizer.SpeakAsyncCancelAll();
+            _statusReadbackSynthesizer.SpeakAsync(readout);
+            UpdateStatus("Reading the watched-folder status aloud locally.");
+            RecordVisibleUiActionAudit(
+                "packs_watch_status_readback",
+                "succeeded",
+                "packs_watch_status",
+                "local_speech_synthesis_started",
+                true,
+                "Packs watched-folder readback was shown in the visible Packs surface and used local speech synthesis.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to read watched-folder status aloud: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "packs_watch_status_readback",
+                "failed",
+                "packs_watch_status",
+                ex.Message,
+                false,
+                "Packs watched-folder readback failure was shown in the visible Packs surface.");
+        }
+    }
+
+    private void ReadPlansStatusAloud()
+    {
+        var readout = BuildPlansStatusReadout();
+        if (string.IsNullOrWhiteSpace(readout))
+        {
+            UpdateStatus("No plans status is available to read.");
+            RecordVisibleUiActionAudit(
+                "plans_status_readback",
+                "failed",
+                "plans_status",
+                "empty_status",
+                false,
+                "Plans status readback failure was shown in the visible Plans surface.");
+            return;
+        }
+
+        try
+        {
+            _statusReadbackSynthesizer ??= new SpeechSynthesizer();
+            _statusReadbackSynthesizer.SpeakAsyncCancelAll();
+            _statusReadbackSynthesizer.SpeakAsync(readout);
+            UpdateStatus("Reading the current plans status aloud locally.");
+            RecordVisibleUiActionAudit(
+                "plans_status_readback",
+                "succeeded",
+                "plans_status",
+                "local_speech_synthesis_started",
+                true,
+                "Plans status readback was shown in the visible Plans surface and used local speech synthesis.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to read plans status aloud: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "plans_status_readback",
+                "failed",
+                "plans_status",
+                ex.Message,
+                false,
+                "Plans status readback failure was shown in the visible Plans surface.");
+        }
+    }
+
+    private void ReadCheckInStatusAloud()
+    {
+        var readout = BuildCheckInStatusReadout();
+        if (string.IsNullOrWhiteSpace(readout))
+        {
+            UpdateStatus("No check-in status is available to read.");
+            RecordVisibleUiActionAudit(
+                "updates_check_in_readback",
+                "failed",
+                "updates_check_in",
+                "empty_status",
+                false,
+                "Updates check-in readback failure was shown in the visible Updates surface.");
+            return;
+        }
+
+        try
+        {
+            _statusReadbackSynthesizer ??= new SpeechSynthesizer();
+            _statusReadbackSynthesizer.SpeakAsyncCancelAll();
+            _statusReadbackSynthesizer.SpeakAsync(readout);
+            UpdateStatus("Reading the last phone-home check-in aloud locally.");
+            RecordVisibleUiActionAudit(
+                "updates_check_in_readback",
+                "succeeded",
+                "updates_check_in",
+                "local_speech_synthesis_started",
+                true,
+                "Updates check-in readback was shown in the visible Updates surface and used local speech synthesis.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to read check-in status aloud: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "updates_check_in_readback",
+                "failed",
+                "updates_check_in",
+                ex.Message,
+                false,
+                "Updates check-in readback failure was shown in the visible Updates surface.");
+        }
+    }
+
+    private void ReadEvidenceStatusAloud()
+    {
+        var readout = BuildEvidenceStatusReadout();
+        if (string.IsNullOrWhiteSpace(readout))
+        {
+            UpdateStatus("No release evidence status is available to read.");
+            RecordVisibleUiActionAudit(
+                "updates_evidence_status_readback",
+                "failed",
+                "updates_evidence_status",
+                "empty_status",
+                false,
+                "Updates evidence-status readback failure was shown in the visible Updates surface.");
+            return;
+        }
+
+        try
+        {
+            _statusReadbackSynthesizer ??= new SpeechSynthesizer();
+            _statusReadbackSynthesizer.SpeakAsyncCancelAll();
+            _statusReadbackSynthesizer.SpeakAsync(readout);
+            UpdateStatus("Reading the release evidence status aloud locally.");
+            RecordVisibleUiActionAudit(
+                "updates_evidence_status_readback",
+                "succeeded",
+                "updates_evidence_status",
+                "local_speech_synthesis_started",
+                true,
+                "Updates evidence-status readback was shown in the visible Updates surface and used local speech synthesis.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to read release evidence status aloud: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "updates_evidence_status_readback",
+                "failed",
+                "updates_evidence_status",
+                ex.Message,
+                false,
+                "Updates evidence-status readback failure was shown in the visible Updates surface.");
+        }
+    }
+
+    private void ReadEvidenceHeaderAloud()
+    {
+        var readout = BuildEvidenceHeaderReadout();
+        if (string.IsNullOrWhiteSpace(readout))
+        {
+            UpdateStatus("No manual evidence header is available to read.");
+            RecordVisibleUiActionAudit(
+                "updates_evidence_header_readback",
+                "failed",
+                "updates_evidence_header",
+                "empty_status",
+                false,
+                "Updates evidence-header readback failure was shown in the visible Updates surface.");
+            return;
+        }
+
+        try
+        {
+            _statusReadbackSynthesizer ??= new SpeechSynthesizer();
+            _statusReadbackSynthesizer.SpeakAsyncCancelAll();
+            _statusReadbackSynthesizer.SpeakAsync(readout);
+            UpdateStatus("Reading the manual evidence header aloud locally.");
+            RecordVisibleUiActionAudit(
+                "updates_evidence_header_readback",
+                "succeeded",
+                "updates_evidence_header",
+                "local_speech_synthesis_started",
+                true,
+                "Updates evidence-header readback was shown in the visible Updates surface and used local speech synthesis.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to read manual evidence header aloud: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "updates_evidence_header_readback",
+                "failed",
+                "updates_evidence_header",
+                ex.Message,
+                false,
+                "Updates evidence-header readback failure was shown in the visible Updates surface.");
+        }
+    }
+
+    private void ReadReleaseBlockersAloud()
+    {
+        var readout = BuildReleaseBlockersReadout();
+        if (string.IsNullOrWhiteSpace(readout))
+        {
+            UpdateStatus("No release blocker status is available to read.");
+            RecordVisibleUiActionAudit(
+                "updates_release_blockers_readback",
+                "failed",
+                "updates_release_blockers",
+                "empty_status",
+                false,
+                "Updates release-blocker readback failure was shown in the visible Updates surface.");
+            return;
+        }
+
+        try
+        {
+            _statusReadbackSynthesizer ??= new SpeechSynthesizer();
+            _statusReadbackSynthesizer.SpeakAsyncCancelAll();
+            _statusReadbackSynthesizer.SpeakAsync(readout);
+            UpdateStatus("Reading the release blocker status aloud locally.");
+            RecordVisibleUiActionAudit(
+                "updates_release_blockers_readback",
+                "succeeded",
+                "updates_release_blockers",
+                "local_speech_synthesis_started",
+                true,
+                "Updates release-blocker readback was shown in the visible Updates surface and used local speech synthesis.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to read release blocker status aloud: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "updates_release_blockers_readback",
+                "failed",
+                "updates_release_blockers",
+                ex.Message,
+                false,
+                "Updates release-blocker readback failure was shown in the visible Updates surface.");
+        }
+    }
+
+    private void ReadNextProofAloud()
+    {
+        var readout = BuildNextProofReadout();
+        if (string.IsNullOrWhiteSpace(readout))
+        {
+            UpdateStatus("No next parity proof is available to read.");
+            RecordVisibleUiActionAudit(
+                "updates_next_proof_readback",
+                "failed",
+                "updates_next_proof",
+                "empty_status",
+                false,
+                "Updates next-proof readback failure was shown in the visible Updates surface.");
+            return;
+        }
+
+        try
+        {
+            _statusReadbackSynthesizer ??= new SpeechSynthesizer();
+            _statusReadbackSynthesizer.SpeakAsyncCancelAll();
+            _statusReadbackSynthesizer.SpeakAsync(readout);
+            UpdateStatus("Reading the next parity proof aloud locally.");
+            RecordVisibleUiActionAudit(
+                "updates_next_proof_readback",
+                "succeeded",
+                "updates_next_proof",
+                "local_speech_synthesis_started",
+                true,
+                "Updates next-proof readback was shown in the visible Updates surface and used local speech synthesis.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to read the next parity proof aloud: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "updates_next_proof_readback",
+                "failed",
+                "updates_next_proof",
+                ex.Message,
+                false,
+                "Updates next-proof readback failure was shown in the visible Updates surface.");
+        }
+    }
+
+    private void ReadReleaseGatesAloud()
+    {
+        var readout = BuildReleaseGatesReadout();
+        if (string.IsNullOrWhiteSpace(readout))
+        {
+            UpdateStatus("No release gate status is available to read.");
+            RecordVisibleUiActionAudit(
+                "updates_release_gates_readback",
+                "failed",
+                "updates_release_gates",
+                "empty_status",
+                false,
+                "Updates release-gates readback failure was shown in the visible Updates surface.");
+            return;
+        }
+
+        try
+        {
+            _statusReadbackSynthesizer ??= new SpeechSynthesizer();
+            _statusReadbackSynthesizer.SpeakAsyncCancelAll();
+            _statusReadbackSynthesizer.SpeakAsync(readout);
+            UpdateStatus("Reading the release gates aloud locally.");
+            RecordVisibleUiActionAudit(
+                "updates_release_gates_readback",
+                "succeeded",
+                "updates_release_gates",
+                "local_speech_synthesis_started",
+                true,
+                "Updates release-gates readback was shown in the visible Updates surface and used local speech synthesis.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to read release gates aloud: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "updates_release_gates_readback",
+                "failed",
+                "updates_release_gates",
+                ex.Message,
+                false,
+                "Updates release-gates readback failure was shown in the visible Updates surface.");
+        }
+    }
+
+    private void ReadNextProofInstructionsAloud()
+    {
+        var readout = BuildNextProofInstructionsReadout();
+        if (string.IsNullOrWhiteSpace(readout))
+        {
+            UpdateStatus("No next proof instructions are available to read.");
+            RecordVisibleUiActionAudit(
+                "updates_next_proof_instructions_readback",
+                "failed",
+                "updates_next_proof_instructions",
+                "empty_status",
+                false,
+                "Updates next-proof-instructions readback failure was shown in the visible Updates surface.");
+            return;
+        }
+
+        try
+        {
+            _statusReadbackSynthesizer ??= new SpeechSynthesizer();
+            _statusReadbackSynthesizer.SpeakAsyncCancelAll();
+            _statusReadbackSynthesizer.SpeakAsync(readout);
+            UpdateStatus("Reading the next proof instructions aloud locally.");
+            RecordVisibleUiActionAudit(
+                "updates_next_proof_instructions_readback",
+                "succeeded",
+                "updates_next_proof_instructions",
+                "local_speech_synthesis_started",
+                true,
+                "Updates next-proof-instructions readback was shown in the visible Updates surface and used local speech synthesis.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to read next proof instructions aloud: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "updates_next_proof_instructions_readback",
+                "failed",
+                "updates_next_proof_instructions",
+                ex.Message,
+                false,
+                "Updates next-proof-instructions readback failure was shown in the visible Updates surface.");
+        }
+    }
+
+    private void ReadProofNotesStatusAloud()
+    {
+        var readout = BuildProofNotesStatusReadout();
+        if (string.IsNullOrWhiteSpace(readout))
+        {
+            UpdateStatus("No proof notes status is available to read.");
+            RecordVisibleUiActionAudit(
+                "updates_proof_notes_status_readback",
+                "failed",
+                "updates_proof_notes",
+                "empty_status",
+                false,
+                "Updates proof-notes readback failure was shown in the visible Updates surface.");
+            return;
+        }
+
+        try
+        {
+            _statusReadbackSynthesizer ??= new SpeechSynthesizer();
+            _statusReadbackSynthesizer.SpeakAsyncCancelAll();
+            _statusReadbackSynthesizer.SpeakAsync(readout);
+            UpdateStatus("Reading proof notes status aloud locally.");
+            RecordVisibleUiActionAudit(
+                "updates_proof_notes_status_readback",
+                "succeeded",
+                "updates_proof_notes",
+                "local_speech_synthesis_started",
+                true,
+                "Updates proof-notes readback was shown in the visible Updates surface and used local speech synthesis.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to read proof notes status aloud: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "updates_proof_notes_status_readback",
+                "failed",
+                "updates_proof_notes",
+                ex.Message,
+                false,
+                "Updates proof-notes readback failure was shown in the visible Updates surface.");
+        }
+    }
+
+    private void ReadVisualStatusAloud()
+    {
+        var readout = BuildVisualPolishStatusReadout();
+        if (string.IsNullOrWhiteSpace(readout))
+        {
+            UpdateStatus("No visual status is available to read.");
+            RecordVisibleUiActionAudit(
+                "visual_status_readback",
+                "failed",
+                "visual_status",
+                "empty_status",
+                false,
+                "Visual status readback failure was shown in the visible shell surface.");
+            return;
+        }
+
+        try
+        {
+            _statusReadbackSynthesizer ??= new SpeechSynthesizer();
+            _statusReadbackSynthesizer.SpeakAsyncCancelAll();
+            _statusReadbackSynthesizer.SpeakAsync(readout);
+            UpdateStatus("Reading the visual polish status aloud locally.");
+            RecordVisibleUiActionAudit(
+                "visual_status_readback",
+                "succeeded",
+                "visual_status",
+                "local_speech_synthesis_started",
+                true,
+                "Visual status readback was shown in the visible shell surface and used local speech synthesis.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to read visual status aloud: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "visual_status_readback",
+                "failed",
+                "visual_status",
+                ex.Message,
+                false,
+                "Visual status readback failure was shown in the visible shell surface.");
+        }
+    }
+
+    private void ReadRestartProofAloud()
+    {
+        var readout = BuildRestartProofReadout();
+        if (string.IsNullOrWhiteSpace(readout))
+        {
+            UpdateStatus("No restart proof is available to read.");
+            RecordVisibleUiActionAudit(
+                "updates_restart_proof_readback",
+                "failed",
+                "updates_restart_proof",
+                "empty_status",
+                false,
+                "Updates restart-proof readback failure was shown in the visible Updates surface.");
+            return;
+        }
+
+        try
+        {
+            _statusReadbackSynthesizer ??= new SpeechSynthesizer();
+            _statusReadbackSynthesizer.SpeakAsyncCancelAll();
+            _statusReadbackSynthesizer.SpeakAsync(readout);
+            UpdateStatus("Reading the restart proof aloud locally.");
+            RecordVisibleUiActionAudit(
+                "updates_restart_proof_readback",
+                "succeeded",
+                "updates_restart_proof",
+                "local_speech_synthesis_started",
+                true,
+                "Updates restart-proof readback was shown in the visible Updates surface and used local speech synthesis.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to read restart proof aloud: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "updates_restart_proof_readback",
+                "failed",
+                "updates_restart_proof",
+                ex.Message,
+                false,
+                "Updates restart-proof readback failure was shown in the visible Updates surface.");
+        }
+    }
+
+    private void ReadReleaseProofAloud()
+    {
+        var readout = BuildReleaseProofReadout();
+        if (string.IsNullOrWhiteSpace(readout))
+        {
+            UpdateStatus("No release proof is available to read.");
+            RecordVisibleUiActionAudit(
+                "updates_release_proof_readback",
+                "failed",
+                "updates_release_proof",
+                "empty_status",
+                false,
+                "Updates release-proof readback failure was shown in the visible Updates surface.");
+            return;
+        }
+
+        try
+        {
+            _statusReadbackSynthesizer ??= new SpeechSynthesizer();
+            _statusReadbackSynthesizer.SpeakAsyncCancelAll();
+            _statusReadbackSynthesizer.SpeakAsync(readout);
+            UpdateStatus("Reading the release proof aloud locally.");
+            RecordVisibleUiActionAudit(
+                "updates_release_proof_readback",
+                "succeeded",
+                "updates_release_proof",
+                "local_speech_synthesis_started",
+                true,
+                "Updates release-proof readback was shown in the visible Updates surface and used local speech synthesis.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to read release proof aloud: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "updates_release_proof_readback",
+                "failed",
+                "updates_release_proof",
+                ex.Message,
+                false,
+                "Updates release-proof readback failure was shown in the visible Updates surface.");
+        }
+    }
+
+    private string BuildUpdatesStatusReadout()
+    {
+        if (_updatesServerLabel == null || _updatesCadenceLabel == null || _updatesStateLabel == null || _updatesCheckInLabel == null || _updatesPendingLabel == null || _updatesDeviceLabel == null || _updatesInstallerLabel == null || _updatesDownloadedInstallerLabel == null || _updatesWebsiteLabel == null || _updatesReleaseProofLabel == null || _updatesRestartLabel == null || _updatesEvidenceLabel == null || _updatesManualEvidenceLabel == null || _updatesReleaseGatesLabel == null || _updatesNextProofInstructionsLabel == null)
+            return string.Empty;
+
+        return string.Join(
+            " ",
+            "Update status.",
+            _updatesServerLabel.Text,
+            _updatesCadenceLabel.Text,
+            _updatesStateLabel.Text,
+            _updatesCheckInLabel.Text,
+            _updatesPendingLabel.Text,
+            _updatesDeviceLabel.Text,
+            _updatesInstallerLabel.Text,
+            _updatesDownloadedInstallerLabel.Text,
+            _updatesWebsiteLabel.Text,
+            _updatesReleaseProofLabel.Text,
+            _updatesRestartLabel.Text,
+            _updatesEvidenceLabel.Text,
+            _updatesManualEvidenceLabel.Text,
+            _updatesReleaseGatesLabel.Text,
+            _updatesNextProofInstructionsLabel.Text,
+            _updatesProofNotesLabel.Text);
+    }
+
+    private string BuildCheckInStatusReadout()
+    {
+        if (_updatesCheckInLabel == null || _updatesDeviceLabel == null)
+            return string.Empty;
+
+        var checkInText = _updateCheckService.LastCheckInUtc.HasValue
+            ? $"Last phone-home check-in: {_updateCheckService.LastCheckInUtc.Value.ToLocalTime():g}."
+            : _updatesCheckInLabel.Text;
+        var deviceText = string.IsNullOrWhiteSpace(_activeProfile?.Settings.UpdateDeviceId)
+            ? _updatesDeviceLabel.Text
+            : $"Update privacy id: local stable id is hashed before check-in. Local id hint: {FormatDeviceIdentityHint(_activeProfile.Settings.UpdateDeviceId)}.";
+
+        return string.Join(
+            " ",
+            "Check-in status.",
+            checkInText,
+            deviceText,
+            "Callsign phones home on startup and while running.",
+            "The check-in stays local-visible and does not change installed commands.");
+    }
+
+    private static string FormatDeviceIdentityHint(string? deviceId)
+    {
+        if (string.IsNullOrWhiteSpace(deviceId))
+            return "none";
+
+        var trimmed = deviceId.Trim();
+        return trimmed.Length <= 12 ? trimmed : $"{trimmed[..6]}...{trimmed[^4..]}";
+    }
+
+    private string BuildRestartProofReadout()
+    {
+        if (_updatesStateLabel == null || _updatesRestartLabel == null || _updatesInstallerLabel == null || _updatesDownloadedInstallerLabel == null || _updatesWebsiteLabel == null)
+            return string.Empty;
+
+        var installerPath = _updateCheckService.LastDownloadedInstallerPath;
+        var installerProof = string.IsNullOrWhiteSpace(installerPath) || !File.Exists(installerPath)
+            ? _updatesDownloadedInstallerLabel.Text
+            : $"Last downloaded installer: {installerPath}.";
+
+        return string.Join(
+            " ",
+            "Restart proof.",
+            _updatesStateLabel.Text,
+            installerProof,
+            _updatesWebsiteLabel.Text,
+            _updatesRestartLabel.Text);
+    }
+
+    private string BuildEvidenceStatusReadout()
+    {
+        if (_updatesEvidenceLabel == null)
+            return string.Empty;
+
+        return string.Join(
+            " ",
+            "Evidence status.",
+            BuildEvidenceStatusText(),
+            BuildManualEvidenceProgressSummary().LabelText,
+            "Open Release Evidence shows the generated artifacts.",
+            "Open Manual Evidence and Open Checklist keep the live parity walkthrough ready before any public parity claim.");
+    }
+
+    private static string BuildNextProofReadout()
+    {
+        var progress = BuildManualEvidenceProgressSummary();
+        return string.Join(
+            " ",
+            "Next parity proof.",
+            progress.LabelText,
+            progress.ProofBadgeText,
+            progress.CategoryBadgeText,
+            progress.NextBadgeText,
+            "Open Checklist for the human-readable walkthrough and Open Manual Evidence for the canonical JSON template.");
+    }
+
+    private static string BuildReleaseGatesReadout()
+    {
+        var gates = BuildReleaseGateSummary();
+        return string.Join(
+            " ",
+            "Release gates.",
+            gates.LabelText,
+            gates.InstalledBadgeText + ".",
+            gates.SpokenBadgeText + ".",
+            gates.FailureBadgeText + ".",
+            gates.CleanBadgeText + ".",
+            "These gates must pass before Callsign can claim public Voice Access parity.");
+    }
+
+    private static string BuildNextProofInstructionsReadout()
+    {
+        var instructions = BuildNextProofInstructionSummary();
+        return string.Join(
+            " ",
+            "Next proof instructions.",
+            $"Check: {instructions.CheckLabel}.",
+            $"Do: {instructions.EvidenceCommand}.",
+            $"Expected result: {instructions.ExpectedResult}.",
+            "Attach sanitized artifacts, complete privacy review, then rerun the evidence script with manual evidence.");
+    }
+
+    private static string BuildProofNotesStatusText()
+    {
+        var notesFolder = TryGetProofNotesFolder(createIfMissing: false);
+        if (string.IsNullOrWhiteSpace(notesFolder) || !Directory.Exists(notesFolder))
+            return "Proof notes: none yet. Use Create Proof Note to create the first manual proof note in build/manual-proof-notes.";
+
+        var noteCount = Directory.EnumerateFiles(notesFolder, "*.md", SearchOption.TopDirectoryOnly).Count();
+        return noteCount == 0
+            ? $"Proof notes: folder ready at {notesFolder}, no notes yet."
+            : $"Proof notes: {noteCount} markdown note{(noteCount == 1 ? string.Empty : "s")} ready at {notesFolder}.";
+    }
+
+    private static string BuildProofNotesStatusReadout()
+    {
+        var statusText = BuildProofNotesStatusText();
+        var notesFolder = TryGetProofNotesFolder(createIfMissing: false);
+        if (string.IsNullOrWhiteSpace(notesFolder) || !Directory.Exists(notesFolder))
+        {
+            return string.Join(
+                " ",
+                statusText,
+                "Use Create Proof Note to generate the first note for the next remaining manual parity check.");
+        }
+
+        var firstNote = Directory.EnumerateFiles(notesFolder, "*.md", SearchOption.TopDirectoryOnly)
+            .Select(Path.GetFileName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+
+        var firstNoteText = string.IsNullOrWhiteSpace(firstNote)
+            ? "No note file is ready yet."
+            : $"First note file: {firstNote}.";
+
+        return string.Join(
+            " ",
+            statusText,
+            firstNoteText,
+            "Attach sanitized artifacts, complete the privacy review, then copy the result into the manual evidence template before rerunning the evidence script.");
+    }
+
+    private static string BuildReleaseBlockersReadout()
+    {
+        var parityEvidencePath = TryGetParityEvidencePath();
+        if (string.IsNullOrWhiteSpace(parityEvidencePath) || !File.Exists(parityEvidencePath))
+        {
+            return "Release blockers. Parity evidence JSON is missing. Run the evidence script, then open the checklist before claiming parity.";
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(parityEvidencePath));
+            var root = document.RootElement;
+            var releaseReady = TryGetJsonBoolean(root, "release_ready");
+            var readyText = releaseReady.HasValue
+                ? releaseReady.Value ? "release ready" : "release not ready"
+                : "release readiness unknown";
+
+            if (!root.TryGetProperty("release_blocker_summary", out var summary)
+                || summary.ValueKind != JsonValueKind.Object)
+            {
+                return $"Release blockers. {readyText}. Release blocker summary is missing; rerun the evidence script.";
+            }
+
+            var blockerCount = TryGetJsonInt32(summary, "blocker_count");
+            var manualRemaining = TryGetJsonInt32(summary, "manual_checks_remaining_count");
+            var categoriesMissing = TryGetJsonInt32(summary, "manual_categories_missing_count");
+            var failedAutomated = TryGetJsonInt32(summary, "failed_automated_checks_count");
+            var manualSupplied = TryGetJsonBoolean(summary, "manual_evidence_supplied");
+            var nextAction = TryGetJsonString(summary, "next_action");
+            var progress = BuildManualEvidenceProgressSummary();
+
+            var blockerText = blockerCount.HasValue
+                ? $"{blockerCount.Value} blocker{(blockerCount.Value == 1 ? string.Empty : "s")}"
+                : "blocker count unknown";
+            var manualText = manualRemaining.HasValue
+                ? $"{manualRemaining.Value} manual or live check{(manualRemaining.Value == 1 ? string.Empty : "s")} remaining"
+                : "manual check count unknown";
+            var categoryText = categoriesMissing.HasValue
+                ? $"{categoriesMissing.Value} categor{(categoriesMissing.Value == 1 ? "y" : "ies")} missing live proof"
+                : "missing category count unknown";
+            var automatedText = failedAutomated.HasValue
+                ? $"{failedAutomated.Value} automated check{(failedAutomated.Value == 1 ? string.Empty : "s")} failed"
+                : "automated check status unknown";
+            var suppliedText = manualSupplied.HasValue && manualSupplied.Value
+                ? "manual evidence supplied"
+                : "manual evidence not supplied";
+            var nextText = string.IsNullOrWhiteSpace(nextAction)
+                ? "Open Checklist for the next live proof step."
+                : nextAction.Trim();
+
+            return string.Join(
+                " ",
+                "Release blockers.",
+                readyText + ".",
+                blockerText + ".",
+                suppliedText + ".",
+                manualText + ".",
+                categoryText + ".",
+                automatedText + ".",
+                progress.ProofBadgeText + ".",
+                progress.CategoryBadgeText + ".",
+                $"Next action: {nextText}");
+        }
+        catch
+        {
+            return "Release blockers. Parity evidence JSON is present but unreadable; rerun the evidence script before claiming parity.";
+        }
+    }
+
+    private string BuildReleaseProofReadout()
+    {
+        if (_updatesReleaseProofLabel == null)
+            return string.Empty;
+
+        var readout = BuildReleaseProofText(_updateCheckService.PendingManifest);
+        if (string.IsNullOrWhiteSpace(readout))
+            return string.Empty;
+
+        return string.Join(
+            " ",
+            "Release proof.",
+            readout,
+            "The visible release-proof step and the Updates tab keep the installer/site comparison readable before release.");
+    }
+
+    public string BuildVisualPolishStatusReadout()
+    {
+        if (_shellSummaryStrip == null)
+            return string.Empty;
+
+        return string.Join(
+            " ",
+            "Visual status.",
+            VisualStyleName,
+            $"Shared evidence tokens: {CallsignVisualStyle.EvidenceMarker}.",
+            $"Accessibility mode: {CallsignVisualStyle.DescribeAccessibilityMode(SystemInformation.HighContrast, CallsignVisualStyle.MinimumTextScale, reducedMotion: true)}",
+            ShellSummaryText,
+            "Core visible surfaces use the same compact STOP badge pattern across the wake overlay, numbered controls, mouse grid, command palette, startup walkthrough, update splash, and import splash.",
+            "The shell keeps browser helper discovery and the Free open-core boundary visible while paid packs remain gated by entitlement and policy.");
+    }
+
+    private void OpenPendingInstallerDownload()
+    {
+        var pendingManifest = _updateCheckService.PendingManifest;
+        try
+        {
+            var installerPath = _updateCheckService.LastDownloadedInstallerPath;
+            if (!string.IsNullOrWhiteSpace(installerPath) && File.Exists(installerPath))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = installerPath,
+                    UseShellExecute = true
+                });
+                UpdateStatus(pendingManifest != null
+                    ? $"Opened downloaded installer for v{pendingManifest.Version}."
+                    : "Opened downloaded installer from the persisted update state.");
+                return;
+            }
+
+            if (pendingManifest == null || string.IsNullOrWhiteSpace(pendingManifest.InstallerUrl))
+            {
+                UpdateStatus("No installer download is staged yet.");
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = pendingManifest.InstallerUrl,
+                UseShellExecute = true
+            });
+            UpdateStatus($"Opened installer download for v{pendingManifest.Version}.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to open installer download: {ex.Message}");
+        }
+    }
+
+    private void OpenReleaseEvidenceFolder()
+    {
+        try
+        {
+            var evidenceFolder = TryGetReleaseEvidenceFolder();
+            if (evidenceFolder == null)
+            {
+                UpdateStatus("No release evidence folder is available yet.");
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = evidenceFolder,
+                UseShellExecute = true
+            });
+
+            UpdateStatus("Opened the release evidence folder.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to open release evidence folder: {ex.Message}");
+        }
+    }
+
+    private void OpenProofNotesFolder()
+    {
+        try
+        {
+            var notesFolder = TryGetProofNotesFolder(createIfMissing: true);
+            if (notesFolder == null)
+            {
+                UpdateStatus("No proof notes folder is available yet.");
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = notesFolder,
+                UseShellExecute = true
+            });
+
+            UpdateStatus("Opened the manual proof notes folder.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to open proof notes folder: {ex.Message}");
+        }
+    }
+
+    private void OpenManualEvidenceTemplate()
+    {
+        try
+        {
+            var templatePath = TryGetManualEvidenceTemplatePath();
+            if (templatePath == null)
+            {
+                UpdateStatus("No manual evidence template is available yet.");
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = templatePath,
+                UseShellExecute = true
+            });
+
+            UpdateStatus("Opened the manual evidence template.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to open manual evidence template: {ex.Message}");
+        }
+    }
+
+    private void OpenManualEvidenceChecklist()
+    {
+        try
+        {
+            var checklistPath = TryGetManualEvidenceChecklistPath();
+            if (checklistPath == null)
+            {
+                UpdateStatus("No manual evidence checklist is available yet.");
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = checklistPath,
+                UseShellExecute = true
+            });
+
+            UpdateStatus("Opened the manual evidence checklist.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to open manual evidence checklist: {ex.Message}");
+        }
+    }
+
+    private void CreateNextProofNote()
+    {
+        try
+        {
+            var notePath = CreateNextProofNoteFile();
+            if (string.IsNullOrWhiteSpace(notePath))
+            {
+                UpdateStatus("No next proof note could be created. Regenerate parity evidence first.");
+                RecordVisibleUiActionAudit(
+                    "updates_create_next_proof_note",
+                    "failed",
+                    "updates_next_proof_note",
+                    "missing_next_proof",
+                    false,
+                    "Next-proof note creation failed visibly because no next proof was available.");
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = notePath,
+                UseShellExecute = true
+            });
+
+            UpdateStatus($"Created and opened next proof note: {notePath}");
+            RecordVisibleUiActionAudit(
+                "updates_create_next_proof_note",
+                "succeeded",
+                "updates_next_proof_note",
+                notePath,
+                true,
+                "Next-proof note was created in the release evidence folder and opened visibly.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to create next proof note: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "updates_create_next_proof_note",
+                "failed",
+                "updates_next_proof_note",
+                ex.Message,
+                false,
+                "Next-proof note creation failure was shown in the visible Updates surface.");
+        }
+    }
+
+    private void CreateAllProofNotes()
+    {
+        try
+        {
+            var notePaths = CreateAllProofNoteFiles();
+            if (notePaths.Count == 0)
+            {
+                UpdateStatus("No manual proof notes could be prepared. Regenerate parity evidence first.");
+                RecordVisibleUiActionAudit(
+                    "updates_create_all_proof_notes",
+                    "failed",
+                    "updates_manual_proof_notes",
+                    "no_unchecked_checks",
+                    false,
+                    "Bulk proof-note preparation failed visibly because no unchecked manual proof checks were available.");
+                return;
+            }
+
+            var notesFolder = TryGetProofNotesFolder(createIfMissing: false);
+            if (!string.IsNullOrWhiteSpace(notesFolder) && Directory.Exists(notesFolder))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = notesFolder,
+                    UseShellExecute = true
+                });
+            }
+
+            UpdateStatus($"Prepared {notePaths.Count} manual proof notes.");
+            RecordVisibleUiActionAudit(
+                "updates_create_all_proof_notes",
+                "succeeded",
+                "updates_manual_proof_notes",
+                $"{notePaths.Count} notes",
+                true,
+                "Bulk manual proof notes were prepared in the release evidence folder and opened visibly.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to prepare all manual proof notes: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "updates_create_all_proof_notes",
+                "failed",
+                "updates_manual_proof_notes",
+                ex.Message,
+                false,
+                "Bulk proof-note preparation failure was shown in the visible Updates surface.");
+        }
+    }
+
+    private void CreateManualEvidenceDraft()
+    {
+        try
+        {
+            var draftPath = CreateManualEvidenceDraftFile();
+            if (string.IsNullOrWhiteSpace(draftPath))
+            {
+                UpdateStatus("No manual evidence draft could be created. Regenerate parity evidence first.");
+                RecordVisibleUiActionAudit(
+                    "updates_create_evidence_draft",
+                    "failed",
+                    "updates_manual_evidence_draft",
+                    "missing_template",
+                    false,
+                    "Manual evidence draft creation failed visibly because the template was unavailable.");
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = draftPath,
+                UseShellExecute = true
+            });
+
+            UpdateStatus($"Created and opened manual evidence draft: {draftPath}");
+            RecordVisibleUiActionAudit(
+                "updates_create_evidence_draft",
+                "succeeded",
+                "updates_manual_evidence_draft",
+                draftPath,
+                true,
+                "Manual evidence draft was created beside the generated template and opened visibly.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to create manual evidence draft: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "updates_create_evidence_draft",
+                "failed",
+                "updates_manual_evidence_draft",
+                ex.Message,
+                false,
+                "Manual evidence draft creation failure was shown in the visible Updates surface.");
+        }
+    }
+
+    private void OpenManualEvidenceDraft()
+    {
+        try
+        {
+            var draftPath = TryGetManualEvidenceDraftPath();
+            if (string.IsNullOrWhiteSpace(draftPath) || !File.Exists(draftPath))
+                draftPath = CreateManualEvidenceDraftFile();
+
+            if (string.IsNullOrWhiteSpace(draftPath) || !File.Exists(draftPath))
+            {
+                UpdateStatus("No manual evidence draft is available yet. Regenerate parity evidence first.");
+                RecordVisibleUiActionAudit(
+                    "updates_open_evidence_draft",
+                    "failed",
+                    "updates_manual_evidence_draft",
+                    "missing_draft",
+                    false,
+                    "Manual evidence draft open failed visibly because no generated template or draft was available.");
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = draftPath,
+                UseShellExecute = true
+            });
+
+            UpdateStatus($"Opened manual evidence draft: {draftPath}");
+            RecordVisibleUiActionAudit(
+                "updates_open_evidence_draft",
+                "succeeded",
+                "updates_manual_evidence_draft",
+                draftPath,
+                true,
+                "Manual evidence draft was opened visibly from the Updates surface.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to open manual evidence draft: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "updates_open_evidence_draft",
+                "failed",
+                "updates_manual_evidence_draft",
+                ex.Message,
+                false,
+                "Manual evidence draft open failure was shown in the visible Updates surface.");
+        }
+    }
+
+    private void ReadEvidenceDraftAloud()
+    {
+        var readout = BuildEvidenceDraftReadout();
+        if (string.IsNullOrWhiteSpace(readout))
+        {
+            UpdateStatus("No manual evidence draft status is available to read.");
+            RecordVisibleUiActionAudit(
+                "updates_evidence_draft_readback",
+                "failed",
+                "updates_manual_evidence_draft",
+                "empty_status",
+                false,
+                "Manual evidence draft readback failure was shown in the visible Updates surface.");
+            return;
+        }
+
+        try
+        {
+            _statusReadbackSynthesizer ??= new SpeechSynthesizer();
+            _statusReadbackSynthesizer.SpeakAsyncCancelAll();
+            _statusReadbackSynthesizer.SpeakAsync(readout);
+            UpdateStatus("Reading the manual evidence draft status aloud locally.");
+            RecordVisibleUiActionAudit(
+                "updates_evidence_draft_readback",
+                "succeeded",
+                "updates_manual_evidence_draft",
+                "local_speech_synthesis_started",
+                true,
+                "Manual evidence draft readback was shown in the visible Updates surface and used local speech synthesis.");
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Unable to read manual evidence draft aloud: {ex.Message}");
+            RecordVisibleUiActionAudit(
+                "updates_evidence_draft_readback",
+                "failed",
+                "updates_manual_evidence_draft",
+                ex.Message,
+                false,
+                "Manual evidence draft readback failure was shown in the visible Updates surface.");
+        }
+    }
+
+    internal static string? CreateNextProofNoteFile()
+    {
+        var instructions = BuildNextProofInstructionSummary();
+        if (string.IsNullOrWhiteSpace(instructions.CheckLabel) || instructions.CheckLabel.Equals("unknown", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var evidenceFolder = TryGetReleaseEvidenceFolder();
+        if (string.IsNullOrWhiteSpace(evidenceFolder))
+            return null;
+
+        var notesFolder = TryGetProofNotesFolder(createIfMissing: true);
+        if (string.IsNullOrWhiteSpace(notesFolder))
+            return null;
+
+        var fileName = $"{SanitizeProofNoteFileName(instructions.CheckLabel)}.md";
+        var notePath = Path.Combine(notesFolder, fileName);
+        if (!File.Exists(notePath))
+            File.WriteAllText(notePath, BuildNextProofNoteMarkdown(instructions), Encoding.UTF8);
+
+        return notePath;
+    }
+
+    internal static IReadOnlyList<string> CreateAllProofNoteFiles()
+    {
+        var evidenceSourcePath = TryGetManualEvidenceDraftPath();
+        if (string.IsNullOrWhiteSpace(evidenceSourcePath) || !File.Exists(evidenceSourcePath))
+            evidenceSourcePath = CreateManualEvidenceDraftFile();
+
+        if (string.IsNullOrWhiteSpace(evidenceSourcePath) || !File.Exists(evidenceSourcePath))
+            evidenceSourcePath = TryGetManualEvidenceTemplatePath();
+
+        if (string.IsNullOrWhiteSpace(evidenceSourcePath) || !File.Exists(evidenceSourcePath))
+            return [];
+
+        var notesFolder = TryGetProofNotesFolder(createIfMissing: true);
+        if (string.IsNullOrWhiteSpace(notesFolder))
+            return [];
+
+        using var document = JsonDocument.Parse(File.ReadAllText(evidenceSourcePath));
+        if (!document.RootElement.TryGetProperty("checks", out var checks) || checks.ValueKind != JsonValueKind.Array)
+            return [];
+
+        var notePaths = new List<string>();
+        foreach (var check in checks.EnumerateArray())
+        {
+            if (check.ValueKind != JsonValueKind.Object || TryGetJsonBoolean(check, "passed") == true)
+                continue;
+
+            var id = TryGetJsonString(check, "id");
+            var description = TryGetJsonString(check, "description");
+            var checkLabel = !string.IsNullOrWhiteSpace(id) ? id : description;
+            if (string.IsNullOrWhiteSpace(checkLabel))
+                continue;
+
+            var evidenceCommand = TryGetJsonString(check, "evidence_command") ?? "Open the checklist and complete this manual proof step.";
+            var expectedResult = TryGetJsonString(check, "expected_result") ?? "Attach sanitized proof artifacts and mark the check passed only after the expected visible result is observed.";
+            var instructions = new NextProofInstructionSummary(
+                $"Proof note: {checkLabel}",
+                evidenceCommand,
+                expectedResult,
+                checkLabel);
+            var notePath = Path.Combine(notesFolder, $"{SanitizeProofNoteFileName(checkLabel)}.md");
+            if (!File.Exists(notePath))
+                File.WriteAllText(notePath, BuildNextProofNoteMarkdown(instructions), Encoding.UTF8);
+
+            notePaths.Add(notePath);
+        }
+
+        return notePaths;
+    }
+
+    internal static string? CreateManualEvidenceDraftFile()
+    {
+        var templatePath = TryGetManualEvidenceTemplatePath();
+        if (string.IsNullOrWhiteSpace(templatePath) || !File.Exists(templatePath))
+            return null;
+
+        var evidenceFolder = TryGetReleaseEvidenceFolder();
+        if (string.IsNullOrWhiteSpace(evidenceFolder))
+            return null;
+
+        var rootNode = JsonNode.Parse(File.ReadAllText(templatePath)) as JsonObject;
+        if (rootNode == null)
+            return null;
+
+        var header = rootNode["evidence_header"] as JsonObject;
+        if (header == null)
+        {
+            header = new JsonObject();
+            rootNode["evidence_header"] = header;
+        }
+
+        SetJsonStringIfEmpty(header, "commit", TryReadGitCommit());
+        SetJsonStringIfEmpty(header, "build_id", GetCurrentAppVersion());
+        SetJsonStringIfEmpty(header, "tested_utc", DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+        SetJsonStringIfEmpty(header, "architecture", RuntimeInformation.OSArchitecture.ToString());
+        SetJsonStringIfEmpty(header, "machine_or_vm", Environment.MachineName);
+        SetJsonStringIfEmpty(header, "install_mode", "local evidence draft; confirm clean install before release");
+        SetJsonStringIfEmpty(header, "ui_runtime_versions", GetCurrentAppVersion());
+
+        var installerPath = TryGetRootInstallerPath();
+        if (!string.IsNullOrWhiteSpace(installerPath) && File.Exists(installerPath))
+        {
+            var installerHash = ComputeFileSha256(installerPath);
+            var installerSize = new FileInfo(installerPath).Length;
+            rootNode["local_installer_sha256"] = installerHash;
+            rootNode["local_installer_size_bytes"] = installerSize;
+
+            var releaseProof = rootNode["release_proof"] as JsonObject;
+            if (releaseProof != null)
+            {
+                releaseProof["local_installer_path"] = installerPath;
+                releaseProof["local_installer_sha256"] = installerHash;
+                releaseProof["local_installer_size_bytes"] = installerSize;
+            }
+
+            var artifactHashes = header["artifact_hashes"] as JsonArray;
+            if (artifactHashes == null)
+            {
+                artifactHashes = new JsonArray();
+                header["artifact_hashes"] = artifactHashes;
+            }
+
+            if (!artifactHashes.Any(node => string.Equals(node?.GetValue<string>(), installerHash, StringComparison.OrdinalIgnoreCase)))
+                artifactHashes.Add(installerHash);
+        }
+
+        var draftPath = Path.Combine(evidenceFolder, "voice-access-parity-manual-evidence.draft.json");
+        File.WriteAllText(
+            draftPath,
+            rootNode.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
+            Encoding.UTF8);
+        return draftPath;
+    }
+
+    internal static string? TryGetProofNotesFolder(bool createIfMissing)
+    {
+        var evidenceFolder = TryGetReleaseEvidenceFolder();
+        if (string.IsNullOrWhiteSpace(evidenceFolder))
+            return null;
+
+        var notesFolder = Path.Combine(evidenceFolder, "manual-proof-notes");
+        if (createIfMissing)
+            Directory.CreateDirectory(notesFolder);
+
+        return notesFolder;
+    }
+
+    private static string BuildNextProofNoteMarkdown(NextProofInstructionSummary instructions)
+    {
+        return string.Join(
+            Environment.NewLine,
+            "# Callsign Manual Proof Note",
+            "",
+            $"- Check: {instructions.CheckLabel}",
+            $"- Created UTC: {DateTimeOffset.UtcNow:O}",
+            "- Status: pending",
+            "",
+            "## Evidence Command",
+            "",
+            instructions.EvidenceCommand,
+            "",
+            "## Expected Result",
+            "",
+            instructions.ExpectedResult,
+            "",
+            "## Observed Result",
+            "",
+            "- ",
+            "",
+            "## Artifact References",
+            "",
+            "- ",
+            "",
+            "## Privacy Review",
+            "",
+            "- [ ] No raw audio attached unless explicitly intended.",
+            "- [ ] No personal transcript beyond the minimum proof summary.",
+            "- [ ] Paths and usernames are redacted where practical.",
+            "- [ ] No tokens, passwords, keys, or secrets are present.",
+            "- [ ] Screenshots or videos were reviewed before attaching.",
+            "",
+            "## Remaining Uncertainty",
+            "",
+            "- ",
+            "",
+            "## Release Recommendation",
+            "",
+            "- [ ] pass",
+            "- [ ] fail",
+            "- [ ] blocked",
+            "");
+    }
+
+    private static string SanitizeProofNoteFileName(string value)
+    {
+        var normalized = Regex.Replace(value.Trim().ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
+        if (string.IsNullOrWhiteSpace(normalized))
+            return "next-proof";
+
+        return normalized.Length <= 80 ? normalized : normalized[..80].Trim('-');
+    }
+
+    internal static string? TryGetReleaseEvidenceFolder()
+    {
+        var repoRoot = TryGetRepositoryRoot();
+        if (repoRoot != null)
+        {
+            var buildFolder = Path.Combine(repoRoot, "build");
+            if (Directory.Exists(buildFolder))
+                return buildFolder;
+        }
+
+        var candidateRoots = new[]
+        {
+            AppContext.BaseDirectory,
+            Environment.CurrentDirectory
+        };
+
+        foreach (var candidateRoot in candidateRoots)
+        {
+            var current = Path.GetFullPath(candidateRoot);
+            while (true)
+            {
+                var buildFolder = Path.Combine(current, "build");
+                if (Directory.Exists(buildFolder))
+                    return buildFolder;
+
+                var parent = Directory.GetParent(current);
+                if (parent == null)
+                    break;
+
+                current = parent.FullName;
+            }
+        }
+
+        return null;
+    }
+
+    internal static string? TryGetManualEvidenceTemplatePath()
+    {
+        var repoRoot = TryGetRepositoryRoot();
+        if (repoRoot != null)
+        {
+            var templatePath = Path.Combine(repoRoot, "build", "voice-access-parity-manual-evidence.template.json");
+            if (File.Exists(templatePath))
+                return templatePath;
+        }
+
+        var evidenceFolder = TryGetReleaseEvidenceFolder();
+        if (evidenceFolder == null)
+            return null;
+
+        var fallbackTemplatePath = Path.Combine(evidenceFolder, "voice-access-parity-manual-evidence.template.json");
+        return File.Exists(fallbackTemplatePath) ? fallbackTemplatePath : evidenceFolder;
+    }
+
+    internal static string? TryGetReleasePacketSummaryPath()
+    {
+        var repoRoot = TryGetRepositoryRoot();
+        if (repoRoot != null)
+        {
+            var summaryPath = Path.Combine(repoRoot, "build", "release-packet-summary.json");
+            if (File.Exists(summaryPath))
+                return summaryPath;
+        }
+
+        var evidenceFolder = TryGetReleaseEvidenceFolder();
+        if (evidenceFolder == null)
+            return null;
+
+        var fallbackSummaryPath = Path.Combine(evidenceFolder, "release-packet-summary.json");
+        return File.Exists(fallbackSummaryPath) ? fallbackSummaryPath : null;
+    }
+
+    internal static string? TryGetParityEvidencePath()
+    {
+        var repoRoot = TryGetRepositoryRoot();
+        if (repoRoot != null)
+        {
+            var evidencePath = Path.Combine(repoRoot, "build", "voice-access-parity-evidence.json");
+            if (File.Exists(evidencePath))
+                return evidencePath;
+        }
+
+        var evidenceFolder = TryGetReleaseEvidenceFolder();
+        if (evidenceFolder == null)
+            return null;
+
+        var fallbackEvidencePath = Path.Combine(evidenceFolder, "voice-access-parity-evidence.json");
+        return File.Exists(fallbackEvidencePath) ? fallbackEvidencePath : null;
+    }
+
+    internal static string? TryGetManualEvidenceChecklistPath()
+    {
+        var repoRoot = TryGetRepositoryRoot();
+        if (repoRoot != null)
+        {
+            var checklistPath = Path.Combine(repoRoot, "build", "voice-access-parity-manual-evidence.checklist.md");
+            if (File.Exists(checklistPath))
+                return checklistPath;
+        }
+
+        var evidenceFolder = TryGetReleaseEvidenceFolder();
+        if (evidenceFolder == null)
+            return null;
+
+        var fallbackChecklistPath = Path.Combine(evidenceFolder, "voice-access-parity-manual-evidence.checklist.md");
+        return File.Exists(fallbackChecklistPath) ? fallbackChecklistPath : null;
+    }
+
+    internal static string? TryGetManualEvidenceDraftPath()
+    {
+        var evidenceFolder = TryGetReleaseEvidenceFolder();
+        if (evidenceFolder == null)
+            return null;
+
+        var draftPath = Path.Combine(evidenceFolder, "voice-access-parity-manual-evidence.draft.json");
+        return File.Exists(draftPath) ? draftPath : null;
+    }
+
+    private static string? TryGetRootInstallerPath()
+    {
+        var repoRoot = TryGetRepositoryRoot();
+        if (repoRoot == null)
+            return null;
+
+        var installerPath = Path.Combine(repoRoot, "Callsign-Setup.exe");
+        return File.Exists(installerPath) ? installerPath : null;
+    }
+
+    private static string GetCurrentAppVersion()
+    {
+        try
+        {
+            var file = FileVersionInfo.GetVersionInfo(typeof(MainForm).Assembly.Location);
+            return file.ProductVersion ?? file.FileVersion ?? "unknown";
+        }
+        catch
+        {
+            return "unknown";
+        }
+    }
+
+    private static string ComputeFileSha256(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexString(SHA256.HashData(stream));
+    }
+
+    private static void SetJsonStringIfEmpty(JsonObject json, string propertyName, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        if (json[propertyName] is JsonValue existingValue
+            && existingValue.TryGetValue<string>(out var existingText)
+            && !string.IsNullOrWhiteSpace(existingText))
+            return;
+
+        json[propertyName] = value;
+    }
+
+    private static string? TryReadGitCommit()
+    {
+        var repoRoot = TryGetRepositoryRoot();
+        if (repoRoot == null)
+            return null;
+
+        var gitFolder = Path.Combine(repoRoot, ".git");
+        var headPath = Path.Combine(gitFolder, "HEAD");
+        if (!File.Exists(headPath))
+            return null;
+
+        var head = File.ReadAllText(headPath).Trim();
+        if (head.StartsWith("ref:", StringComparison.OrdinalIgnoreCase))
+        {
+            var refName = head[4..].Trim().Replace('/', Path.DirectorySeparatorChar);
+            var refPath = Path.Combine(gitFolder, refName);
+            return File.Exists(refPath) ? NormalizeGitCommit(File.ReadAllText(refPath)) : null;
+        }
+
+        return NormalizeGitCommit(head);
+    }
+
+    private static string? NormalizeGitCommit(string value)
+    {
+        var trimmed = value.Trim();
+        return Regex.IsMatch(trimmed, "^[a-fA-F0-9]{40}$") ? trimmed : null;
+    }
+
+    internal static string? TryGetRepositoryRoot()
+    {
+        var candidateRoots = new[]
+        {
+            AppContext.BaseDirectory,
+            Environment.CurrentDirectory
+        };
+
+        foreach (var candidateRoot in candidateRoots)
+        {
+            var current = Path.GetFullPath(candidateRoot);
+            while (true)
+            {
+                if (File.Exists(Path.Combine(current, "AGENTS.md")) &&
+                    File.Exists(Path.Combine(current, "README.md")) &&
+                    Directory.Exists(Path.Combine(current, "src")))
+                {
+                    return current;
+                }
+
+                var parent = Directory.GetParent(current);
+                if (parent == null)
+                    break;
+
+                current = parent.FullName;
+            }
+        }
+
+        return null;
     }
 
     private void RefreshSelectedPackCommands()
     {
-        if (_packsList == null || _packCommandsList == null || _packsSelectedSummaryLabel == null || _packsEnablementLabel == null)
+        if (_packsList == null || _packCommandsList == null || _packsSelectedSummaryLabel == null || _packsEnablementLabel == null || _packsEnablementBadge == null || _packsImportSummaryLabel == null || _packsBackupLabel == null)
             return;
 
         _packCommandsList.BeginUpdate();
@@ -11728,14 +19725,25 @@ public sealed class MainForm : Form
             {
                 _packsSelectedSummaryLabel.Text = "Selected pack: none. Tier, signature, source, and command-gate details will appear here.";
                 _packsEnablementLabel.Text = "Enablement readiness: select a pack to see whether commands can run, are disabled for review, or are blocked by signature or entitlement.";
+                _packsEnablementBadge.Text = "Enablement: review";
+                _packsBackupLabel.Text = "Backup: none selected.";
                 return;
             }
 
-            _packsSelectedSummaryLabel.Text = $"Selected pack: {packItem.Pack.DisplayName} v{packItem.Pack.Version}. {FormatPackSecuritySummary(packItem.Pack)}";
+            _packsSelectedSummaryLabel.Text = BuildPackSelectedSummary(packItem.Pack);
             _packsEnablementLabel.Text = FormatPackEnablementReadiness(packItem.Pack);
+            _packsEnablementBadge.Text = FormatPackEnablementBadgeText(packItem.Pack);
+            _packsBackupLabel.Text = CallsignCommandRegistry.Shared.HasRollbackBackup(packItem.Pack.PackId)
+                ? "Backup: previous version available."
+                : "Backup: none available.";
             _packCommandsList.Items.Add($"Pack: {packItem.Pack.Message}");
             _packCommandsList.Items.Add(FormatPackSecuritySummary(packItem.Pack));
             _packCommandsList.Items.Add(FormatPackEnablementReadiness(packItem.Pack));
+            var commandPreview = BuildPackCommandPreview(
+                CallsignCommandRegistry.Shared.GetCommands()
+                    .Where(command => string.Equals(command.PackId, packItem.Pack.PackId, StringComparison.OrdinalIgnoreCase)));
+            if (!string.IsNullOrWhiteSpace(commandPreview))
+                _packCommandsList.Items.Add(commandPreview);
             _packCommandsList.Items.Add(string.Empty);
 
             foreach (var command in CallsignCommandRegistry.Shared.GetCommands().Where(command => string.Equals(command.PackId, packItem.Pack.PackId, StringComparison.OrdinalIgnoreCase)))
@@ -11743,11 +19751,84 @@ public sealed class MainForm : Form
                 var phrase = command.Definition.VoicePhrases.FirstOrDefault() ?? command.CommandDisplayName;
                 _packCommandsList.Items.Add($"{phrase} -> {command.CommandDisplayName}");
                 _packCommandsList.Items.Add($"  {command.Definition.Kind}; {command.Definition.RiskTier}; {command.Definition.PrivacyImpact}; {command.Definition.ApprovalRequirement}; {command.Definition.VisibilityRequirement}");
+                if (!string.IsNullOrWhiteSpace(command.Definition.HelpText) || !string.IsNullOrWhiteSpace(command.Definition.Description))
+                    _packCommandsList.Items.Add($"  {command.Definition.HelpText ?? command.Definition.Description}");
             }
         }
         finally
         {
             _packCommandsList.EndUpdate();
+        }
+    }
+
+    public static bool MatchesPackFilter(CallsignPackInfo pack, string filter)
+    {
+        if (string.IsNullOrWhiteSpace(filter))
+            return true;
+
+        var haystack = string.Join(' ',
+            pack.DisplayName,
+            pack.PackId,
+            pack.Version,
+            pack.Tier,
+            pack.LoadStatus,
+            pack.SignatureStatus,
+            pack.Message,
+            pack.IsCommunity ? "community" : "trusted",
+            pack.WasImported ? "imported" : "installed",
+            pack.CommandCount.ToString(CultureInfo.InvariantCulture),
+            pack.LoadStatus != CallsignPackLoadStatus.Loaded ? "gated" : "available",
+            FormatPackListDisplay(pack),
+            FormatPackSecuritySummary(pack),
+            FormatPackEnablementReadiness(pack));
+
+        if (string.Equals(filter.Trim(), "paid", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(filter.Trim(), "premium", StringComparison.OrdinalIgnoreCase))
+            return pack.Tier is CallsignPackTier.Pro or CallsignPackTier.Advanced;
+
+        return filter
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .All(token => haystack.Contains(token, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void AddPackFilterButton(string text, string filter, string description)
+    {
+        if (_packsFilterButtonsPanel == null)
+            return;
+
+        var button = new Button
+        {
+            Text = text,
+            AutoSize = true,
+            FlatStyle = FlatStyle.Flat,
+            Margin = new Padding(0, 0, 8, 0),
+            Padding = new Padding(8, 5, 8, 5),
+            BackColor = string.IsNullOrWhiteSpace(filter) ? Color.FromArgb(37, 99, 235) : Color.FromArgb(241, 245, 249),
+            ForeColor = string.IsNullOrWhiteSpace(filter) ? Color.White : Color.FromArgb(15, 23, 42),
+            AccessibleName = $"Packs quick filter {text}",
+            AccessibleDescription = description
+        };
+        button.FlatAppearance.BorderSize = 0;
+        button.Tag = filter;
+        button.Click += (_, _) =>
+        {
+            _packsFilterText.Text = filter;
+            RefreshPacksPanel(forceReload: false);
+        };
+        _packsFilterButtonsPanel.Controls.Add(button);
+    }
+
+    private void UpdatePackFilterButtonStates(string filter)
+    {
+        if (_packsFilterButtonsPanel == null)
+            return;
+
+        foreach (var button in _packsFilterButtonsPanel.Controls.OfType<Button>())
+        {
+            var buttonFilter = button.Tag as string ?? string.Empty;
+            var selected = string.Equals(buttonFilter, filter.Trim(), StringComparison.OrdinalIgnoreCase);
+            button.BackColor = selected ? Color.FromArgb(37, 99, 235) : Color.FromArgb(241, 245, 249);
+            button.ForeColor = selected ? Color.White : Color.FromArgb(15, 23, 42);
         }
     }
 
@@ -11886,7 +19967,7 @@ public sealed class MainForm : Form
     private void SaveVoiceShortcut()
     {
         var shortcut = BuildVoiceShortcutFromInputs(enabled: _selectedVoiceShortcut?.Enabled ?? true);
-        var result = _voiceShortcutStore.Save(shortcut);
+        var result = _voiceShortcutStore.Save(shortcut, CanResolveVoiceShortcutCommandStep);
         if (!result.Succeeded || result.Shortcut == null)
         {
             UpdateStatus(result.Message);
@@ -11971,10 +20052,24 @@ public sealed class MainForm : Form
             return;
         }
 
+        if (!CanResolveVoiceShortcutCommandStep(command))
+        {
+            UpdateStatus($"Shortcut command step could not be resolved by Callsign: '{command}'.");
+            return;
+        }
+
         _voiceShortcutDraftActions.Add(new VoiceShortcutAction(VoiceShortcutActionKind.Command, command));
         _voiceShortcutCommandActionText.Clear();
         RefreshVoiceShortcutActionList();
         UpdateStatus("Added a command step to the voice shortcut.");
+    }
+
+    private static bool CanResolveVoiceShortcutCommandStep(string command)
+    {
+        if (AlphaCommandRouter.TryRoute(command, out _))
+            return true;
+
+        return CallsignCommandRegistry.Shared.TryResolve(command, out _);
     }
 
     private void AddVoiceShortcutWaitAction()
@@ -12132,6 +20227,7 @@ public sealed class MainForm : Form
             if (index >= 0)
                 _profiles[index] = reloaded;
             _activeProfile = reloaded;
+            ApplyProfileEntitlements(reloaded);
         }
 
         RefreshAllPanels();
@@ -12244,6 +20340,19 @@ public sealed class MainForm : Form
 
     public string VoiceNextStepText => _voiceNextStepLabel.Text;
     public string VoiceFailureText => _voiceFailureLabel.Text;
+    public string AccountSetupPathText => _accountSetupPathLabel.Text;
+    public string SessionContractText => _sessionContractLabel.Text;
+    public string WakeSummaryText => _wakeSummaryLabel.Text;
+    public string WakeQualityText => _wakeQualityBadge.Text;
+    public string WakeMarginText => _wakeMarginLabel.Text;
+    public string DictationContractText => _dictationContractLabel.Text;
+    public string DictationStatusStripAccessibleName => _dictationStatusStrip.AccessibleName ?? string.Empty;
+    public string DictationStatusStripTexts => string.Join(" ", _dictationStatusStrip.Controls.OfType<Control>().Select(control => control.Text));
+    public string DictationModeBadgeText => _dictationModeBadge.Text;
+    public string DictationReviewBadgeText => _dictationReviewBadge.Text;
+    public string DictationReadbackBadgeText => _dictationReadbackBadge.Text;
+    public string DictationSafetyBadgeText => _dictationSafetyBadge.Text;
+    public string DictationBoundaryBadgeText => _dictationBoundaryBadge.Text;
 
     private static string GetVoiceNextStepText(UserSettings settings, bool busy)
     {
@@ -12263,11 +20372,11 @@ public sealed class MainForm : Form
     private static string GetVoiceFailureText(UserSettings settings, bool busy, VoiceEnrollmentSampleProof? sampleProof = null)
     {
         if (busy)
-            return "Failure type: service.";
+            return "Failure type: service. Next: wait for enrollment or calibration to finish.";
 
         var required = Math.Max(3, settings.VoiceSamplesRequired);
         if (settings.VoiceSamplesRecorded < required)
-            return "Failure type: not enough samples yet.";
+            return "Failure type: not enough samples yet. Next: record more fresh samples.";
 
         if (settings.VoiceEnrolledUtc.HasValue)
             return "Failure type: none.";
@@ -12276,12 +20385,12 @@ public sealed class MainForm : Form
             return VoiceBiometricVerificationService.DescribeEnrollmentFailureType(sampleProof.RejectReason, sampleProof.Message, sampleProof);
 
         if (string.Equals(settings.VoiceEnrollmentStatus, "pyannote setup required", StringComparison.OrdinalIgnoreCase))
-            return "Failure type: identity runtime or model cache.";
+            return "Failure type: identity runtime or model cache. Next: choose Repair Identity Runtime.";
 
         if ((settings.VoiceEnrollmentStatus ?? string.Empty).Contains("collecting sample", StringComparison.OrdinalIgnoreCase))
-            return "Failure type: sample collection in progress.";
+            return "Failure type: sample collection in progress. Next: keep recording until the sample is saved.";
 
-        return "Failure type: identity runtime, model cache, or service.";
+        return "Failure type: identity runtime, model cache, or service. Next: choose Repair Identity Runtime.";
     }
 
     private static string NormalizeVoiceStatus(string status) =>
@@ -12383,7 +20492,7 @@ public sealed class MainForm : Form
             AlphaSessionState.Idle => "Next: say Callsign.",
             AlphaSessionState.WaitingForIdentity => "Next: say your callsign.",
             AlphaSessionState.WaitingForCommand when string.IsNullOrWhiteSpace(verifiedCallsign) => "Next: verify your callsign.",
-            AlphaSessionState.WaitingForCommand => "Next: say the app name or command.",
+            AlphaSessionState.WaitingForCommand => "Next: say the app name before continuing.",
             AlphaSessionState.ReadyToLaunch when string.IsNullOrWhiteSpace(pendingCommand) => "Next: say the app name.",
             AlphaSessionState.ReadyToLaunch => $"Next: launch {pendingCommand}.",
             AlphaSessionState.Launching => "Next: wait for the app to open.",
@@ -12402,8 +20511,8 @@ public sealed class MainForm : Form
         {
             AlphaSessionState.Idle => "Say Callsign to begin a visible session.",
             AlphaSessionState.WaitingForIdentity => "Say your callsign after the wake word to verify identity.",
-            AlphaSessionState.WaitingForCommand when string.IsNullOrWhiteSpace(verifiedCallsign) => "The session is waiting for identity before it accepts a command.",
-            AlphaSessionState.WaitingForCommand => "After identity, speak the app name or command you want to launch.",
+            AlphaSessionState.WaitingForCommand when string.IsNullOrWhiteSpace(verifiedCallsign) => "The session needs identity before it accepts a command.",
+            AlphaSessionState.WaitingForCommand => "After identity, say the app name to launch.",
             AlphaSessionState.ReadyToLaunch when string.IsNullOrWhiteSpace(pendingCommand) => "Speak the app name to continue.",
             AlphaSessionState.ReadyToLaunch => $"Speak to launch {pendingCommand}.",
             AlphaSessionState.Launching => "The app is launching now.",
@@ -12411,6 +20520,118 @@ public sealed class MainForm : Form
             AlphaSessionState.LockedOut => "The session is locked out for safety. Wait for it to clear, then try again.",
             _ => "Say Callsign to begin a visible session."
         };
+    }
+
+    private static string FormatSessionReadinessText(UserProfile? profile, string? stateText)
+    {
+        if (!Enum.TryParse<AlphaSessionState>(stateText, ignoreCase: true, out var state))
+            state = AlphaSessionState.Idle;
+
+        return FormatSessionReadinessText(profile, state);
+    }
+
+    private static string FormatSessionReadinessText(UserProfile? profile, AlphaSessionState state)
+    {
+        if (profile == null || string.IsNullOrWhiteSpace(profile.Callsign))
+            return "Readiness: create or select a profile.";
+
+        var callsign = profile.Callsign.Trim();
+        var enrolled = IsVoiceEnrolled(profile.Settings);
+        var remainingSamples = Math.Max(0, Math.Max(3, profile.Settings.VoiceSamplesRequired) - profile.Settings.VoiceSamplesRecorded);
+
+        return state switch
+        {
+            AlphaSessionState.Idle => enrolled
+                ? $"Readiness: {callsign} is enrolled. Say Callsign to wake."
+                : $"Readiness: record {remainingSamples} more fresh sample(s) before voice activation.",
+            AlphaSessionState.WaitingForIdentity => enrolled
+                ? $"Readiness: {callsign} is enrolled and ready for identity confirmation."
+                : $"Readiness: {callsign} still needs enrollment before identity can unlock commands.",
+            AlphaSessionState.WaitingForCommand => enrolled
+                ? $"Readiness: identity verified for {callsign}. Say the app name or a visible command."
+                : $"Readiness: enrollment is incomplete for {callsign}.",
+            AlphaSessionState.ReadyToLaunch => enrolled
+                ? $"Readiness: launch ready for {callsign}."
+                : $"Readiness: voice activation is incomplete for {callsign}.",
+            AlphaSessionState.Launching => $"Readiness: launching the visible action for {callsign}.",
+            AlphaSessionState.Completed => enrolled
+                ? $"Readiness: session complete for {callsign}. Say Callsign to start again."
+                : $"Readiness: finish enrollment for {callsign}.",
+            AlphaSessionState.LockedOut => $"Readiness: session is locked out for {callsign}. Wait for the timeout to clear.",
+            _ => enrolled
+                ? $"Readiness: {callsign} is enrolled and ready."
+            : $"Readiness: enrollment is incomplete for {callsign}."
+        };
+    }
+
+    private void UpdateSessionStatusStrip(string? listenerText, string? identityText, string? commandText, string? nextActionText, string? readinessText)
+    {
+        if (_sessionStatusStrip == null)
+            return;
+
+        _sessionListenerBadge.Text = string.IsNullOrWhiteSpace(listenerText)
+            ? "Listener: stopped"
+            : listenerText.StartsWith("Listener:", StringComparison.OrdinalIgnoreCase)
+                ? listenerText
+                : listenerText.Contains("running", StringComparison.OrdinalIgnoreCase)
+                    ? "Listener: running"
+                    : "Listener: stopped";
+        _sessionIdentityBadge.Text = string.IsNullOrWhiteSpace(identityText)
+            ? "Identity: not verified"
+            : identityText.StartsWith("Identity:", StringComparison.OrdinalIgnoreCase)
+                ? identityText
+                : identityText.Contains("Verified", StringComparison.OrdinalIgnoreCase)
+                    ? "Identity: verified"
+                    : "Identity: not verified";
+        _sessionCommandBadge.Text = string.IsNullOrWhiteSpace(commandText)
+            ? "Command: none"
+            : commandText.StartsWith("Command:", StringComparison.OrdinalIgnoreCase)
+                ? commandText
+                : commandText.Contains("none", StringComparison.OrdinalIgnoreCase)
+                    ? "Command: none"
+                    : "Command: ready";
+        _sessionNextActionBadge.Text = string.IsNullOrWhiteSpace(nextActionText)
+            ? "Next: say Callsign."
+            : nextActionText.StartsWith("Next:", StringComparison.OrdinalIgnoreCase)
+                ? nextActionText
+                : "Next: " + nextActionText.Trim();
+        _sessionReadinessBadge.Text = string.IsNullOrWhiteSpace(readinessText)
+            ? "Ready: profile needed"
+            : readinessText.StartsWith("Readiness:", StringComparison.OrdinalIgnoreCase)
+                ? readinessText.Replace("Readiness:", "Ready:", StringComparison.OrdinalIgnoreCase)
+                : $"Ready: {readinessText.Trim()}";
+    }
+
+    private void UpdateWakeStatusStrip(string? detectorText, string? summaryText, string? qualityText, string? scoreText, string? marginText)
+    {
+        if (_wakeStatusStrip == null)
+            return;
+
+        _wakeDetectorBadge.Text = string.IsNullOrWhiteSpace(detectorText)
+            ? "Wake: unavailable"
+            : detectorText.StartsWith("Wake:", StringComparison.OrdinalIgnoreCase)
+                ? detectorText
+                : "Wake: " + detectorText.Trim();
+        _wakeSummaryBadge.Text = string.IsNullOrWhiteSpace(summaryText)
+            ? "Summary: unavailable"
+            : summaryText.StartsWith("Summary:", StringComparison.OrdinalIgnoreCase)
+                ? summaryText
+                : "Summary: " + summaryText.Trim();
+        _wakeQualityBadge.Text = string.IsNullOrWhiteSpace(qualityText)
+            ? "Quality: unavailable"
+            : qualityText.StartsWith("Quality:", StringComparison.OrdinalIgnoreCase)
+                ? qualityText
+                : "Quality: " + qualityText.Trim();
+        _wakeScoreBadge.Text = string.IsNullOrWhiteSpace(scoreText)
+            ? "Score: unavailable"
+            : scoreText.StartsWith("Score:", StringComparison.OrdinalIgnoreCase)
+                ? scoreText
+                : "Score: " + scoreText.Trim();
+        _wakeMarginBadge.Text = string.IsNullOrWhiteSpace(marginText)
+            ? "Margin: unavailable"
+            : marginText.StartsWith("Margin:", StringComparison.OrdinalIgnoreCase)
+                ? marginText
+                : "Margin: " + marginText.Trim();
     }
 
     private static string BuildRuntimeOverlayReadout(RuntimeStateSnapshot snapshot)
@@ -12465,8 +20686,8 @@ public sealed class MainForm : Form
         {
             if (score.HasValue && threshold.HasValue)
                 return score.Value >= threshold.Value
-                    ? $"Wake candidate: accepted wake score ({score.Value:P0} / {threshold.Value:P0}), but no transcript text was captured."
-                    : $"Wake candidate: below threshold ({score.Value:P0} / {threshold.Value:P0}), and no transcript text was captured.";
+                    ? $"Wake candidate: accepted wake score ({score.Value:P0} / {threshold.Value:P0}, {FormatWakeMargin(score.Value, threshold.Value)}), but no transcript text was captured."
+                    : $"Wake candidate: below threshold ({score.Value:P0} / {threshold.Value:P0}, {FormatWakeMargin(score.Value, threshold.Value)}), and no transcript text was captured.";
 
             return "Wake candidate: nothing heard yet.";
         }
@@ -12474,14 +20695,33 @@ public sealed class MainForm : Form
         if (score.HasValue && threshold.HasValue)
         {
             if (score.Value < threshold.Value)
-                return "Wake candidate: listening for Callsign.";
+                return $"Wake candidate: listening for Callsign ({score.Value:P0} / {threshold.Value:P0}, {FormatWakeMargin(score.Value, threshold.Value)}). Next: speak closer to the microphone or re-run wake calibration.";
 
             return score.Value >= threshold.Value
-                ? $"Wake candidate: heard '{candidate}' ({score.Value:P0} / {threshold.Value:P0}) and it cleared threshold."
-                : $"Wake candidate: heard '{candidate}' ({score.Value:P0} / {threshold.Value:P0}) but it stayed below threshold.";
+                ? $"Wake candidate: heard '{candidate}' ({score.Value:P0} / {threshold.Value:P0}, {FormatWakeMargin(score.Value, threshold.Value)}) and it cleared threshold. Next: say Callsign."
+                : $"Wake candidate: heard '{candidate}' ({score.Value:P0} / {threshold.Value:P0}, {FormatWakeMargin(score.Value, threshold.Value)}) but it stayed below threshold.";
         }
 
         return $"Wake candidate: heard '{candidate}'.";
+    }
+
+    private static string FormatWakeMargin(double scoreValue, double thresholdValue)
+    {
+        var margin = scoreValue - thresholdValue;
+        return $"margin {margin:+0.0%;-0.0%;0.0%}";
+    }
+
+    private static string BuildWakeQualityBadgeText(double? scoreValue, double? thresholdValue)
+    {
+        if (!scoreValue.HasValue || !thresholdValue.HasValue)
+            return "Quality: unavailable. Next: calibrate wake.";
+
+        var margin = scoreValue.Value - thresholdValue.Value;
+        var state = scoreValue.Value >= thresholdValue.Value ? "accepted" : "below threshold";
+        var nextAction = scoreValue.Value >= thresholdValue.Value
+            ? "Next: say Callsign."
+            : "Next: speak closer to the microphone or calibrate wake.";
+        return $"Quality: {state} {margin:+0.0%;-0.0%;0.0%}. {nextAction}";
     }
 
     private static AlphaSessionState ParseSessionState(string sessionState)
@@ -12577,7 +20817,7 @@ public sealed class MainForm : Form
             return "Speech cue: Dictation text is updating.";
 
         if (snapshot.ServiceDictationActive)
-            return "Speech cue: Dictation is waiting for speech.";
+            return "Speech cue: Dictation is listening for speech.";
 
         return "Speech cue: dictation is stopped.";
     }
@@ -12733,7 +20973,7 @@ public sealed class MainForm : Form
 
         return _voiceCommandService.IsSpeechActive
             ? $"Dictation: {FormatLiveHearingCue(_session.State, _voiceCommandService.LastSpeechActivityUtc).Replace("Hearing your", "hearing").Replace("Listening for launch", "hearing")}"
-            : "Dictation: waiting for speech.";
+            : "Dictation: listening for speech.";
     }
 
     private double? BuildLocalOverlayActivityLevel()
@@ -12769,6 +21009,47 @@ public sealed class MainForm : Form
 
     private string BuildWakeOverlayAuthorityText(RuntimeStateSnapshot? runtimeSnapshot = null)
         => RuntimeStatusFormatter.FormatAuthority(runtimeSnapshot, _voiceCommandService.IsListening, _usingLocalPreviewListener);
+
+    private string BuildWakeOverlayCalibrationText(RuntimeStateSnapshot? runtimeSnapshot = null)
+    {
+        var settings = _activeProfile?.Settings;
+        var threshold = settings?.VoiceWakeThreshold ?? 0;
+        var sensitivity = settings?.VoiceWakeSensitivity;
+        var calibratedUtc = settings?.VoiceWakeCalibratedUtc;
+        var sampleCount = settings?.VoiceWakeCalibrationSampleCount ?? 0;
+        var source = settings?.VoiceWakeCalibrationSource;
+
+        if (runtimeSnapshot != null && runtimeSnapshot.WakeWordThreshold.HasValue)
+            threshold = runtimeSnapshot.WakeWordThreshold.Value;
+
+        var thresholdText = threshold > 0
+            ? $"Wake threshold: {threshold:0.000}"
+            : $"Wake threshold: {VoiceCommandService.ResolveWakeThreshold(null, sensitivity):0.000}";
+        var sensitivityText = string.IsNullOrWhiteSpace(sensitivity)
+            ? "Sensitivity: default"
+            : $"Sensitivity: {sensitivity}";
+        var calibrationText = calibratedUtc.HasValue
+            ? $"Calibration: {calibratedUtc.Value.ToLocalTime():g}"
+            : "Calibration: none";
+        var sampleText = sampleCount > 0
+            ? $"Samples: {sampleCount}"
+            : "Samples: none";
+        var provenanceText = sampleCount > 0
+            ? string.IsNullOrWhiteSpace(source)
+                ? "Provenance: trusted sample set."
+                : $"Provenance: trusted sample set. Source: {source.Trim()}."
+            : "Provenance: pending trusted sample set.";
+        return $"{thresholdText}. {sensitivityText}. {calibrationText}. {sampleText}. {provenanceText}";
+    }
+
+    private string BuildWakeOverlayQualityText(RuntimeStateSnapshot? runtimeSnapshot = null)
+    {
+        if (runtimeSnapshot != null)
+            return BuildWakeQualityBadgeText(runtimeSnapshot.LastWakeWordScore, runtimeSnapshot.WakeWordThreshold);
+
+        var detection = _voiceCommandService.LastWakeWordDetection;
+        return BuildWakeQualityBadgeText(detection?.Score, detection?.Threshold);
+    }
 
     private string? BuildLocalOverlayCaptionText(AlphaSessionState state, bool speechActive, DateTime? lastSpeechActivityUtc = null, string? latestTranscript = null, float? confidence = null)
     {
@@ -12890,21 +21171,21 @@ public sealed class MainForm : Form
         if (_dictationLastTranscriptUtc.HasValue && !string.IsNullOrWhiteSpace(_dictationLastTranscriptText))
             return $"Speech cue: Heard {_dictationLastTranscriptText}";
 
-        return "Speech cue: dictation is waiting for speech.";
+        return "Speech cue: dictation is listening for speech.";
     }
 
-    private void SyncWakeOverlay(bool shouldBeVisible, string? readout = null, string? phase = null, IReadOnlyList<string>? transcriptHistory = null, double? activityLevel = null, string? activityText = null, string? captionText = null, string? wakeStatusText = null, string? authorityText = null)
+    private void SyncWakeOverlay(bool shouldBeVisible, string? readout = null, string? phase = null, IReadOnlyList<string>? transcriptHistory = null, double? activityLevel = null, string? activityText = null, string? captionText = null, string? wakeStatusText = null, string? qualityText = null, string? authorityText = null, string? calibrationText = null)
     {
         if (shouldBeVisible)
         {
-            ShowWakeOverlay(readout, phase, transcriptHistory, activityLevel, activityText, _voiceCommandService.IsSpeechActive, captionText, wakeStatusText, authorityText);
+            ShowWakeOverlay(readout, phase, transcriptHistory, activityLevel, activityText, _voiceCommandService.IsSpeechActive, captionText, wakeStatusText, qualityText, authorityText, calibrationText);
             return;
         }
 
         HideWakeOverlay();
     }
 
-    private void ShowWakeOverlay(string? readout = null, string? phase = null, IReadOnlyList<string>? transcriptHistory = null, double? activityLevel = null, string? activityText = null, bool speechActive = false, string? captionText = null, string? wakeStatusText = null, string? authorityText = null)
+    private void ShowWakeOverlay(string? readout = null, string? phase = null, IReadOnlyList<string>? transcriptHistory = null, double? activityLevel = null, string? activityText = null, bool speechActive = false, string? captionText = null, string? wakeStatusText = null, string? qualityText = null, string? authorityText = null, string? calibrationText = null)
     {
         if (_wakeOverlayMissingLogged)
         {
@@ -12935,7 +21216,7 @@ public sealed class MainForm : Form
             }
         }
 
-        _wakeOverlay.ShowOverlay(readout, phase, transcriptHistory, activityLevel, activityText, speechActive, captionText, wakeStatusText, authorityText);
+        _wakeOverlay.ShowOverlay(readout, phase, transcriptHistory, activityLevel, activityText, speechActive, captionText, wakeStatusText, qualityText, authorityText, calibrationText);
     }
 
     private void PreloadWakeOverlay()
@@ -12991,15 +21272,34 @@ public sealed class MainForm : Form
         var stopRequestPending = _runtimeStopRequestedUtc.HasValue
             && backgroundRuntimeListening
             && DateTime.UtcNow - _runtimeStopRequestedUtc.Value <= TimeSpan.FromSeconds(15);
-        if (!backgroundRuntimeListening)
+        var restartRequestPending = _runtimeRestartRequestedUtc.HasValue;
+        var restartAttempted = false;
+        if (restartRequestPending && !backgroundRuntimeListening && !stopRequestPending)
+        {
+            TryStartInstalledUserRuntime(out var restartMessage);
+            restartAttempted = true;
+            _runtimeRestartRequestedUtc = null;
+            UpdateStatus(restartMessage);
+        }
+
+        if (backgroundRuntimeListening)
+        {
             _runtimeStopRequestedUtc = null;
+            _runtimeRestartRequestedUtc = null;
+        }
+        else
+        {
+            _runtimeStopRequestedUtc = null;
+        }
 
         _listeningStateLabel.Text = _voiceCommandService.IsListening
             ? _dictationActive
                 ? $"Microphone listener is running for dictation. {_voiceCommandService.CurrentModeDescription}"
                 : $"Microphone listener is running. {_voiceCommandService.CurrentModeDescription}"
-            : stopRequestPending
-                ? "Background user runtime stop requested. Waiting for the runtime to exit."
+            : restartRequestPending || restartAttempted
+                ? "Background user runtime restart requested. Waiting for the runtime to stop and start again."
+                : stopRequestPending
+                    ? "Background user runtime stop requested. Waiting for the runtime to exit."
                 : backgroundRuntimeListening
                     ? backgroundRuntimeCanHearAudio
                         ? runtimeSnapshot!.LastWakeWordScore.HasValue && runtimeSnapshot.WakeWordThreshold.HasValue
@@ -13011,8 +21311,9 @@ public sealed class MainForm : Form
                             ? "Background user runtime is receiving microphone packets, but the speech level is too quiet."
                             : "Background user runtime is running but no microphone audio packets are arriving."
                 : "Microphone listener is stopped.";
-        _startListeningButton.Enabled = !anyListenerRunning && !stopRequestPending;
+        _startListeningButton.Enabled = !anyListenerRunning && !stopRequestPending && !restartRequestPending && !restartAttempted;
         _stopListeningButton.Enabled = anyListenerRunning && !stopRequestPending;
+        _restartListeningButton.Enabled = !stopRequestPending && !restartRequestPending && !restartAttempted;
         SyncVoiceModeControls();
 
         if (!anyListenerRunning)
@@ -13234,6 +21535,7 @@ public sealed class MainForm : Form
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
+        CallsignCommandRegistry.Shared.Changed -= CommandRegistryChanged;
         _runtimeStateMonitor.Changed -= RuntimeStateMonitorChanged;
         _runtimeStateMonitor.Dispose();
         _voiceSampleCapture.Dispose();
@@ -13263,13 +21565,82 @@ public sealed class MainForm : Form
         _statusReadbackSynthesizer?.SpeakAsyncCancelAll();
         _statusReadbackSynthesizer?.Dispose();
         _statusReadbackSynthesizer = null;
+        _sessionContractLabel.Dispose();
         base.OnFormClosing(e);
+    }
+
+    private void CommandRegistryChanged(object? sender, EventArgs e) =>
+        RunOnUiThread(() =>
+        {
+            _lastPackRegistryChangeUtc = DateTimeOffset.UtcNow;
+            var beforePackIds = new HashSet<string>(_knownPackIds, StringComparer.OrdinalIgnoreCase);
+            RefreshPacksPanel(forceReload: true);
+            var currentPacks = CallsignCommandRegistry.Shared.GetPacks().ToArray();
+            SyncKnownPackIds(currentPacks);
+            var newlyDiscoveredPacks = currentPacks
+                .Where(pack => pack.WasImported && !beforePackIds.Contains(pack.PackId))
+                .ToArray();
+            if (newlyDiscoveredPacks.Length > 0)
+                ShowPackImportSplash(BuildPackImportManifest(
+                    newlyDiscoveredPacks,
+                    CallsignCommandRegistry.Shared,
+                    "Watched folder discovery found these packs."));
+        });
+
+    private void SyncKnownPackIds()
+    {
+        SyncKnownPackIds(CallsignCommandRegistry.Shared.GetPacks());
+    }
+
+    private void SyncKnownPackIds(IEnumerable<CallsignPackInfo> packs)
+    {
+        _knownPackIds.Clear();
+        foreach (var pack in packs)
+            _knownPackIds.Add(pack.PackId);
     }
 
     private void UpdateStatus(string message)
     {
         _statusLabel.Text = message;
     }
+
+    private void UpdateShellSummary()
+    {
+        var tabName = _tabs?.SelectedTab?.Text ?? "Account";
+        var profileName = _activeProfile == null || string.IsNullOrWhiteSpace(_activeProfile.Callsign)
+            ? "none selected"
+            : _activeProfile.Callsign;
+        var voiceMode = string.IsNullOrWhiteSpace(_voiceAccessMode) ? "Default" : _voiceAccessMode;
+        var sessionState = _session.State.ToString();
+        var enrollmentState = _activeProfile == null
+            ? "none selected"
+            : IsVoiceEnrolled(_activeProfile.Settings)
+                ? "Activated"
+                : NormalizeVoiceStatus(_activeProfile.Settings.VoiceEnrollmentStatus);
+        _shellSurfaceBadge.Text = $"Surface: {tabName}";
+        _shellProfileBadge.Text = $"Profile: {profileName}";
+        _shellModeBadge.Text = $"Voice mode: {voiceMode}";
+        _shellSessionBadge.Text = $"Session: {sessionState}";
+        _shellEnrollmentBadge.Text = $"Enrollment: {enrollmentState}";
+        _shellStopBadge.Text = "STOP";
+        _shellBrowserBadge.Text = "Browser: helpers visible";
+        _shellVisualBadge.Text = "Visual: macOS Voice Control";
+        _shellBoundaryBadge.Text = "Boundary: Free open";
+    }
+
+    public string OverviewText => _overviewLabel.Text;
+    public string OverviewAccessibleDescription => _overviewLabel.AccessibleDescription ?? string.Empty;
+    public string VisualStyleName => CallsignVisualStyle.DescribeSurface("main shell");
+    public string ShellSummaryText => $"{_shellSurfaceBadge.Text}. {_shellProfileBadge.Text}. {_shellModeBadge.Text}. {_shellSessionBadge.Text}. {_shellEnrollmentBadge.Text}. {_shellStopBadge.Text}. {_shellBrowserBadge.Text}. {_shellVisualBadge.Text}. {_shellBoundaryBadge.Text}.";
+    public string ShellSummaryAccessibleName => _shellSummaryStrip.AccessibleName ?? string.Empty;
+    public string ShellSummaryAccessibleDescription => _shellSummaryStrip.AccessibleDescription ?? string.Empty;
+    public string StatusText => _statusLabel.Text;
+    public string StatusAccessibleName => _statusLabel.AccessibleName ?? string.Empty;
+    public string StatusAccessibleDescription => _statusLabel.AccessibleDescription ?? string.Empty;
+    public string AccountContractText => _accountContractLabel.Text;
+    public string AccountContractAccessibleName => _accountContractLabel.AccessibleName ?? string.Empty;
+    public string AccountContractAccessibleDescription => _accountContractLabel.AccessibleDescription ?? string.Empty;
+    public string AccountEntitlementText => _accountEntitlementLabel.Text;
 
     private void RunOnUiThread(Action action)
     {
@@ -13310,6 +21681,30 @@ public sealed class MainForm : Form
     private sealed record UpdateSplashState(string? LastShownManifestVersion);
 
     private sealed record StartupWalkthroughState(bool HasSeenWalkthrough);
+
+    private sealed record ManualEvidenceProgressSummary(
+        string LabelText,
+        string SuppliedBadgeText,
+        string RemainingBadgeText,
+        string CategoriesBadgeText,
+        string ProofBadgeText,
+        string CategoryBadgeText,
+        string NextBadgeText);
+
+    private sealed record ReleaseGateSummary(
+        string LabelText,
+        string InstalledBadgeText,
+        string SpokenBadgeText,
+        string FailureBadgeText,
+        string CleanBadgeText);
+
+    private sealed record ReleaseGateState(bool Passed, string BadgeText);
+
+    private sealed record NextProofInstructionSummary(
+        string LabelText,
+        string EvidenceCommand,
+        string ExpectedResult,
+        string CheckLabel);
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);

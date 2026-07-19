@@ -78,7 +78,7 @@
 <p>It must:</p>
 <ul><li>appear when wake is detected,</li><li>stay visible through identity and command capture,</li><li>show live text or a hearing cue below the animation,</li><li>show what runtime state owns the session,</li><li>avoid stealing focus,</li><li>and hide only when the session completes, cancels, times out, locks out, or stops.</li></ul>
 <p>Readout examples:</p>
-<ul><li><code>Callsign heard. Say your callsign.</code></li><li><code>Hearing your callsign...</code></li><li><code>Heard: womprat</code></li><li><code>Hearing your command...</code></li><li><code>Command: open Notepad</code></li><li><code>Launching Notepad...</code></li></ul>
+<ul><li><code>Callsign heard. Say your callsign.</code></li><li><code>Hearing your callsign...</code></li><li><code>Heard: womprat</code></li><li><code>Identity confirmed. Say the app name.</code></li><li><code>Hearing your command...</code></li><li><code>Command: open Notepad</code></li><li><code>Launching Notepad...</code></li></ul>
 <h2>Safety canon</h2>
 <p>No action can skip identity.</p>
 <ul><li>Transcript-only wake is ignored.</li><li>Wake alone never executes commands.</li><li>Misheard identity repeats, rejects, times out, or locks out.</li><li>The user must have visible stop and reset paths.</li><li>Hidden or minimized-window action is not part of the MVP.</li><li>Arbitrary shell execution is not part of the product.</li><li>Sensitive data and external side effects require explicit user approval.</li></ul>

@@ -11,6 +11,7 @@ Main data types:
 - voice enrollment state
 - runtime/session snapshot
 - launch history and diagnostics
+- update manifest / release feed metadata
 - future command/extension metadata
 
 ## User profile
@@ -59,6 +60,12 @@ Important fields include:
 - wake/identity/command timing
 - launch result or failure state
 
+Runtime control logs are diagnostic metadata, not transcript storage. Scripted transcript queue/consume events are logged with redacted metadata only: transcript length and a short SHA-256 prefix. Raw transcript text stays in the transient request file until consumed and is not copied into `runtime-control.log`.
+
+Temporary runtime audio lives only under Callsign-managed local folders such as `Logs/segments`, `Runtime/wake-window`, and `Runtime/wake-warmup`. Segment files are deleted after processing when wake diagnostics are off, abandoned current segments are deleted on stop, queued segments are deleted during shutdown, and listener startup prunes stale temporary WAV files older than the bounded retention window. These files are local processing artifacts, not profile data or audit records.
+
+The profile also carries a local update device id so the user can recognize the current installation in the visible Updates surface. That local value is not sent raw in phone-home check-ins. `UpdateCheckService` hashes the profile callsign/account id and the local update device id into short `sha256:` identifiers before posting the check-in payload to the update server.
+
 ## Launch history
 
 Useful launch metadata can be recorded locally for debugging and user confidence:
@@ -68,6 +75,23 @@ Useful launch metadata can be recorded locally for debugging and user confidence
 - timestamp
 - success or failure
 - visible verification summary
+
+## Update manifest metadata
+
+Update and release feeds can carry localizable, visible change metadata for the update splash and release packet:
+
+- version
+- installer URL
+- installer hash and size
+- release notes
+- added commands
+- changed commands
+- removed commands
+- extension pack changes
+- feature highlights
+- published timestamp
+
+The update manifest should keep feature highlights separate from command deltas so a release can announce visible UI or behavior changes even when the command catalog itself did not change.
 
 ## Future extension metadata
 

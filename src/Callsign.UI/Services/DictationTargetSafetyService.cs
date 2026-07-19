@@ -29,7 +29,36 @@ public static class DictationTargetSafetyService
         "cvv",
         "cvc",
         "payment",
-        "bank"
+        "bank",
+        "credential",
+        "credentials",
+        "authentication"
+    ];
+
+    private static readonly string[] ExternalSubmissionTerms =
+    [
+        "compose",
+        "new message",
+        "reply",
+        "inbox",
+        "email",
+        "mail",
+        "chat",
+        "message",
+        "messenger",
+        "teams",
+        "slack",
+        "discord",
+        "post",
+        "comment",
+        "tweet",
+        "publish",
+        "upload",
+        "form",
+        "submit",
+        "checkout",
+        "order",
+        "purchase"
     ];
 
     private static readonly string[] SensitiveProcesses =
@@ -40,6 +69,24 @@ public static class DictationTargetSafetyService
         "bitwarden",
         "keepass",
         "lastpass"
+    ];
+
+    private static readonly string[] ExternalSubmissionProcesses =
+    [
+        "outlook",
+        "olk",
+        "hxoutlook",
+        "mail",
+        "teams",
+        "msteams",
+        "slack",
+        "discord",
+        "zoom",
+        "webex",
+        "telegram",
+        "signal",
+        "whatsapp",
+        "thunderbird"
     ];
 
     public static bool TryGetForegroundTarget(out DictationTargetInfo target)
@@ -90,6 +137,24 @@ public static class DictationTargetSafetyService
             if (processName.Contains(process, StringComparison.OrdinalIgnoreCase))
             {
                 reason = $"Foreground app looks sensitive because its process is '{processName}'.";
+                return true;
+            }
+        }
+
+        foreach (var process in ExternalSubmissionProcesses)
+        {
+            if (processName.Contains(process, StringComparison.OrdinalIgnoreCase))
+            {
+                reason = $"Foreground app looks like an external communication target because its process is '{processName}'.";
+                return true;
+            }
+        }
+
+        foreach (var term in ExternalSubmissionTerms)
+        {
+            if (title.Contains(term, StringComparison.OrdinalIgnoreCase))
+            {
+                reason = $"Foreground window looks like an external communication or submission target because its title contains '{term}'.";
                 return true;
             }
         }

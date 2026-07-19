@@ -14,14 +14,20 @@ public sealed class WakeOverlayForm : Form
     private readonly PictureBox _pictureBox;
     private readonly Panel _messagePanel;
     private readonly Panel _headerPanel;
+    private readonly FlowLayoutPanel _headerStatusStrip;
     private readonly Label _phaseLabel;
+    private readonly Label _stopBadgeLabel;
     private readonly Label _liveBadgeLabel;
+    private readonly Label _contractLabel;
+    private readonly Label _summaryLabel;
     private readonly Label _readoutLabel;
     private readonly Label _safetyLabel;
     private readonly Label _transcriptHeadingLabel;
     private readonly Label _captionLabel;
     private readonly Label _wakeStatusLabel;
+    private readonly Label _qualityLabel;
     private readonly Label _authorityLabel;
+    private readonly Label _calibrationLabel;
     private readonly Label _activityLabel;
     private readonly Panel _activityTrack;
     private readonly Panel _activityFill;
@@ -32,6 +38,9 @@ public sealed class WakeOverlayForm : Form
     private bool _disposed;
     private string _baseReadout = "Callsign heard. Say your callsign.";
     private string _baseHistoryText = string.Empty;
+    private string _heardSummaryText = "Heard: waiting";
+    private string _targetSummaryText = "Target: waiting";
+    private string _resultSummaryText = "Result: waiting";
     private string _activityText = "Mic: idle";
     private Color _accentColor = Color.FromArgb(105, 245, 214);
     private Color _accentSoftColor = Color.FromArgb(168, 0, 0, 0);
@@ -64,7 +73,7 @@ public sealed class WakeOverlayForm : Form
             ColumnCount = 1,
             RowCount = 3
         };
-        _layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        _layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
         _layout.RowStyles.Add(new RowStyle(SizeType.Percent, 72));
         _layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 268));
         Controls.Add(_layout);
@@ -100,7 +109,7 @@ public sealed class WakeOverlayForm : Form
         _headerPanel = new Panel
         {
             Dock = DockStyle.Top,
-            Height = 24,
+            Height = 26,
             BackColor = Color.Transparent
         };
 
@@ -118,10 +127,36 @@ public sealed class WakeOverlayForm : Form
         };
         _headerPanel.Controls.Add(_phaseLabel);
 
-        _liveBadgeLabel = new Label
+        _headerStatusStrip = new FlowLayoutPanel
         {
             Dock = DockStyle.Right,
-            Width = 72,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = false,
+            FlowDirection = FlowDirection.LeftToRight,
+            BackColor = Color.Transparent,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty
+        };
+
+        _stopBadgeLabel = new Label
+        {
+            AutoSize = true,
+            MinimumSize = new Size(62, 0),
+            BackColor = Color.FromArgb(255, 238, 235),
+            ForeColor = Color.FromArgb(153, 27, 27),
+            TextAlign = ContentAlignment.MiddleCenter,
+            Font = new Font("Segoe UI Semibold", 8.2f, FontStyle.Bold),
+            Padding = new Padding(5, 2, 5, 2),
+            Text = "STOP",
+            AccessibleName = "Wake overlay stop badge",
+            AccessibleDescription = "Shows that stop, cancel, stop listening, and reset session are always visible escape phrases."
+        };
+
+        _liveBadgeLabel = new Label
+        {
+            AutoSize = true,
+            MinimumSize = new Size(72, 0),
             BackColor = Color.Transparent,
             ForeColor = Color.FromArgb(105, 245, 214),
             TextAlign = ContentAlignment.MiddleCenter,
@@ -131,8 +166,42 @@ public sealed class WakeOverlayForm : Form
             AccessibleName = "Wake overlay live badge",
             AccessibleDescription = "Shows whether Callsign is ready, listening, or hearing speech."
         };
-        _headerPanel.Controls.Add(_liveBadgeLabel);
+        _headerStatusStrip.Controls.Add(_stopBadgeLabel);
+        _headerStatusStrip.Controls.Add(_liveBadgeLabel);
+        _headerPanel.Controls.Add(_headerStatusStrip);
         _messagePanel.Controls.Add(_headerPanel);
+
+        _contractLabel = new Label
+        {
+            Dock = DockStyle.Top,
+            AutoSize = false,
+            Height = 28,
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            TextAlign = ContentAlignment.MiddleCenter,
+            Font = new Font("Segoe UI Semibold", 8.6f, FontStyle.Bold),
+            Padding = new Padding(8, 0, 8, 0),
+            Text = "Contract: wake -> identity verification -> visible command.",
+            AccessibleName = "Wake overlay contract",
+            AccessibleDescription = "Summarizes the visible wake flow from audio detection through identity verification and visible action."
+        };
+        _messagePanel.Controls.Add(_contractLabel);
+
+        _summaryLabel = new Label
+        {
+            Dock = DockStyle.Top,
+            AutoSize = false,
+            Height = 22,
+            BackColor = Color.Transparent,
+            ForeColor = Color.FromArgb(235, 248, 255),
+            TextAlign = ContentAlignment.MiddleCenter,
+            Font = new Font("Segoe UI Semibold", 8.6f, FontStyle.Bold),
+            Padding = new Padding(6, 0, 6, 0),
+            Text = "Heard: waiting   Target: waiting   Result: waiting",
+            AccessibleName = "Wake overlay summary",
+            AccessibleDescription = "Shows the compact heard, target, and result summary for the visible wake session."
+        };
+        _messagePanel.Controls.Add(_summaryLabel);
 
         _readoutLabel = new Label
         {
@@ -217,6 +286,23 @@ public sealed class WakeOverlayForm : Form
         };
         _messagePanel.Controls.Add(_wakeStatusLabel);
 
+        _qualityLabel = new Label
+        {
+            Dock = DockStyle.Top,
+            AutoSize = false,
+            Height = 18,
+            BackColor = Color.Transparent,
+            ForeColor = Color.FromArgb(255, 226, 168),
+            TextAlign = ContentAlignment.MiddleCenter,
+            Font = new Font("Segoe UI Semibold", 8.25f, FontStyle.Bold),
+            Padding = new Padding(4, 0, 4, 0),
+            Text = string.Empty,
+            Visible = false,
+            AccessibleName = "Wake overlay quality",
+            AccessibleDescription = "Shows the latest wake candidate quality and whether it cleared threshold."
+        };
+        _messagePanel.Controls.Add(_qualityLabel);
+
         _authorityLabel = new Label
         {
             Dock = DockStyle.Top,
@@ -233,6 +319,23 @@ public sealed class WakeOverlayForm : Form
             AccessibleDescription = "Shows which Callsign runtime owns the active microphone listener."
         };
         _messagePanel.Controls.Add(_authorityLabel);
+
+        _calibrationLabel = new Label
+        {
+            Dock = DockStyle.Top,
+            AutoSize = false,
+            Height = 18,
+            BackColor = Color.Transparent,
+            ForeColor = Color.FromArgb(190, 235, 249),
+            TextAlign = ContentAlignment.MiddleCenter,
+            Font = new Font("Segoe UI Semibold", 8.25f, FontStyle.Bold),
+            Padding = new Padding(4, 0, 4, 0),
+            Text = string.Empty,
+            Visible = false,
+            AccessibleName = "Wake overlay calibration",
+            AccessibleDescription = "Shows the active wake threshold, sensitivity, calibration state, and calibration sample count."
+        };
+        _messagePanel.Controls.Add(_calibrationLabel);
 
         _activityLabel = new Label
         {
@@ -307,20 +410,36 @@ public sealed class WakeOverlayForm : Form
     public string TranscriptHeadingText => _transcriptHeadingLabel.Text;
     public string CaptionText => _captionLabel.Text;
     public string WakeStatusText => _wakeStatusLabel.Text;
+    public string QualityText => _qualityLabel.Text;
     public string AuthorityText => _authorityLabel.Text;
+    public string CalibrationText => _calibrationLabel.Text;
     public string HistoryText => _historyLabel.Text;
     public string AccentName => _accentName;
     public string LiveBadgeText => _liveBadgeLabel.Text;
+    public string StopBadgeText => _stopBadgeLabel.Text;
     public string ActivityText => _activityLabel.Text;
     public double ActivityLevel => _activityLevel;
     public string VisualStyleName => CallsignVisualStyle.DescribeSurface("wake overlay");
     public string TitleAccessibleName => _titleLabel.AccessibleName ?? string.Empty;
     public string PhaseAccessibleName => _phaseLabel.AccessibleName ?? string.Empty;
+    public string ContractText => _contractLabel.Text;
+    public string ContractAccessibleName => _contractLabel.AccessibleName ?? string.Empty;
+    public string ContractAccessibleDescription => _contractLabel.AccessibleDescription ?? string.Empty;
+    public string SummaryText => _summaryLabel.Text;
+    public string HeardSummaryText => _heardSummaryText;
+    public string TargetSummaryText => _targetSummaryText;
+    public string ResultSummaryText => _resultSummaryText;
+    public string SummaryAccessibleName => _summaryLabel.AccessibleName ?? string.Empty;
+    public string SummaryAccessibleDescription => _summaryLabel.AccessibleDescription ?? string.Empty;
     public string ReadoutAccessibleName => _readoutLabel.AccessibleName ?? string.Empty;
     public string SafetyAccessibleName => _safetyLabel.AccessibleName ?? string.Empty;
     public string SafetyAccessibleDescription => _safetyLabel.AccessibleDescription ?? string.Empty;
     public string TranscriptAccessibleName => _captionLabel.AccessibleName ?? string.Empty;
     public string ActivityAccessibleName => _activityLabel.AccessibleName ?? string.Empty;
+    public string QualityAccessibleName => _qualityLabel.AccessibleName ?? string.Empty;
+    public string QualityAccessibleDescription => _qualityLabel.AccessibleDescription ?? string.Empty;
+    public string CalibrationAccessibleName => _calibrationLabel.AccessibleName ?? string.Empty;
+    public string CalibrationAccessibleDescription => _calibrationLabel.AccessibleDescription ?? string.Empty;
     public string AuthorityAccessibleDescription => _authorityLabel.AccessibleDescription ?? string.Empty;
     public bool IsTopMostOverlay => TopMost;
     public bool IsNonActivatingOverlay => ShowWithoutActivation;
@@ -407,13 +526,18 @@ public sealed class WakeOverlayForm : Form
             _pictureBox.Dispose();
             _messagePanel.Dispose();
             _headerPanel.Dispose();
+            _headerStatusStrip.Dispose();
             _phaseLabel.Dispose();
+            _stopBadgeLabel.Dispose();
             _liveBadgeLabel.Dispose();
+            _contractLabel.Dispose();
+            _summaryLabel.Dispose();
             _readoutLabel.Dispose();
             _safetyLabel.Dispose();
             _transcriptHeadingLabel.Dispose();
             _captionLabel.Dispose();
             _wakeStatusLabel.Dispose();
+            _qualityLabel.Dispose();
             _authorityLabel.Dispose();
             _activityLabel.Dispose();
             _activityTrack.Dispose();
@@ -426,7 +550,7 @@ public sealed class WakeOverlayForm : Form
         base.Dispose(disposing);
     }
 
-    public void ShowOverlay(string? readout = null, string? phase = null, IReadOnlyList<string>? transcriptHistory = null, double? activityLevel = null, string? activityText = null, bool speechActive = false, string? captionText = null, string? wakeStatusText = null, string? authorityText = null)
+    public void ShowOverlay(string? readout = null, string? phase = null, IReadOnlyList<string>? transcriptHistory = null, double? activityLevel = null, string? activityText = null, bool speechActive = false, string? captionText = null, string? wakeStatusText = null, string? qualityText = null, string? authorityText = null, string? calibrationText = null)
     {
         if (_disposed || !IsReady)
             return;
@@ -434,7 +558,9 @@ public sealed class WakeOverlayForm : Form
         SetReadout(readout, phase);
         SetCaptionText(captionText);
         SetWakeStatusText(wakeStatusText);
+        SetQualityText(qualityText);
         SetAuthorityText(authorityText);
+        SetCalibrationText(calibrationText);
         SetTranscriptHistory(transcriptHistory);
         SetAudioActivity(activityLevel, activityText, speechActive);
 
@@ -468,6 +594,8 @@ public sealed class WakeOverlayForm : Form
         _animateReadout = _baseReadout.StartsWith("Hearing ", StringComparison.OrdinalIgnoreCase);
         _animatedDots = 0;
         _readoutLabel.Text = _animateReadout ? AnimateReadoutText() : _baseReadout;
+        _targetSummaryText = FormatCompactSummary("Target", _baseReadout);
+        UpdateSummaryText();
         UpdateLiveBadge();
 
         if (_animateReadout)
@@ -510,13 +638,18 @@ public sealed class WakeOverlayForm : Form
             _transcriptHeadingLabel.Visible = false;
             _captionLabel.Visible = false;
             _captionLabel.Text = string.Empty;
+            _heardSummaryText = "Heard: waiting";
+            UpdateSummaryText();
             return;
         }
 
         _transcriptHeadingLabel.Visible = true;
         _transcriptHeadingLabel.Text = _audioLive ? "LIVE TRANSCRIPT" : "LAST HEARD";
-        _captionLabel.Text = TrimReadout(captionText);
+        var heardText = TrimReadout(captionText);
+        _captionLabel.Text = heardText;
         _captionLabel.Visible = true;
+        _heardSummaryText = FormatCompactSummary("Heard", heardText);
+        UpdateSummaryText();
     }
 
     public void SetWakeStatusText(string? wakeStatusText)
@@ -528,11 +661,32 @@ public sealed class WakeOverlayForm : Form
         {
             _wakeStatusLabel.Visible = false;
             _wakeStatusLabel.Text = string.Empty;
+            _resultSummaryText = "Result: waiting";
+            UpdateSummaryText();
             return;
         }
 
         _wakeStatusLabel.Visible = true;
-        _wakeStatusLabel.Text = TrimReadout(wakeStatusText);
+        var resultText = TrimReadout(wakeStatusText);
+        _wakeStatusLabel.Text = resultText;
+        _resultSummaryText = FormatCompactSummary("Result", resultText);
+        UpdateSummaryText();
+    }
+
+    public void SetQualityText(string? qualityText)
+    {
+        if (_disposed)
+            return;
+
+        if (string.IsNullOrWhiteSpace(qualityText))
+        {
+            _qualityLabel.Visible = false;
+            _qualityLabel.Text = string.Empty;
+            return;
+        }
+
+        _qualityLabel.Visible = true;
+        _qualityLabel.Text = TrimReadout(qualityText);
     }
 
     public void SetAuthorityText(string? authorityText)
@@ -552,6 +706,25 @@ public sealed class WakeOverlayForm : Form
         _authorityLabel.Text = text.StartsWith("Authority:", StringComparison.OrdinalIgnoreCase)
             ? text
             : $"Authority: {text}";
+    }
+
+    public void SetCalibrationText(string? calibrationText)
+    {
+        if (_disposed)
+            return;
+
+        if (string.IsNullOrWhiteSpace(calibrationText))
+        {
+            _calibrationLabel.Visible = false;
+            _calibrationLabel.Text = string.Empty;
+            return;
+        }
+
+        var text = TrimReadout(calibrationText);
+        _calibrationLabel.Visible = true;
+        _calibrationLabel.Text = text.StartsWith("Calibration:", StringComparison.OrdinalIgnoreCase)
+            ? text
+            : $"Calibration: {text}";
     }
 
     public void SetAudioActivity(double? activityLevel, string? activityText = null, bool speechActive = false)
@@ -589,6 +762,31 @@ public sealed class WakeOverlayForm : Form
         _transcriptHeadingLabel.Text = "LIVE TRANSCRIPT";
         _authorityLabel.Visible = false;
         _authorityLabel.Text = string.Empty;
+        _heardSummaryText = "Heard: waiting";
+        _targetSummaryText = "Target: waiting";
+        _resultSummaryText = "Result: waiting";
+        UpdateSummaryText();
+        _qualityLabel.Visible = false;
+        _qualityLabel.Text = string.Empty;
+        _calibrationLabel.Visible = false;
+        _calibrationLabel.Text = string.Empty;
+    }
+
+    private void UpdateSummaryText()
+    {
+        _summaryLabel.Text = $"{_heardSummaryText}   {_targetSummaryText}   {_resultSummaryText}";
+    }
+
+    private static string FormatCompactSummary(string prefix, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return $"{prefix}: waiting";
+
+        var text = TrimReadout(value);
+        if (text.StartsWith(prefix + ":", StringComparison.OrdinalIgnoreCase))
+            return text;
+
+        return $"{prefix}: {text}";
     }
 
     private static string TrimReadout(string value)
@@ -789,6 +987,11 @@ public sealed class WakeOverlayForm : Form
         _accentSoftColor = accentSoftColor;
         _accentName = accentName;
         _phaseLabel.ForeColor = accentColor;
+        _stopBadgeLabel.ForeColor = Color.FromArgb(
+            Math.Min(255, accentColor.R + 48),
+            Math.Min(255, accentColor.G / 3),
+            Math.Min(255, accentColor.B / 3));
+        _stopBadgeLabel.BackColor = Color.FromArgb(255, 238, 235);
         _liveBadgeLabel.ForeColor = accentColor;
         _liveBadgeLabel.BackColor = Color.FromArgb(
             Math.Min(255, accentSoftColor.R + 6),
@@ -813,7 +1016,15 @@ public sealed class WakeOverlayForm : Form
 
     private void UpdateLiveBadge()
     {
-        _liveBadgeLabel.Text = _animateReadout || _audioLive ? "LIVE" : "READY";
+        if (_animateReadout || _audioLive)
+        {
+            _liveBadgeLabel.Text = "LIVE";
+            return;
+        }
+
+        _liveBadgeLabel.Text = string.Equals(_phaseLabel.Text, "READY", StringComparison.OrdinalIgnoreCase)
+            ? "READY"
+            : "ARMED";
     }
 
     private void UpdateActivityMeter()

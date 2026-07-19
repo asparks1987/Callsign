@@ -20,6 +20,59 @@ function Fail([string]$Message)
     Write-Host "[CALLSIGN READINESS] FAILED: $Message" -ForegroundColor Red;
 }
 
+function Get-LocalWebsitePreviewInstallerHash(
+    [string]$InstallerPath,
+    [string]$LocalPreviewInstallerPath = ''
+)
+{
+    if (-not [string]::IsNullOrWhiteSpace($LocalPreviewInstallerPath) -and (Test-Path -LiteralPath $LocalPreviewInstallerPath))
+    {
+        $localPreviewItem = Get-Item -LiteralPath $LocalPreviewInstallerPath;
+        return [PSCustomObject]@{
+            hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $LocalPreviewInstallerPath).Hash.ToUpperInvariant()
+            sizeBytes = [Int64]$localPreviewItem.Length
+        };
+    }
+
+    $docker = Get-Command docker -ErrorAction SilentlyContinue;
+    if (-not $docker)
+    {
+        return $null;
+    }
+
+    try
+    {
+        $containerHash = & $docker.Source exec callsign-website sha256sum $InstallerPath 2>$null;
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($containerHash))
+        {
+            return $null;
+        }
+
+        $containerSize = & $docker.Source exec callsign-website stat -c '%s' $InstallerPath 2>$null;
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($containerSize))
+        {
+            return $null;
+        }
+
+        $hashText = (($containerHash -split '\s+')[0]).ToUpperInvariant();
+        $sizeText = $containerSize.Trim();
+        $parsedSize = 0L;
+        if (-not [int64]::TryParse($sizeText, [ref]$parsedSize))
+        {
+            return $null;
+        }
+
+        return [PSCustomObject]@{
+            hash = $hashText
+            sizeBytes = $parsedSize
+        };
+    }
+    catch
+    {
+        return $null;
+    }
+}
+
 $repoRoot = if ([string]::IsNullOrWhiteSpace($Root))
 {
     Split-Path -Parent $PSScriptRoot
@@ -31,7 +84,12 @@ else
 
 $installerPath = Join-Path $repoRoot 'Callsign-Setup.exe';
 $siteOutputDir = Join-Path $repoRoot 'docs';
+$siteInstallerPath = Join-Path $siteOutputDir 'downloads\Callsign-Setup.exe';
 $homeIndex = Join-Path $siteOutputDir 'index.html';
+$manualEvidenceTemplatePath = Join-Path $repoRoot 'build\voice-access-parity-manual-evidence.template.json';
+$manualEvidenceChecklistPath = Join-Path $repoRoot 'build\voice-access-parity-manual-evidence.checklist.md';
+$manualProofNotesFolder = Join-Path $repoRoot 'build\manual-proof-notes';
+$releasePacketSummaryPath = Join-Path $repoRoot 'build\release-packet-summary.json';
 $localHash = '';
 $hasFailure = $false;
 
@@ -117,6 +175,185 @@ if (-not $SkipSiteBuild)
         Fail 'Generated docs missing parity page at docs/pages/voice-access-parity.html.';
         $hasFailure = $true;
     }
+
+    if (Test-Path -LiteralPath $manualEvidenceTemplatePath)
+    {
+        Write-Step 'Validating the manual checklist companion and proof-note folder beside the generated manual evidence template.';
+        if (-not (Test-Path -LiteralPath $manualEvidenceChecklistPath))
+        {
+            Fail "Generated manual evidence template exists but the checklist companion is missing: $manualEvidenceChecklistPath.";
+            $hasFailure = $true;
+        }
+        else
+        {
+            try
+            {
+                $manualEvidenceTemplate = Get-Content -LiteralPath $manualEvidenceTemplatePath -Raw | ConvertFrom-Json;
+                if ([string]$manualEvidenceTemplate.schema -ne 'callsign.voice_access_parity.manual_evidence.v1')
+                {
+                    Fail "Generated manual evidence template has an unexpected schema: $($manualEvidenceTemplate.schema).";
+                    $hasFailure = $true;
+                }
+
+                if ($null -eq $manualEvidenceTemplate.evidence_header)
+                {
+                    Fail 'Generated manual evidence template is missing the evidence_header block.';
+                    $hasFailure = $true;
+                }
+
+                $templateChecks = @($manualEvidenceTemplate.checks);
+                if ($templateChecks.Count -lt 40)
+                {
+                    Fail "Generated manual evidence template should contain at least 40 manual/live checks, but found $($templateChecks.Count): $manualEvidenceTemplatePath.";
+                    $hasFailure = $true;
+                }
+            }
+            catch
+            {
+                Fail "Generated manual evidence template is unreadable or malformed: $($_.Exception.Message)";
+                $hasFailure = $true;
+            }
+
+            try
+            {
+                $manualChecklistText = Get-Content -LiteralPath $manualEvidenceChecklistPath -Raw;
+                $requiredChecklistFragments = @(
+                    '# Callsign Manual Evidence Checklist',
+                    '## Evidence header',
+                    '- Commit:',
+                    '- Build ID:',
+                    '- Artifact hashes:',
+                    '- Wake/identity/transcription models:',
+                    '- Result: [ ] Pass  [ ] Fail  [ ] Blocked',
+                    '- Observed result:',
+                    '- Evidence paths:',
+                    '- Sensitive-data review: [ ] no raw audio',
+                    '- Remaining uncertainty:',
+                    '- Release recommendation:'
+                );
+
+                $missingChecklistFragments = @(
+                    foreach ($fragment in $requiredChecklistFragments)
+                    {
+                        if ($manualChecklistText.IndexOf($fragment, [System.StringComparison]::OrdinalIgnoreCase) -lt 0)
+                        {
+                            $fragment;
+                        }
+                    }
+                );
+
+                if ($missingChecklistFragments.Count -gt 0)
+                {
+                    Fail "Generated manual evidence checklist is missing required release-proof fields: $($missingChecklistFragments -join ', ').";
+                    $hasFailure = $true;
+                }
+
+                $checklistSectionCount = [Math]::Max(0, [regex]::Matches($manualChecklistText, '(?m)^##\s+').Count - 1);
+                if ($checklistSectionCount -lt 40)
+                {
+                    Fail "Generated manual evidence checklist should contain at least 40 check sections, but found $($checklistSectionCount): $manualEvidenceChecklistPath.";
+                    $hasFailure = $true;
+                }
+            }
+            catch
+            {
+                Fail "Generated manual evidence checklist is unreadable or malformed: $($_.Exception.Message)";
+                $hasFailure = $true;
+            }
+        }
+
+        if (-not (Test-Path -LiteralPath $manualProofNotesFolder))
+        {
+            Fail "Generated manual evidence template exists but the proof-note folder is missing: $manualProofNotesFolder.";
+            $hasFailure = $true;
+        }
+        else
+        {
+            $manualProofNotes = @(Get-ChildItem -LiteralPath $manualProofNotesFolder -Filter '*.md' -File -ErrorAction SilentlyContinue);
+            if ($manualProofNotes.Count -lt 40)
+            {
+                Fail "Generated manual proof-note folder should contain at least 40 markdown notes, but found $($manualProofNotes.Count): $manualProofNotesFolder.";
+                $hasFailure = $true;
+            }
+            else
+            {
+                $requiredProofNoteFragments = @(
+                    '# Callsign Manual Proof Note',
+                    '- Check:',
+                    '## Evidence Command',
+                    '## Expected Result',
+                    '## Observed Result',
+                    '## Artifact References',
+                    '## Privacy Review',
+                    '## Remaining Uncertainty',
+                    '## Release Recommendation',
+                    '- [ ] pass',
+                    '- [ ] fail',
+                    '- [ ] blocked'
+                );
+
+                $invalidProofNotes = New-Object System.Collections.Generic.List[string];
+                foreach ($manualProofNote in $manualProofNotes)
+                {
+                    try
+                    {
+                        $manualProofNoteText = Get-Content -LiteralPath $manualProofNote.FullName -Raw;
+                        $missingFragments = @(
+                            foreach ($fragment in $requiredProofNoteFragments)
+                            {
+                                if ($manualProofNoteText.IndexOf($fragment, [System.StringComparison]::OrdinalIgnoreCase) -lt 0)
+                                {
+                                    $fragment;
+                                }
+                            }
+                        );
+
+                        if ($missingFragments.Count -gt 0)
+                        {
+                            [void]$invalidProofNotes.Add("$($manualProofNote.Name): missing $($missingFragments -join ', ')");
+                        }
+                    }
+                    catch
+                    {
+                        [void]$invalidProofNotes.Add("$($manualProofNote.Name): unreadable ($($_.Exception.Message))");
+                    }
+                }
+
+                if ($invalidProofNotes.Count -gt 0)
+                {
+                    Fail "Generated manual proof-note folder contains malformed notes: $($invalidProofNotes -join '; ').";
+                    $hasFailure = $true;
+                }
+                else
+                {
+                    Write-Step "Manual proof-note folder validates at $manualProofNotesFolder ($($manualProofNotes.Count) markdown files with required evidence sections).";
+                }
+            }
+        }
+    }
+
+    if (Test-Path -LiteralPath $releasePacketSummaryPath)
+    {
+        try
+        {
+            $releasePacketSummary = Get-Content -LiteralPath $releasePacketSummaryPath -Raw | ConvertFrom-Json;
+            $summaryChecklistPath = [string]$releasePacketSummary.manual_checklist_path;
+            if (-not [string]::IsNullOrWhiteSpace($summaryChecklistPath) -and -not (Test-Path -LiteralPath $summaryChecklistPath))
+            {
+                Fail "Release packet summary points to a missing manual checklist: $summaryChecklistPath.";
+                $hasFailure = $true;
+            }
+            elseif (-not [string]::IsNullOrWhiteSpace($summaryChecklistPath))
+            {
+                Write-Step "Release packet summary validates the manual checklist companion at $summaryChecklistPath.";
+            }
+        }
+        catch
+        {
+            Fail "Unable to inspect release packet summary for manual checklist validation: $($_.Exception.Message)";
+            $hasFailure = $true;
+        }
+    }
 }
 
 if ($SkipWebsiteVerification)
@@ -127,13 +364,74 @@ else
 {
     if ([string]::IsNullOrWhiteSpace($WebsiteDownloadUrl))
     {
-        Write-Host "[CALLSIGN READINESS] SKIP: No WebsiteDownloadUrl provided. Pass -WebsiteDownloadUrl to verify a public download endpoint." -ForegroundColor Yellow;
-    }
-    else
-    {
-        $tmp = Join-Path $env:TEMP "callsign-setup-remote-$(Get-Random).exe";
+        $localWebsiteUrl = 'http://localhost:8085/downloads/Callsign-Setup.exe';
+        $localWebsiteReachable = $false;
+
         try
         {
+            $localWebsiteReachable = [bool](Test-NetConnection -ComputerName 'localhost' -Port 8085 -InformationLevel Quiet);
+        }
+        catch
+        {
+            $localWebsiteReachable = $false;
+        }
+
+        if ($localWebsiteReachable)
+        {
+            $WebsiteDownloadUrl = $localWebsiteUrl;
+            Write-Step "No WebsiteDownloadUrl provided. Using local website preview at $WebsiteDownloadUrl.";
+        }
+        else
+        {
+            Write-Host "[CALLSIGN READINESS] SKIP: No WebsiteDownloadUrl provided and localhost:8085 is not reachable. Pass -WebsiteDownloadUrl to verify a public download endpoint." -ForegroundColor Yellow;
+            if ($RequireWebsiteVerification)
+            {
+                Fail 'Website verification is required, but no WebsiteDownloadUrl was provided and the local website preview is not reachable.';
+                $hasFailure = $true;
+            }
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($WebsiteDownloadUrl))
+    {
+        $tmp = $null;
+        try
+        {
+            $websiteUri = [uri]$WebsiteDownloadUrl;
+            if ($websiteUri.Host -in @('localhost', '127.0.0.1'))
+            {
+                $previewHash = Get-LocalWebsitePreviewInstallerHash -InstallerPath '/usr/share/nginx/html/downloads/Callsign-Setup.exe' -LocalPreviewInstallerPath $siteInstallerPath;
+                if ($null -ne $previewHash)
+                {
+                    Write-Step "Verifying local website preview installer: $($previewHash.sizeBytes) bytes, SHA-256 $($previewHash.hash)";
+                    if ([string]::IsNullOrWhiteSpace($localHash))
+                    {
+                        Write-Host '[CALLSIGN READINESS] Local installer hash unavailable for comparison.' -ForegroundColor Yellow;
+                        if ($RequireWebsiteVerification)
+                        {
+                            $hasFailure = $true;
+                        }
+                    }
+                    elseif (-not $localHash.Equals($previewHash.hash, [System.StringComparison]::OrdinalIgnoreCase))
+                    {
+                        Fail 'Local installer and website preview hashes differ.';
+                        $hasFailure = $true;
+                    }
+                    else
+                    {
+                        Write-Step 'Website installer hash matches local Callsign-Setup.exe.';
+                    }
+
+                    if ($hasFailure)
+                    {
+                        throw 'Local website preview verification failed.';
+                    }
+
+                    return;
+                }
+            }
+
+            $tmp = Join-Path $env:TEMP "callsign-setup-remote-$(Get-Random).exe";
             Write-Step "Verifying remote installer from $WebsiteDownloadUrl";
             Invoke-WebRequest -Uri $WebsiteDownloadUrl -OutFile $tmp -UseBasicParsing -TimeoutSec 60;
             $remoteHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $tmp).Hash.ToUpperInvariant();
@@ -168,7 +466,7 @@ else
         }
         finally
         {
-            if (Test-Path -LiteralPath $tmp)
+            if (-not [string]::IsNullOrWhiteSpace($tmp) -and (Test-Path -LiteralPath $tmp))
             {
                 Remove-Item -LiteralPath $tmp -Force;
             }

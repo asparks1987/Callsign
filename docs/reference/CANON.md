@@ -100,6 +100,7 @@ Readout examples:
 - `Callsign heard. Say your callsign.`
 - `Hearing your callsign...`
 - `Heard: womprat`
+- `Identity confirmed. Say the app name.`
 - `Hearing your command...`
 - `Command: open Notepad`
 - `Launching Notepad...`

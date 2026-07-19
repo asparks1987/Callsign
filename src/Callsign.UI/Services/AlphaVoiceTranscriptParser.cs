@@ -151,7 +151,9 @@ public enum DictationTargetTextAction
     Delete,
     Replace,
     MoveBefore,
-    MoveAfter
+    MoveAfter,
+    InsertBefore,
+    InsertAfter
 }
 
 public sealed record DictationReplacementCommand(DictationReplacementScope Scope, string ReplacementText);
@@ -162,7 +164,7 @@ public sealed record DictationTargetTextCommand(
     string ReplacementText = "",
     string EndText = "");
 public sealed record DictationCorrectionCommand(DictationCorrectionVoiceAction Action, DictationReplacementScope Scope, int ChoiceNumber = 0);
-public sealed record DictationFormatCommand(DictationReplacementScope Scope, DictationTextFormat Format);
+public sealed record DictationFormatCommand(DictationReplacementScope Scope, DictationTextFormat Format, string TargetText = "");
 public sealed record DictationCasingCommand(DictationCasingMode Mode);
 
 public static class AlphaVoiceTranscriptParser
@@ -193,13 +195,13 @@ public static class AlphaVoiceTranscriptParser
     public static string ExtractCommandFromTranscript(string transcript, string wakeWord, string callsign)
     {
         var command = NormalizeSpeechText(transcript);
-        command = RemoveFirstSpeechPhrase(command, wakeWord);
-        command = RemoveFirstSpeechPhrase(command, "call sign");
-        command = RemoveFirstSpeechPhrase(command, "paul sign");
-        command = RemoveFirstSpeechPhrase(command, "wall sign");
-        command = RemoveFirstSpeechPhrase(command, "cold sign");
-        command = RemoveFirstSpeechPhrase(command, "call science");
-        command = RemoveFirstSpeechPhrase(command, callsign);
+        command = RemoveLeadingSpeechPhrase(command, wakeWord);
+        command = RemoveLeadingSpeechPhrase(command, "call sign");
+        command = RemoveLeadingSpeechPhrase(command, "paul sign");
+        command = RemoveLeadingSpeechPhrase(command, "wall sign");
+        command = RemoveLeadingSpeechPhrase(command, "cold sign");
+        command = RemoveLeadingSpeechPhrase(command, "call science");
+        command = RemoveLeadingSpeechPhrase(command, callsign);
         return command.Trim();
     }
 
@@ -389,15 +391,15 @@ public static class AlphaVoiceTranscriptParser
             "delete to end" or "delete from here to end" or "delete from here to the end" or "delete to the finish" or "delete to end of text" or "delete to end of dictation" => DictationVoiceAction.DeleteToEnd,
             "go to line start" or "move to line start" or "start of line" or "go to the start of the line" or "move to the start of the line" or "line start" => DictationVoiceAction.GoToLineStart,
             "go to line end" or "move to line end" or "end of line" or "go to the end of the line" or "move to the end of the line" or "line end" => DictationVoiceAction.GoToLineEnd,
-            "go to previous line" or "move to previous line" or "previous line" => DictationVoiceAction.GoToPreviousLine,
+            "go to previous line" or "move to previous line" or "previous line" or "go to last line" or "move to last line" or "last line" => DictationVoiceAction.GoToPreviousLine,
             "go to next line" or "move to next line" => DictationVoiceAction.GoToNextLine,
             "select to line start" or "select to the start of the line" or "select from here to the start of the line" => DictationVoiceAction.SelectToLineStart,
             "select to line end" or "select to the end of the line" or "select from here to the end of the line" => DictationVoiceAction.SelectToLineEnd,
             "delete to line start" or "delete to the start of the line" or "delete from here to the start of the line" => DictationVoiceAction.DeleteToLineStart,
             "delete to line end" or "delete to the end of the line" or "delete from here to the end of the line" => DictationVoiceAction.DeleteToLineEnd,
-            "select previous line" or "select the previous line" or "highlight previous line" => DictationVoiceAction.SelectPreviousLine,
+            "select previous line" or "select the previous line" or "highlight previous line" or "select last line" or "select the last line" or "highlight last line" => DictationVoiceAction.SelectPreviousLine,
             "select next line" or "select the next line" or "highlight next line" => DictationVoiceAction.SelectNextLine,
-            "delete previous line" or "remove previous line" or "backspace previous line" => DictationVoiceAction.DeletePreviousLine,
+            "delete previous line" or "remove previous line" or "backspace previous line" or "delete last line" or "remove last line" or "backspace last line" => DictationVoiceAction.DeletePreviousLine,
             "delete next line" or "remove next line" => DictationVoiceAction.DeleteNextLine,
             "go to paragraph start" or "move to paragraph start" or "start of paragraph" or "go to the start of the paragraph" or "move to the start of the paragraph" => DictationVoiceAction.GoToParagraphStart,
             "go to paragraph end" or "move to paragraph end" or "end of paragraph" or "go to the end of the paragraph" or "move to the end of the paragraph" => DictationVoiceAction.GoToParagraphEnd,
@@ -410,27 +412,27 @@ public static class AlphaVoiceTranscriptParser
             "new sentence" or "sentence break" or "end sentence" or "end the sentence" => DictationVoiceAction.NewSentence,
             "tab" or "tab key" or "insert tab" => DictationVoiceAction.Tab,
             "delete last word" or "backspace word" or "remove last word" => DictationVoiceAction.DeleteLastWord,
-            "go to previous word" or "move to previous word" or "previous word" => DictationVoiceAction.GoToPreviousWord,
+            "go to previous word" or "move to previous word" or "previous word" or "go to last word" or "move to last word" or "last word" => DictationVoiceAction.GoToPreviousWord,
             "go to next word" or "move to next word" or "next word" => DictationVoiceAction.GoToNextWord,
-            "select previous word" or "select the previous word" or "highlight previous word" => DictationVoiceAction.SelectPreviousWord,
+            "select previous word" or "select the previous word" or "highlight previous word" or "select last word" or "select the last word" or "highlight last word" => DictationVoiceAction.SelectPreviousWord,
             "select next word" or "select the next word" or "highlight next word" => DictationVoiceAction.SelectNextWord,
-            "delete previous word" or "remove previous word" or "backspace previous word" => DictationVoiceAction.DeletePreviousWord,
+            "delete previous word" or "remove previous word" or "backspace previous word" or "delete last word" or "remove last word" or "backspace last word" => DictationVoiceAction.DeletePreviousWord,
             "delete next word" or "remove next word" => DictationVoiceAction.DeleteNextWord,
-            "select previous character" or "select the previous character" or "select previous letter" or "highlight previous character" => DictationVoiceAction.SelectPreviousCharacter,
+            "select previous character" or "select the previous character" or "select previous letter" or "highlight previous character" or "select last character" or "select last letter" or "highlight last character" => DictationVoiceAction.SelectPreviousCharacter,
             "select next character" or "select the next character" or "select next letter" or "highlight next character" => DictationVoiceAction.SelectNextCharacter,
-            "delete previous character" or "remove previous character" or "backspace character" or "delete previous letter" or "backspace letter" => DictationVoiceAction.DeletePreviousCharacter,
+            "delete previous character" or "remove previous character" or "backspace character" or "delete previous letter" or "backspace letter" or "delete last character" or "delete last letter" or "remove last character" => DictationVoiceAction.DeletePreviousCharacter,
             "delete next character" or "remove next character" or "delete next letter" => DictationVoiceAction.DeleteNextCharacter,
-            "go to previous sentence" or "move to previous sentence" or "previous sentence" => DictationVoiceAction.GoToPreviousSentence,
+            "go to previous sentence" or "move to previous sentence" or "previous sentence" or "go to last sentence" or "move to last sentence" or "last sentence" => DictationVoiceAction.GoToPreviousSentence,
             "go to next sentence" or "move to next sentence" or "next sentence" => DictationVoiceAction.GoToNextSentence,
-            "select previous sentence" or "select the previous sentence" or "highlight previous sentence" => DictationVoiceAction.SelectPreviousSentence,
+            "select previous sentence" or "select the previous sentence" or "highlight previous sentence" or "select last sentence" or "select the last sentence" or "highlight last sentence" => DictationVoiceAction.SelectPreviousSentence,
             "select next sentence" or "select the next sentence" or "highlight next sentence" => DictationVoiceAction.SelectNextSentence,
-            "delete previous sentence" or "remove previous sentence" or "backspace previous sentence" => DictationVoiceAction.DeletePreviousSentence,
+            "delete previous sentence" or "remove previous sentence" or "backspace previous sentence" or "delete last sentence" or "remove last sentence" or "backspace last sentence" => DictationVoiceAction.DeletePreviousSentence,
             "delete next sentence" or "remove next sentence" => DictationVoiceAction.DeleteNextSentence,
-            "go to previous paragraph" or "move to previous paragraph" or "previous paragraph" => DictationVoiceAction.GoToPreviousParagraph,
+            "go to previous paragraph" or "move to previous paragraph" or "previous paragraph" or "go to last paragraph" or "move to last paragraph" or "last paragraph" => DictationVoiceAction.GoToPreviousParagraph,
             "go to next paragraph" or "move to next paragraph" or "next paragraph" => DictationVoiceAction.GoToNextParagraph,
-            "select previous paragraph" or "select the previous paragraph" or "highlight previous paragraph" or "select previous section" => DictationVoiceAction.SelectPreviousParagraph,
+            "select previous paragraph" or "select the previous paragraph" or "highlight previous paragraph" or "select previous section" or "select last paragraph" or "select the last paragraph" or "highlight last paragraph" or "select last section" => DictationVoiceAction.SelectPreviousParagraph,
             "select next paragraph" or "select the next paragraph" or "highlight next paragraph" or "select next section" => DictationVoiceAction.SelectNextParagraph,
-            "delete previous paragraph" or "remove previous paragraph" or "backspace previous paragraph" or "delete previous section" => DictationVoiceAction.DeletePreviousParagraph,
+            "delete previous paragraph" or "remove previous paragraph" or "backspace previous paragraph" or "delete previous section" or "delete last paragraph" or "remove last paragraph" or "backspace last paragraph" or "delete last section" => DictationVoiceAction.DeletePreviousParagraph,
             "delete next paragraph" or "remove next paragraph" or "delete next section" => DictationVoiceAction.DeleteNextParagraph,
             "comma" or "comma please" => DictationVoiceAction.Comma,
             "period" or "full stop" or "dot" or "period please" => DictationVoiceAction.Period,
@@ -484,7 +486,7 @@ public static class AlphaVoiceTranscriptParser
             (@"^\s*(?:replace|change|correct|fix)\s+(?:the previous word|previous word|last word|that word)\s+(?:with|to)\s+(?<text>.+?)\s*$", DictationReplacementScope.PreviousWord),
             (@"^\s*(?:replace|change|correct|fix)\s+(?:that|this|that sentence|this sentence|the previous sentence|previous sentence|last sentence|the previous phrase|previous phrase|last phrase)\s+(?:with|to)\s+(?<text>.+?)\s*$", DictationReplacementScope.PreviousSentence),
             (@"^\s*(?:replace|change|correct|fix)\s+(?:that|this|that paragraph|this paragraph|the previous paragraph|previous paragraph|last paragraph|that section|this section|the previous section|previous section|last section)\s+(?:with|to)\s+(?<text>.+?)\s*$", DictationReplacementScope.PreviousParagraph),
-            (@"^\s*(?:replace|change|correct|fix)\s+(?:all|everything|the text|dictation text)\s+(?:with|to)\s+(?<text>.+?)\s*$", DictationReplacementScope.AllText)
+            (@"^\s*(?:replace|change|correct|fix)\s+(?:all|all text|everything|the text|dictation text)\s+(?:with|to)\s+(?<text>.+?)\s*$", DictationReplacementScope.AllText)
         };
 
         foreach (var (pattern, scope) in patterns)
@@ -498,7 +500,7 @@ public static class AlphaVoiceTranscriptParser
             if (!match.Success)
                 continue;
 
-            var replacementText = match.Groups["text"].Value.Trim();
+            var replacementText = ConvertDictationReplacementText(match.Groups["text"].Value.Trim());
             if (string.IsNullOrWhiteSpace(replacementText))
                 return false;
 
@@ -535,6 +537,29 @@ public static class AlphaVoiceTranscriptParser
             }
         }
 
+        var insertMatch = Regex.Match(
+            normalized,
+            @"^\s*(?:insert|add|put)\s+(?<text>.+?)\s+(?<position>before|after)\s+(?:the\s+)?(?:(?:word|words|phrase|text)\s+)?(?<target>.+?)\s*$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
+        if (insertMatch.Success)
+        {
+            var target = insertMatch.Groups["target"].Value.Trim();
+            var insertion = insertMatch.Groups["text"].Value.Trim();
+            if (IsValidDictationTargetText(target) && !string.IsNullOrWhiteSpace(insertion))
+            {
+                var position = insertMatch.Groups["position"].Value.Trim();
+                var insertAction = position.Equals("before", StringComparison.OrdinalIgnoreCase)
+                    ? DictationTargetTextAction.InsertBefore
+                    : DictationTargetTextAction.InsertAfter;
+                var insertionText = TryConvertLiteralOrNumeralDictationText(insertion, out var literalOrNumeralText)
+                    ? literalOrNumeralText
+                    : ConvertPlainDictationText(insertion);
+                command = new DictationTargetTextCommand(insertAction, target, insertionText);
+                return true;
+            }
+        }
+
         var rangeReplaceMatch = Regex.Match(
             normalized,
             @"^\s*(?:replace|change|correct|fix)\s+from\s+(?<start>.+?)\s+to\s+(?<end>.+?)\s+with\s+(?<replacement>.+?)\s*$",
@@ -544,7 +569,7 @@ public static class AlphaVoiceTranscriptParser
         {
             var startText = rangeReplaceMatch.Groups["start"].Value.Trim();
             var endText = rangeReplaceMatch.Groups["end"].Value.Trim();
-            var replacement = rangeReplaceMatch.Groups["replacement"].Value.Trim();
+            var replacement = ConvertDictationReplacementText(rangeReplaceMatch.Groups["replacement"].Value.Trim());
             if (IsValidDictationTargetText(startText)
                 && IsValidDictationTargetText(endText)
                 && !string.IsNullOrWhiteSpace(replacement))
@@ -582,7 +607,7 @@ public static class AlphaVoiceTranscriptParser
         if (replaceMatch.Success)
         {
             var target = replaceMatch.Groups["target"].Value.Trim();
-            var replacement = replaceMatch.Groups["replacement"].Value.Trim();
+            var replacement = ConvertDictationReplacementText(replaceMatch.Groups["replacement"].Value.Trim());
             if (IsValidDictationTargetText(target) && !string.IsNullOrWhiteSpace(replacement))
             {
                 command = new DictationTargetTextCommand(DictationTargetTextAction.Replace, target, replacement);
@@ -608,6 +633,17 @@ public static class AlphaVoiceTranscriptParser
             : DictationTargetTextAction.Delete;
         command = new DictationTargetTextCommand(action, targetText);
         return true;
+    }
+
+    private static string ConvertDictationReplacementText(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = NormalizeSpeechText(value);
+        return TryConvertLiteralOrNumeralDictationText(normalized, out var literalOrNumeralText)
+            ? literalOrNumeralText
+            : ConvertPlainDictationText(normalized);
     }
 
     public static bool TryParseDictationCorrectionCommand(string transcript, out DictationCorrectionCommand? command)
@@ -744,7 +780,14 @@ public static class AlphaVoiceTranscriptParser
         var scope = ParseDictationFormatScope(target);
 
         if (scope == DictationReplacementScope.None)
-            return false;
+        {
+            target = StripOptionalDictationTargetPrefix(target);
+            if (!IsValidDictationTargetText(target))
+                return false;
+
+            command = new DictationFormatCommand(DictationReplacementScope.None, format, target);
+            return true;
+        }
 
         command = new DictationFormatCommand(scope, format);
         return true;
@@ -775,9 +818,17 @@ public static class AlphaVoiceTranscriptParser
             if (!target.EndsWith(" " + suffix, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            var scope = ParseDictationFormatScope(target[..^suffix.Length].Trim());
+            var formatTarget = target[..^suffix.Length].Trim();
+            var scope = ParseDictationFormatScope(formatTarget);
             if (scope == DictationReplacementScope.None)
-                return false;
+            {
+                formatTarget = StripOptionalDictationTargetPrefix(formatTarget);
+                if (!IsValidDictationTargetText(formatTarget))
+                    return false;
+
+                command = new DictationFormatCommand(DictationReplacementScope.None, format, formatTarget);
+                return true;
+            }
 
             command = new DictationFormatCommand(scope, format);
             return true;
@@ -796,6 +847,17 @@ public static class AlphaVoiceTranscriptParser
             _ => DictationReplacementScope.None
         };
 
+    private static string StripOptionalDictationTargetPrefix(string target)
+    {
+        foreach (var prefix in new[] { "the word ", "the words ", "the phrase ", "the text ", "word ", "words ", "phrase ", "text " })
+        {
+            if (target.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                return target[prefix.Length..].Trim();
+        }
+
+        return target.Trim();
+    }
+
     public static bool TryParseDictationSpellingCommand(string transcript, out DictationSpellingCommand? command)
     {
         command = null;
@@ -807,6 +869,14 @@ public static class AlphaVoiceTranscriptParser
         {
             "spell out",
             "spell it out",
+            "spell that out",
+            "spell that",
+            "spell this out",
+            "spell this",
+            "spell word",
+            "spell the word",
+            "spell phrase",
+            "spell the phrase",
             "spell",
             "type out",
             "type",
@@ -850,6 +920,9 @@ public static class AlphaVoiceTranscriptParser
             return false;
 
         var normalized = NormalizeSpeechText(transcript);
+        if (TryConvertLiteralOrNumeralDictationText(normalized, out text))
+            return true;
+
         var prefixes = new[]
         {
             "type the words ",
@@ -884,7 +957,9 @@ public static class AlphaVoiceTranscriptParser
                 return false;
             }
 
-            text = ConvertPlainDictationText(remainder);
+            text = TryConvertLiteralOrNumeralDictationText(remainder, out var literalOrNumeralText)
+                ? literalOrNumeralText
+                : ConvertPlainDictationText(remainder);
             return !string.IsNullOrWhiteSpace(text);
         }
 
@@ -989,6 +1064,21 @@ public static class AlphaVoiceTranscriptParser
             1).Trim();
     }
 
+    private static string RemoveLeadingSpeechPhrase(string transcript, string phrase)
+    {
+        var normalizedPhrase = NormalizeSpeechText(phrase);
+        if (string.IsNullOrWhiteSpace(normalizedPhrase))
+            return transcript;
+
+        if (string.Equals(transcript, normalizedPhrase, StringComparison.OrdinalIgnoreCase))
+            return string.Empty;
+
+        var prefix = normalizedPhrase + " ";
+        return transcript.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? transcript[prefix.Length..].Trim()
+            : transcript;
+    }
+
     private static string RemoveLeadingSpellingWords(string value)
     {
         var normalized = value.Trim();
@@ -1064,6 +1154,148 @@ public static class AlphaVoiceTranscriptParser
 
     private static bool IsSpellingFillerWord(string token) =>
         token is "spell" or "type" or "insert" or "dictate" or "out" or "please";
+
+    private static bool TryConvertLiteralOrNumeralDictationText(string value, out string text)
+    {
+        text = string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var normalized = NormalizeSpeechText(value);
+        foreach (var prefix in new[] { "literal ", "say literal ", "type literal ", "insert literal " })
+        {
+            if (!normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var remainder = normalized[prefix.Length..].Trim();
+            if (string.IsNullOrWhiteSpace(remainder))
+                return false;
+
+            text = remainder;
+            return true;
+        }
+
+        foreach (var prefix in new[] { "numeral ", "number ", "say numeral ", "type numeral ", "insert numeral ", "type number ", "insert number " })
+        {
+            if (!normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var remainder = normalized[prefix.Length..].Trim();
+            if (TryParseDictationNumeral(remainder, out var number))
+            {
+                text = number.ToString(CultureInfo.InvariantCulture);
+                return true;
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
+    private static bool TryParseDictationNumeral(string value, out int number)
+    {
+        number = 0;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        if (int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) && parsed >= 0)
+        {
+            number = parsed;
+            return true;
+        }
+
+        var tokens = NormalizeSpeechText(value)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (tokens.Length == 0)
+            return false;
+
+        var total = 0;
+        var current = 0;
+        var consumedNumber = false;
+        foreach (var token in tokens)
+        {
+            if (token == "and")
+                continue;
+
+            if (TryParseSmallNumberWord(token, out var small))
+            {
+                current += small;
+                consumedNumber = true;
+                continue;
+            }
+
+            if (TryParseTensNumberWord(token, out var tens))
+            {
+                current += tens;
+                consumedNumber = true;
+                continue;
+            }
+
+            if (token == "hundred")
+            {
+                if (current == 0)
+                    current = 1;
+
+                current *= 100;
+                consumedNumber = true;
+                continue;
+            }
+
+            return false;
+        }
+
+        number = total + current;
+        return consumedNumber && number >= 0;
+    }
+
+    private static bool TryParseSmallNumberWord(string token, out int number)
+    {
+        number = token switch
+        {
+            "zero" or "oh" => 0,
+            "one" => 1,
+            "two" or "to" or "too" => 2,
+            "three" => 3,
+            "four" or "for" => 4,
+            "five" => 5,
+            "six" => 6,
+            "seven" => 7,
+            "eight" => 8,
+            "nine" => 9,
+            "ten" => 10,
+            "eleven" => 11,
+            "twelve" => 12,
+            "thirteen" => 13,
+            "fourteen" => 14,
+            "fifteen" => 15,
+            "sixteen" => 16,
+            "seventeen" => 17,
+            "eighteen" => 18,
+            "nineteen" => 19,
+            _ => -1
+        };
+
+        return number >= 0;
+    }
+
+    private static bool TryParseTensNumberWord(string token, out int number)
+    {
+        number = token switch
+        {
+            "twenty" => 20,
+            "thirty" => 30,
+            "forty" => 40,
+            "fifty" => 50,
+            "sixty" => 60,
+            "seventy" => 70,
+            "eighty" => 80,
+            "ninety" => 90,
+            _ => -1
+        };
+
+        return number >= 0;
+    }
 
     private static string ConvertPlainDictationText(string value)
     {

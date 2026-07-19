@@ -143,6 +143,7 @@ public sealed record CallsignCommandExecutionResult(
     CallsignPolicyDecision? PolicyDecision = null,
     CallsignCommandApprovalRequirement? PolicyApprovalRequirement = null,
     CallsignCommandRiskTier? PolicyRiskTier = null,
+    bool? PolicyVisibleActionRequired = null,
     IReadOnlyList<CallsignFollowUpStep>? FollowUpSteps = null);
 
 public sealed record CallsignEntitlementState(IReadOnlyCollection<CallsignPackTier> EnabledTiers)
@@ -154,6 +155,24 @@ public sealed record CallsignEntitlementState(IReadOnlyCollection<CallsignPackTi
     public bool Allows(CallsignPackTier tier) =>
         tier == CallsignPackTier.Free
         || EnabledTiers.Any(enabled => enabled == tier);
+
+    public static CallsignEntitlementState FromTierNames(IEnumerable<string>? tierNames)
+    {
+        if (tierNames == null)
+            return FreeOnly;
+
+        var parsed = new HashSet<CallsignPackTier> { CallsignPackTier.Free };
+        foreach (var tierName in tierNames)
+        {
+            if (string.IsNullOrWhiteSpace(tierName))
+                continue;
+
+            if (Enum.TryParse<CallsignPackTier>(tierName.Trim(), true, out var tier))
+                parsed.Add(tier);
+        }
+
+        return new CallsignEntitlementState(parsed.ToArray());
+    }
 }
 
 public sealed record CallsignCommandResolution(
@@ -162,6 +181,7 @@ public sealed record CallsignCommandResolution(
     string PackVersion,
     CallsignPackTier Tier,
     CallsignPackLoadStatus LoadStatus,
+    bool IsCommunity,
     string CommandId,
     string CommandDisplayName,
     string ArgumentText,

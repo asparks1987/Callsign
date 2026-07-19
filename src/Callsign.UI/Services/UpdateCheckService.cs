@@ -14,6 +14,7 @@ namespace Callsign.UI.Services;
 
 public sealed class UpdateCheckService
 {
+    private const int WindowsErrorCancelled = 1223;
     private const string UpdateStateFile = "updates-state.json";
     private const string DownloadFolder = "Updates";
     private const string InstallerFilePrefix = "Callsign-Setup";
@@ -31,7 +32,7 @@ public sealed class UpdateCheckService
         Timeout = TimeSpan.FromSeconds(30)
     };
 
-    private readonly string _serverUrl;
+    private string _serverUrl;
     private readonly string _channel;
     private readonly TimeSpan _checkInterval;
     private readonly HttpClient _client;
@@ -65,8 +66,10 @@ public sealed class UpdateCheckService
     public TimeSpan CheckInterval => _checkInterval;
     public bool IsChecking => _isChecking;
     public DateTimeOffset? LastCheckUtc => _state.LastCheckUtc;
+    public DateTimeOffset? LastCheckInUtc => _state.LastCheckInUtc;
     public string? LastKnownVersion => _state.LastKnownVersion;
     public DateTimeOffset? LastUpdateAttemptedUtc => _state.LastUpdateAttemptedUtc;
+    public string? LastDownloadedInstallerPath => _state.LastDownloadedInstallerPath;
     public CallsignUpdateManifest? PendingManifest => _state.PendingManifest;
 
     public string DescribeStatus(DateTimeOffset nowUtc)
@@ -80,13 +83,21 @@ public sealed class UpdateCheckService
         var lastKnownVersion = string.IsNullOrWhiteSpace(_state.LastKnownVersion)
             ? "unknown"
             : _state.LastKnownVersion;
+        var lastCheckIn = _state.LastCheckInUtc.HasValue
+            ? $"{_state.LastCheckInUtc.Value.ToLocalTime():g}"
+            : "never";
         var pendingVersion = _state.PendingManifest?.Version;
         var pending = string.IsNullOrWhiteSpace(pendingVersion) ? "none" : pendingVersion;
         var lastAttempt = _state.LastUpdateAttemptedUtc.HasValue
             ? $"{_state.LastUpdateAttemptedUtc.Value.ToLocalTime():g}"
             : "never";
+        var lastDownloadedInstaller = !string.IsNullOrWhiteSpace(_state.LastDownloadedInstallerPath)
+            ? (_state.LastDownloadedInstallerPath.Length > 120
+                ? _state.LastDownloadedInstallerPath[^120..]
+                : _state.LastDownloadedInstallerPath)
+            : "none";
 
-        return $"Server {ServerUrl}; channel {Channel}; last check {lastCheck}; next due {nextDue}; last known version {lastKnownVersion}; pending manifest {pending}; last install attempt {lastAttempt}; cadence every {CheckInterval.TotalHours:0} hours.";
+        return $"Server {ServerUrl}; channel {Channel}; last check {lastCheck}; next due {nextDue}; last check-in {lastCheckIn}; last known version {lastKnownVersion}; pending manifest {pending}; last install attempt {lastAttempt}; last downloaded installer {lastDownloadedInstaller}; cadence every {CheckInterval.TotalHours:0} hours.";
     }
 
     public Task<UpdateCheckResult> CheckForUpdateInBackgroundAsync(bool force = false, bool attemptInstall = true, CancellationToken cancellationToken = default) =>
@@ -98,6 +109,13 @@ public sealed class UpdateCheckService
             return true;
 
         return nowUtc - _state.LastCheckUtc.Value >= _checkInterval;
+    }
+
+    public void SetServerUrl(string? serverUrl)
+    {
+        _serverUrl = string.IsNullOrWhiteSpace(serverUrl)
+            ? Environment.GetEnvironmentVariable("CALLSIGN_UPDATE_SERVER") ?? DefaultUpdateServer
+            : serverUrl.Trim();
     }
 
     public async Task<UpdateCheckResult> CheckForUpdateAsync(
@@ -127,8 +145,7 @@ public sealed class UpdateCheckService
             _state = _state with { LastCheckUtc = DateTimeOffset.UtcNow };
             SaveState(_state, _statePath);
 
-            var localHash = await TryGetFileHashAsync(_installedExecutablePath, cancellationToken);
-            var updateAvailable = IsUpdateAvailable(manifest, localHash);
+            var updateAvailable = IsUpdateAvailable(manifest);
             if (!updateAvailable)
                 return new UpdateCheckResult(true, false, $"Callsign is up to date (v{manifest.Version}).", manifest);
 
@@ -138,6 +155,9 @@ public sealed class UpdateCheckService
                 var installerPath = await DownloadInstallerAsync(manifest, cancellationToken);
                 if (installerPath == null)
                     return new UpdateCheckResult(false, true, "Update manifest was available, but installer download failed.", manifest);
+
+                _state = _state with { LastDownloadedInstallerPath = installerPath };
+                SaveState(_state, _statePath);
 
                 if (!await VerifyInstallerAsync(installerPath, manifest, cancellationToken))
                 {
@@ -178,26 +198,49 @@ public sealed class UpdateCheckService
         }
     }
 
-    public async Task SendCheckInAsync(string? accountId, string? appVersion, CancellationToken cancellationToken = default)
+    public async Task SendCheckInAsync(string? accountId, string? appVersion, string? deviceId, CancellationToken cancellationToken = default)
     {
         try
         {
-            var payload = new ClientCheckInPayload(
-                AccountId: accountId,
-                Channel: _channel,
-                InstalledVersion: appVersion,
-                InstalledAtUtc: DateTimeOffset.UtcNow,
-                RequestedAtUtc: DateTimeOffset.UtcNow);
+            var payload = BuildCheckInPayloadSnapshot(accountId, appVersion, deviceId).ToClientPayload();
 
             var endpoint = BuildUrl("/api/checkins");
             var content = JsonContent.Create(payload);
             using var response = await _client.PostAsync(endpoint, content, cancellationToken);
             response.EnsureSuccessStatusCode();
+            _state = _state with { LastCheckInUtc = DateTimeOffset.UtcNow };
+            SaveState(_state, _statePath);
         }
         catch
         {
             // Best-effort only.
         }
+    }
+
+    internal UpdateCheckInPayloadSnapshot BuildCheckInPayloadSnapshot(string? accountId, string? appVersion, string? deviceId) =>
+        BuildCheckInPayloadSnapshot(accountId, appVersion, deviceId, DateTimeOffset.UtcNow);
+
+    internal UpdateCheckInPayloadSnapshot BuildCheckInPayloadSnapshot(string? accountId, string? appVersion, string? deviceId, DateTimeOffset requestedAtUtc)
+    {
+        return new UpdateCheckInPayloadSnapshot(
+            AccountId: BuildPrivacyPreservingIdentifier("account", accountId),
+            Channel: _channel,
+            AppVersion: appVersion,
+            DeviceId: BuildPrivacyPreservingIdentifier("device", deviceId),
+            InstalledVersion: appVersion,
+            InstalledAtUtc: requestedAtUtc,
+            RequestedAtUtc: requestedAtUtc);
+    }
+
+    internal static string? BuildPrivacyPreservingIdentifier(string scope, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var normalizedScope = string.IsNullOrWhiteSpace(scope) ? "id" : scope.Trim().ToLowerInvariant();
+        var normalizedValue = value.Trim();
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes($"{normalizedScope}:{normalizedValue}"));
+        return $"sha256:{Convert.ToHexString(bytes).ToLowerInvariant()[..32]}";
     }
 
     private async Task<CallsignUpdateManifest?> TryFetchLatestManifestAsync(CancellationToken cancellationToken)
@@ -328,6 +371,10 @@ public sealed class UpdateCheckService
             await Task.Delay(1200, cancellationToken);
             return new InstallerRunResult(true, false);
         }
+        catch (Win32Exception ex) when (ex.NativeErrorCode == WindowsErrorCancelled)
+        {
+            return new InstallerRunResult(false, true);
+        }
         catch (Exception ex) when (ex is InvalidOperationException or Win32Exception)
         {
             return new InstallerRunResult(false, false);
@@ -338,16 +385,8 @@ public sealed class UpdateCheckService
         }
     }
 
-    private static bool IsUpdateAvailable(CallsignUpdateManifest manifest, string? localHash)
+    private static bool IsUpdateAvailable(CallsignUpdateManifest manifest)
     {
-        if (!string.IsNullOrWhiteSpace(localHash)
-            && !string.IsNullOrWhiteSpace(manifest.InstallerSha256)
-            && IsValidSha256(manifest.InstallerSha256)
-            && !string.Equals(manifest.InstallerSha256, localHash, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
         var localVersion = GetLocalVersionString();
         if (string.IsNullOrWhiteSpace(localVersion))
             return true;
@@ -369,6 +408,7 @@ public sealed class UpdateCheckService
         var changedCommands = ConvertCommandChanges(release.ChangedCommands);
         var removedCommands = ConvertCommandChanges(release.RemovedCommands);
         var packChanges = ConvertPackChanges(release.ExtensionPackChanges);
+        var featureHighlights = ConvertFeatureHighlights(release.FeatureHighlights);
 
         return new CallsignUpdateManifest(
             release.Version ?? "0.0.0a",
@@ -381,7 +421,8 @@ public sealed class UpdateCheckService
             RemovedCommands: removedCommands,
             ExtensionPackChanges: packChanges,
             SplashSummary: string.IsNullOrWhiteSpace(release.Notes) ? release.Title : release.Notes,
-            PublishedUtc: ParsePublishedDate(release.PublishedUtc));
+            PublishedUtc: ParsePublishedDate(release.PublishedUtc),
+            FeatureHighlights: featureHighlights);
     }
 
     private static IReadOnlyList<CallsignUpdateCommandChange> ConvertCommandChanges(IEnumerable<FeedCommandChangeItem>? commandChanges)
@@ -425,7 +466,29 @@ public sealed class UpdateCheckService
                 change.Version,
                 tier,
                 change.Summary,
-                change.SignatureStatus));
+                change.SignatureStatus,
+                false));
+        }
+
+        return list;
+    }
+
+    private static IReadOnlyList<CallsignUpdateFeatureChange> ConvertFeatureHighlights(IEnumerable<FeedFeatureChangeItem>? featureHighlights)
+    {
+        if (featureHighlights == null)
+            return Array.Empty<CallsignUpdateFeatureChange>();
+
+        var list = new List<CallsignUpdateFeatureChange>();
+        foreach (var feature in featureHighlights)
+        {
+            if (string.IsNullOrWhiteSpace(feature.FeatureId) || string.IsNullOrWhiteSpace(feature.DisplayName))
+                continue;
+
+            list.Add(new CallsignUpdateFeatureChange(
+                feature.FeatureId,
+                feature.DisplayName,
+                feature.Category,
+                feature.Summary));
         }
 
         return list;
@@ -521,7 +584,17 @@ public sealed class UpdateCheckService
             if (!string.IsNullOrWhiteSpace(directory))
                 Directory.CreateDirectory(directory);
 
-            File.WriteAllText(path, JsonSerializer.Serialize(state, ManifestJsonOptions));
+            var serialized = JsonSerializer.Serialize(state, ManifestJsonOptions);
+            var tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
+            File.WriteAllText(tempPath, serialized);
+            if (File.Exists(path))
+            {
+                File.Replace(tempPath, path, destinationBackupFileName: null);
+            }
+            else
+            {
+                File.Move(tempPath, path);
+            }
         }
         catch
         {
@@ -587,7 +660,8 @@ public sealed class UpdateCheckService
         IReadOnlyList<FeedCommandChangeItem>? AddedCommands = null,
         IReadOnlyList<FeedCommandChangeItem>? ChangedCommands = null,
         IReadOnlyList<FeedCommandChangeItem>? RemovedCommands = null,
-        IReadOnlyList<FeedPackChangeItem>? ExtensionPackChanges = null);
+        IReadOnlyList<FeedPackChangeItem>? ExtensionPackChanges = null,
+        IReadOnlyList<FeedFeatureChangeItem>? FeatureHighlights = null);
 
     private sealed record FeedCommandChangeItem(
         string CommandId,
@@ -604,20 +678,21 @@ public sealed class UpdateCheckService
         string Summary = "",
         string? SignatureStatus = null);
 
-    private sealed record ClientCheckInPayload(
-        string? AccountId,
-        string Channel,
-        string? InstalledVersion,
-        DateTimeOffset InstalledAtUtc,
-        DateTimeOffset RequestedAtUtc);
+    private sealed record FeedFeatureChangeItem(
+        string FeatureId,
+        string DisplayName,
+        string Category,
+        string Summary);
 
     private sealed record InstallerRunResult(bool Success, bool RequiresManualApproval);
 
     private sealed record UpdateCheckState(
         DateTimeOffset? LastCheckUtc = null,
+        DateTimeOffset? LastCheckInUtc = null,
         string? LastKnownVersion = null,
         CallsignUpdateManifest? PendingManifest = null,
-        DateTimeOffset? LastUpdateAttemptedUtc = null);
+        DateTimeOffset? LastUpdateAttemptedUtc = null,
+        string? LastDownloadedInstallerPath = null);
 }
 
 public sealed record UpdateCheckResult(
@@ -628,3 +703,25 @@ public sealed record UpdateCheckResult(
     string? InstallerPath = null,
     bool InstallerStarted = false,
     bool ManualInstallRecommended = false);
+
+internal sealed record UpdateCheckInPayloadSnapshot(
+    string? AccountId,
+    string Channel,
+    string? AppVersion,
+    string? DeviceId,
+    string? InstalledVersion,
+    DateTimeOffset InstalledAtUtc,
+    DateTimeOffset RequestedAtUtc)
+{
+    internal ClientCheckInPayload ToClientPayload() =>
+        new(AccountId, Channel, AppVersion, DeviceId, InstalledVersion, InstalledAtUtc, RequestedAtUtc);
+}
+
+internal sealed record ClientCheckInPayload(
+    string? AccountId,
+    string Channel,
+    string? AppVersion,
+    string? DeviceId,
+    string? InstalledVersion,
+    DateTimeOffset InstalledAtUtc,
+    DateTimeOffset RequestedAtUtc);

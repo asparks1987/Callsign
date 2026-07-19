@@ -49,7 +49,8 @@ public sealed class AlphaAuditLog
         bool? success = null,
         string? correlationId = null,
         string? verificationMethod = null,
-        string? verificationSummary = null)
+        string? verificationSummary = null,
+        string auditSource = "ui_client")
     {
         warning = null;
         if (string.IsNullOrWhiteSpace(profile.Callsign) || string.IsNullOrWhiteSpace(actionName))
@@ -78,7 +79,7 @@ public sealed class AlphaAuditLog
                 method = verificationMethod ?? "not_recorded",
                 summary = verificationSummary ?? (success == true ? "Command reached its visible execution path." : "Verification was not recorded.")
             },
-            audit_source = "ui_client"
+            audit_source = string.IsNullOrWhiteSpace(auditSource) ? "ui_client" : auditSource
         }, out warning);
     }
 

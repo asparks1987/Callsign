@@ -1,10 +1,8 @@
 using System.Diagnostics;
 using System.Drawing;
-using System.Globalization;
 using System.Media;
 using Callsign.UI.Models;
 using Callsign.UI.Services;
-using NAudio.Wave;
 
 namespace Callsign.UI;
 
@@ -17,8 +15,15 @@ public sealed class VoiceIdentityTrainingForm : Form
     private readonly VoiceBiometricVerificationService _biometricService = new();
 
     private readonly Label _statusLabel;
+    private readonly Label _contractLabel;
+    private readonly FlowLayoutPanel _statusStrip;
+    private readonly Label _samplesBadge;
+    private readonly Label _wakeBadge;
+    private readonly Label _nextBadge;
+    private readonly Label _failureBadge;
     private readonly Label _sampleLabel;
     private readonly Label _wakeSampleLabel;
+    private readonly Label _wakeProvenanceLabel;
     private readonly Label _qualityLabel;
     private readonly Label _nextStepLabel;
     private readonly Label _failureLabel;
@@ -54,7 +59,7 @@ public sealed class VoiceIdentityTrainingForm : Form
             Dock = DockStyle.Fill,
             Padding = new Padding(16),
             ColumnCount = 2,
-            RowCount = 12
+            RowCount = 15
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -68,6 +73,43 @@ public sealed class VoiceIdentityTrainingForm : Form
         layout.Controls.Add(heading, 0, 0);
         layout.SetColumnSpan(heading, 2);
 
+        _contractLabel = new Label
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = false,
+            Height = 36,
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            Padding = new Padding(12, 7, 12, 7),
+            Font = new Font("Segoe UI Semibold", 8.8f, FontStyle.Bold),
+            Text = "Contract: record sample -> review voice state -> enroll voice identity.",
+            AccessibleName = "Voice identity training contract",
+            AccessibleDescription = "Summarizes the visible voice-identity flow from sample capture through review and enrollment."
+        };
+        layout.Controls.Add(_contractLabel, 0, 1);
+        layout.SetColumnSpan(_contractLabel, 2);
+
+        _statusStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            Margin = new Padding(0, 2, 0, 4),
+            Padding = Padding.Empty,
+            AccessibleName = "Voice identity training status strip",
+            AccessibleDescription = "Shows the current sample count, wake status, next step, and failure state as compact visible badges."
+        };
+        _samplesBadge = CreateStatusBadge("Samples: 0", "Shows how many fresh samples have been recorded.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _wakeBadge = CreateStatusBadge("Wake: waiting", "Shows the wake calibration state.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _nextBadge = CreateStatusBadge("Next: record 3 fresh samples", "Shows the next visible training step.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _failureBadge = CreateStatusBadge("Failure: none", "Shows the current training failure state.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _statusStrip.Controls.Add(_samplesBadge);
+        _statusStrip.Controls.Add(_wakeBadge);
+        _statusStrip.Controls.Add(_nextBadge);
+        _statusStrip.Controls.Add(_failureBadge);
+        layout.Controls.Add(_statusStrip, 0, 2);
+        layout.SetColumnSpan(_statusStrip, 2);
+
         var prompt = new TextBox
         {
             Dock = DockStyle.Fill,
@@ -76,16 +118,16 @@ public sealed class VoiceIdentityTrainingForm : Form
             Height = 72,
             Text = $"Say: Callsign {profile.Callsign}. Hold the record button while speaking, release to save the sample, then enroll the voice identity."
         };
-        layout.Controls.Add(new Label { AutoSize = true, Text = "Prompt" }, 0, 1);
-        layout.Controls.Add(prompt, 1, 1);
+        layout.Controls.Add(new Label { AutoSize = true, Text = "Prompt" }, 0, 3);
+        layout.Controls.Add(prompt, 1, 3);
 
         _progress = new ProgressBar { Dock = DockStyle.Fill, Minimum = 0, Maximum = Math.Max(3, profile.Settings.VoiceSamplesRequired) };
-        layout.Controls.Add(new Label { AutoSize = true, Text = "Samples" }, 0, 2);
-        layout.Controls.Add(_progress, 1, 2);
+        layout.Controls.Add(new Label { AutoSize = true, Text = "Samples" }, 0, 4);
+        layout.Controls.Add(_progress, 1, 4);
 
         _sampleLabel = new Label { AutoSize = true };
-        layout.Controls.Add(new Label { AutoSize = true, Text = "Progress" }, 0, 3);
-        layout.Controls.Add(_sampleLabel, 1, 3);
+        layout.Controls.Add(new Label { AutoSize = true, Text = "Progress" }, 0, 5);
+        layout.Controls.Add(_sampleLabel, 1, 5);
 
         var sampleRows = new TableLayoutPanel
         {
@@ -108,28 +150,32 @@ public sealed class VoiceIdentityTrainingForm : Form
             sampleRows.Controls.Add(sampleName, 0, index);
             sampleRows.Controls.Add(_sampleStatusLabels[index], 1, index);
         }
-        layout.Controls.Add(new Label { AutoSize = true, Text = "Voice samples" }, 0, 4);
-        layout.Controls.Add(sampleRows, 1, 4);
+        layout.Controls.Add(new Label { AutoSize = true, Text = "Voice samples" }, 0, 6);
+        layout.Controls.Add(sampleRows, 1, 6);
 
         _wakeSampleLabel = new Label { AutoSize = true, MaximumSize = new Size(540, 0), Text = "No wake samples recorded yet." };
-        layout.Controls.Add(new Label { AutoSize = true, Text = "Wake samples" }, 0, 5);
-        layout.Controls.Add(_wakeSampleLabel, 1, 5);
+        layout.Controls.Add(new Label { AutoSize = true, Text = "Wake samples" }, 0, 7);
+        layout.Controls.Add(_wakeSampleLabel, 1, 7);
+
+        _wakeProvenanceLabel = new Label { AutoSize = true, MaximumSize = new Size(540, 0), Text = "Wake provenance: pending trusted sample set." };
+        layout.Controls.Add(new Label { AutoSize = true, Text = "Wake provenance" }, 0, 8);
+        layout.Controls.Add(_wakeProvenanceLabel, 1, 8);
 
         _qualityLabel = new Label { AutoSize = true, MaximumSize = new Size(540, 0), Text = "No sample analyzed yet." };
-        layout.Controls.Add(new Label { AutoSize = true, Text = "Audio quality" }, 0, 6);
-        layout.Controls.Add(_qualityLabel, 1, 6);
+        layout.Controls.Add(new Label { AutoSize = true, Text = "Audio quality" }, 0, 9);
+        layout.Controls.Add(_qualityLabel, 1, 9);
 
         _nextStepLabel = new Label { AutoSize = true, MaximumSize = new Size(540, 0), Text = "Next step: record 3 fresh samples before enrollment." };
-        layout.Controls.Add(new Label { AutoSize = true, Text = "Next step" }, 0, 7);
-        layout.Controls.Add(_nextStepLabel, 1, 7);
+        layout.Controls.Add(new Label { AutoSize = true, Text = "Next step" }, 0, 10);
+        layout.Controls.Add(_nextStepLabel, 1, 10);
 
         _failureLabel = new Label { AutoSize = true, MaximumSize = new Size(540, 0), Text = "Failure type: none yet." };
-        layout.Controls.Add(new Label { AutoSize = true, Text = "Failure type" }, 0, 8);
-        layout.Controls.Add(_failureLabel, 1, 8);
+        layout.Controls.Add(new Label { AutoSize = true, Text = "Failure type" }, 0, 11);
+        layout.Controls.Add(_failureLabel, 1, 11);
 
         _statusLabel = new Label { AutoSize = true, MaximumSize = new Size(540, 0), Text = "Ready to record." };
-        layout.Controls.Add(new Label { AutoSize = true, Text = "Status" }, 0, 9);
-        layout.Controls.Add(_statusLabel, 1, 9);
+        layout.Controls.Add(new Label { AutoSize = true, Text = "Status" }, 0, 12);
+        layout.Controls.Add(_statusLabel, 1, 12);
 
         _recordButton = new Button
         {
@@ -198,12 +244,12 @@ public sealed class VoiceIdentityTrainingForm : Form
         buttons.Controls.Add(_calibrateButton);
         buttons.Controls.Add(_wakeCalibrateButton);
         buttons.Controls.Add(_repairRuntimeButton);
-        layout.Controls.Add(buttons, 1, 10);
+        layout.Controls.Add(buttons, 1, 13);
 
         _closeButton = new Button { Text = "Close", Width = 100, AccessibleName = "Voice identity close", AccessibleDescription = "Voice phrase: close voice identity training." };
         _closeButton.Click += (_, _) => Close();
         CancelButton = _closeButton;
-        layout.Controls.Add(_closeButton, 1, 11);
+        layout.Controls.Add(_closeButton, 1, 14);
 
         Controls.Add(layout);
         _levelTimer.Tick += (_, _) => RefreshLiveLevel();
@@ -220,6 +266,15 @@ public sealed class VoiceIdentityTrainingForm : Form
 
         base.Dispose(disposing);
     }
+
+    public string ContractText => _contractLabel.Text;
+    public string ContractAccessibleName => _contractLabel.AccessibleName ?? string.Empty;
+    public string ContractAccessibleDescription => _contractLabel.AccessibleDescription ?? string.Empty;
+    public string StatusStripAccessibleName => _statusStrip.AccessibleName ?? string.Empty;
+    public string SamplesBadgeText => _samplesBadge.Text;
+    public string WakeBadgeText => _wakeBadge.Text;
+    public string NextBadgeText => _nextBadge.Text;
+    public string FailureBadgeText => _failureBadge.Text;
 
     private void RecordButtonMouseDown(object? sender, MouseEventArgs e)
     {
@@ -475,10 +530,11 @@ public sealed class VoiceIdentityTrainingForm : Form
             }
 
             var bestWakeSample = wakeScores.OrderByDescending(entry => entry.Score).First();
-            var calibratedThreshold = VoiceCommandService.ComputeCalibratedWakeThreshold(bestWakeSample.Score);
+            var trustedWakeScore = VoiceCommandService.ComputeTrustedWakeCalibrationScore(wakeScores.Select(entry => entry.Score).ToArray());
+            var calibratedThreshold = VoiceCommandService.ComputeCalibratedWakeThreshold(wakeScores.Select(entry => entry.Score).ToArray());
             if (!calibratedThreshold.HasValue)
             {
-                _qualityLabel.Text = $"Wake calibration scored {wakeScores.Count} wake sample(s); best score {bestWakeSample.Score:0.000}, which is below the trusted calibration floor.";
+                _qualityLabel.Text = $"Wake calibration scored {wakeScores.Count} wake sample(s); trusted score {trustedWakeScore:0.000}, best score {bestWakeSample.Score:0.000}, which is below the trusted calibration floor.";
                 _statusLabel.Text = "Wake samples are too weak to calibrate yet. Record a clearer Callsign wake sample close to the mic, then calibrate again.";
                 _failureLabel.Text = "Failure type: wake model confidence.";
                 return;
@@ -486,12 +542,11 @@ public sealed class VoiceIdentityTrainingForm : Form
 
             VoiceCommandService.ApplyWakeCalibration(
                 _profile.Settings,
-                bestWakeSample.Score,
-                wakeScores.Count,
+                wakeScores.Select(entry => entry.Score).ToArray(),
                 Path.GetFileName(bestWakeSample.Path));
             _profileStore.Save(_profile);
-            _qualityLabel.Text = $"Wake calibration used {wakeScores.Count} wake sample(s); best score {bestWakeSample.Score:0.000}. Threshold now {_profile.Settings.VoiceWakeThreshold:0.000}.";
-            _statusLabel.Text = $"Wakeword calibrated from {Path.GetFileName(bestWakeSample.Path)}.";
+            _qualityLabel.Text = $"Wake calibration used {wakeScores.Count} wake sample(s); trusted score {trustedWakeScore:0.000}, best score {bestWakeSample.Score:0.000}. Threshold now {_profile.Settings.VoiceWakeThreshold:0.000}.";
+            _statusLabel.Text = $"Wakeword calibrated from {Path.GetFileName(bestWakeSample.Path)} using the trusted sample set.";
             _failureLabel.Text = "Failure type: none.";
             RefreshState();
         }
@@ -609,6 +664,25 @@ public sealed class VoiceIdentityTrainingForm : Form
             : $"{_profile.Settings.VoiceSamplesRecorded} / {required} samples. Status: {_profile.Settings.VoiceEnrollmentStatus}";
         _nextStepLabel.Text = BuildNextStepText(required);
         _failureLabel.Text = BuildFailureText(required);
+        _samplesBadge.Text = $"Samples: {_profile.Settings.VoiceSamplesRecorded} / {required}";
+        var wakeThreshold = _profile.Settings.VoiceWakeThreshold;
+        _wakeBadge.Text = wakeThreshold > 0
+            ? $"Wake: threshold {wakeThreshold:0.000}"
+            : "Wake: waiting";
+        var wakeSource = string.IsNullOrWhiteSpace(_profile.Settings.VoiceWakeCalibrationSource)
+            ? null
+            : _profile.Settings.VoiceWakeCalibrationSource.Trim();
+        _wakeProvenanceLabel.Text = _profile.Settings.VoiceWakeCalibrationSampleCount > 0
+            ? string.IsNullOrWhiteSpace(wakeSource)
+                ? $"Wake provenance: trusted sample set ({_profile.Settings.VoiceWakeCalibrationSampleCount} sample(s))."
+                : $"Wake provenance: trusted sample set ({_profile.Settings.VoiceWakeCalibrationSampleCount} sample(s), source {wakeSource})."
+            : "Wake provenance: pending trusted sample set.";
+        _nextBadge.Text = _nextStepLabel.Text.StartsWith("Next step:", StringComparison.OrdinalIgnoreCase)
+            ? "Next: " + _nextStepLabel.Text["Next step: ".Length..]
+            : "Next: record fresh samples";
+        _failureBadge.Text = _failureLabel.Text.StartsWith("Failure type:", StringComparison.OrdinalIgnoreCase)
+            ? _failureLabel.Text.Replace("Failure type:", "Failure:", StringComparison.OrdinalIgnoreCase)
+            : "Failure: none";
         UpdateSampleRows();
         _playButton.Enabled = (File.Exists(GetLatestSamplePath()) || GetRecordedSamplePaths().Count > 0) && !_sampleCapture.IsRecording;
         _enrollButton.Enabled = _profile.Settings.VoiceSamplesRecorded >= required && !_sampleCapture.IsRecording && !_busy;
@@ -684,6 +758,23 @@ public sealed class VoiceIdentityTrainingForm : Form
 
     public string NextStepText => _nextStepLabel.Text;
     public string FailureText => _failureLabel.Text;
+    public string WakeProvenanceText => _wakeProvenanceLabel.Text;
+
+    private static Label CreateStatusBadge(string text, string description, Color backColor, Color foreColor)
+    {
+        return new Label
+        {
+            AutoSize = true,
+            Padding = new Padding(10, 4, 10, 4),
+            Margin = new Padding(0, 0, 8, 6),
+            BackColor = backColor,
+            ForeColor = foreColor,
+            Text = text,
+            Font = new Font("Segoe UI", 8.4f, FontStyle.Bold),
+            AccessibleName = text,
+            AccessibleDescription = description
+        };
+    }
 
     private string BuildNextStepText(int required)
     {
@@ -703,10 +794,10 @@ public sealed class VoiceIdentityTrainingForm : Form
     private string BuildFailureText(int required)
     {
         if (_busy)
-            return "Failure type: service.";
+            return "Failure type: service. Next: wait for enrollment or calibration to finish.";
 
         if (_profile.Settings.VoiceSamplesRecorded < required)
-            return "Failure type: not enough samples yet.";
+            return "Failure type: not enough samples yet. Next: record more fresh samples.";
 
         if (_profile.Settings.VoiceEnrolledUtc.HasValue)
             return "Failure type: none.";
@@ -716,12 +807,12 @@ public sealed class VoiceIdentityTrainingForm : Form
             return VoiceBiometricVerificationService.DescribeEnrollmentFailureType(proof.RejectReason, proof.Message, proof);
 
         if (string.Equals(_profile.Settings.VoiceEnrollmentStatus, "pyannote setup required", StringComparison.OrdinalIgnoreCase))
-            return "Failure type: identity runtime or model cache.";
+            return "Failure type: identity runtime or model cache. Next: choose Repair Identity Runtime.";
 
         if ((_profile.Settings.VoiceEnrollmentStatus ?? string.Empty).Contains("collecting sample", StringComparison.OrdinalIgnoreCase))
-            return "Failure type: sample collection in progress.";
+            return "Failure type: sample collection in progress. Next: keep recording until the sample is saved.";
 
-        return "Failure type: identity runtime, model cache, or service.";
+        return "Failure type: identity runtime, model cache, or service. Next: choose Repair Identity Runtime.";
     }
 
     private static string DescribeEnrollmentFailure(string? rejectReason, string message)
@@ -735,7 +826,7 @@ public sealed class VoiceIdentityTrainingForm : Form
             return "Check microphone permissions and device selection.";
 
         if (message.Contains("timeout", StringComparison.OrdinalIgnoreCase))
-            return "Try again after the service finishes starting.";
+            return "Identity runtime is starting. Try again in a moment.";
 
         if (message.Contains("runtime", StringComparison.OrdinalIgnoreCase))
             return "Use Repair Identity Runtime or Repair Wakeword if prompted.";
@@ -848,43 +939,14 @@ public sealed class VoiceIdentityTrainingForm : Form
 
     private static SampleQuality AnalyzeSample(string samplePath)
     {
-        if (!File.Exists(samplePath))
-            return new SampleQuality(false, "No sample file was captured.", 0, 0, 0, "Too quiet");
-
-        try
-        {
-            using var reader = new AudioFileReader(samplePath);
-            var buffer = new float[reader.WaveFormat.SampleRate * Math.Max(1, reader.WaveFormat.Channels)];
-            float peak = 0;
-            double sumSquares = 0;
-            var sampleCount = 0;
-            int read;
-            while ((read = reader.Read(buffer, 0, buffer.Length)) > 0)
-            {
-                for (var index = 0; index < read; index++)
-                {
-                    var value = Math.Abs(buffer[index]);
-                    peak = Math.Max(peak, value);
-                    sumSquares += value * value;
-                    sampleCount++;
-                }
-            }
-
-            var duration = reader.TotalTime;
-            if (duration < TimeSpan.FromMilliseconds(650))
-                return new SampleQuality(false, "Sample is too short. Hold record a little longer.", peak, 0, duration.TotalSeconds, "Too quiet");
-            if (sampleCount == 0 || peak < 0.015f)
-                return new SampleQuality(false, "Sample is too quiet or silent.", peak, 0, duration.TotalSeconds, "Too quiet");
-            if (peak > 0.98f)
-                return new SampleQuality(false, "Sample is clipping. Lower microphone gain and try again.", peak, Math.Sqrt(sumSquares / Math.Max(1, sampleCount)), duration.TotalSeconds, "Clipping");
-
-            var rms = Math.Sqrt(sumSquares / sampleCount);
-            return new SampleQuality(true, $"Clean sample: {duration.TotalSeconds:0.0}s, peak {peak:0.00}, RMS {rms.ToString("0.000", CultureInfo.CurrentCulture)}.", peak, rms, duration.TotalSeconds, "Good");
-        }
-        catch (Exception ex)
-        {
-            return new SampleQuality(false, $"Sample could not be read: {ex.Message}", 0, 0, 0, "Too quiet");
-        }
+        var quality = VoiceSampleQualityAnalyzer.Analyze(samplePath);
+        return new SampleQuality(
+            quality.Accepted,
+            quality.Message,
+            quality.Peak,
+            quality.Rms,
+            quality.DurationSeconds,
+            quality.State);
     }
 
     private static string GetInstalledAppDirectory()

@@ -9,6 +9,12 @@ public sealed class KeyboardOverlayForm : Form
     private readonly Panel _headerPanel;
     private readonly Label _titleLabel;
     private readonly Button _closeButton;
+    private readonly Label _contractLabel;
+    private readonly FlowLayoutPanel _statusStrip;
+    private readonly Label _statusModeBadge;
+    private readonly Label _statusTargetBadge;
+    private readonly Label _statusModifierBadge;
+    private readonly Label _statusSafetyBadge;
     private readonly Label _cueLabel;
     private readonly Label _safetyLabel;
     private readonly IReadOnlyList<KeyboardOverlayKey> _keys;
@@ -74,6 +80,43 @@ public sealed class KeyboardOverlayForm : Form
         _closeButton.Dock = DockStyle.Right;
         _headerPanel.Controls.Add(_closeButton);
 
+        _contractLabel = new Label
+        {
+            AutoSize = false,
+            Dock = DockStyle.Top,
+            Height = 28,
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            TextAlign = ContentAlignment.MiddleCenter,
+            Font = new Font("Segoe UI Semibold", 8.6f, FontStyle.Bold),
+            Padding = new Padding(8, 0, 8, 0),
+            Text = "Contract: choose key -> visible foreground app -> press or release modifiers.",
+            AccessibleName = "Keyboard overlay contract",
+            AccessibleDescription = "Summarizes the visible keyboard flow from key choice through foreground-app execution and modifier release."
+        };
+        Controls.Add(_contractLabel);
+
+        _statusStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            Height = 30,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            Padding = new Padding(8, 3, 8, 3),
+            BackColor = Color.FromArgb(242, 247, 253),
+            AccessibleName = "Keyboard overlay status strip",
+            AccessibleDescription = "Shows keyboard mode, target surface, modifier state, and safety boundary in compact visible badges."
+        };
+        _statusModeBadge = CreateStatusBadge("Mode: keyboard", "Shows the current keyboard overlay mode.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _statusTargetBadge = CreateStatusBadge("Target: foreground app", "Shows the visible keyboard target.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _statusModifierBadge = CreateStatusBadge("Modifiers: ready", "Shows the current modifier state.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _statusSafetyBadge = CreateStatusBadge("Safety: visible foreground only", "Shows the visible-app safety boundary.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _statusStrip.Controls.Add(_statusModeBadge);
+        _statusStrip.Controls.Add(_statusTargetBadge);
+        _statusStrip.Controls.Add(_statusModifierBadge);
+        _statusStrip.Controls.Add(_statusSafetyBadge);
+        Controls.Add(_statusStrip);
+
         _safetyLabel = new Label
         {
             AutoSize = false,
@@ -106,6 +149,7 @@ public sealed class KeyboardOverlayForm : Form
         Controls.Add(_cueLabel);
         _cueLabel.Paint += (_, args) => PaintCueFrame(args.Graphics, _cueLabel.ClientRectangle);
         _keys = BuildKeys();
+        UpdateStatusStrip();
     }
 
     public string CueText => _cueLabel.Text;
@@ -113,6 +157,15 @@ public sealed class KeyboardOverlayForm : Form
     public string OverlayAccessibleDescription => AccessibleDescription ?? string.Empty;
     public string CueAccessibleName => _cueLabel.AccessibleName ?? string.Empty;
     public string CueAccessibleDescription => _cueLabel.AccessibleDescription ?? string.Empty;
+    public string ContractText => _contractLabel.Text;
+    public string ContractAccessibleName => _contractLabel.AccessibleName ?? string.Empty;
+    public string ContractAccessibleDescription => _contractLabel.AccessibleDescription ?? string.Empty;
+    public string StatusStripAccessibleName => _statusStrip.AccessibleName ?? string.Empty;
+    public string StatusStripTexts => string.Join(" ", _statusStrip.Controls.OfType<Control>().Select(control => control.Text));
+    public string StatusModeBadgeText => _statusModeBadge.Text;
+    public string StatusTargetBadgeText => _statusTargetBadge.Text;
+    public string StatusModifierBadgeText => _statusModifierBadge.Text;
+    public string StatusSafetyBadgeText => _statusSafetyBadge.Text;
     public string SafetyText => _safetyLabel.Text;
     public string SafetyAccessibleName => _safetyLabel.AccessibleName ?? string.Empty;
     public string SafetyAccessibleDescription => _safetyLabel.AccessibleDescription ?? string.Empty;
@@ -142,6 +195,7 @@ public sealed class KeyboardOverlayForm : Form
         TopMost = true;
         BringToFront();
         PositionHeaderChrome();
+        UpdateStatusStrip();
         UpdateCueRegion();
         Invalidate();
     }
@@ -149,7 +203,7 @@ public sealed class KeyboardOverlayForm : Form
     public static Rectangle CalculateOverlayBounds(Rectangle screenBounds)
     {
         if (screenBounds.Width <= 0 || screenBounds.Height <= 0)
-            return new Rectangle(40, 40, 980, 330);
+            return new Rectangle(40, 40, 980, 360);
 
         const int margin = 32;
         var width = Math.Min(980, Math.Max(720, screenBounds.Width - (margin * 2)));
@@ -213,8 +267,8 @@ public sealed class KeyboardOverlayForm : Form
             return;
 
         var keyboardBounds = ClientRectangle;
-        keyboardBounds.Y += _headerPanel.Height + _cueLabel.Height + _safetyLabel.Height + 18;
-        keyboardBounds.Height -= _headerPanel.Height + _cueLabel.Height + _safetyLabel.Height + 34;
+        keyboardBounds.Y += _headerPanel.Height + _contractLabel.Height + _statusStrip.Height + _cueLabel.Height + _safetyLabel.Height + 18;
+        keyboardBounds.Height -= _headerPanel.Height + _contractLabel.Height + _statusStrip.Height + _cueLabel.Height + _safetyLabel.Height + 34;
         keyboardBounds.X += 16;
         keyboardBounds.Width -= 32;
         if (keyboardBounds.Width <= 0 || keyboardBounds.Height <= 0)
@@ -278,6 +332,55 @@ public sealed class KeyboardOverlayForm : Form
         _safetyLabel.Region = new Region(CreateRoundedPath(new Rectangle(Point.Empty, _safetyLabel.Size), 14));
     }
 
+    private void UpdateStatusStrip()
+    {
+        if (_statusStrip == null || _statusModeBadge == null || _statusTargetBadge == null || _statusModifierBadge == null || _statusSafetyBadge == null)
+            return;
+
+        _statusModeBadge.Text = "Mode: keyboard";
+        _statusTargetBadge.Text = "Target: foreground app";
+        var modifierState = BuildModifierStatusText();
+        _statusModifierBadge.Text = modifierState;
+        _statusModifierBadge.AccessibleDescription = modifierState;
+        _statusSafetyBadge.Text = "Safety: visible foreground only";
+    }
+
+    private static string BuildModifierStatusText()
+    {
+        var modifiers = Control.ModifierKeys;
+        var held = new List<string>(3);
+
+        if ((modifiers & System.Windows.Forms.Keys.Shift) == System.Windows.Forms.Keys.Shift)
+            held.Add("Shift");
+
+        if ((modifiers & System.Windows.Forms.Keys.Control) == System.Windows.Forms.Keys.Control)
+            held.Add("Control");
+
+        if ((modifiers & System.Windows.Forms.Keys.Alt) == System.Windows.Forms.Keys.Alt)
+            held.Add("Alt");
+
+        return held.Count == 0
+            ? "Modifiers: none held"
+            : $"Modifiers: {string.Join(", ", held)} held";
+    }
+
+    private static Label CreateStatusBadge(string text, string description, Color backColor, Color foreColor)
+    {
+        return new Label
+        {
+            AutoSize = true,
+            Margin = new Padding(0, 0, 6, 0),
+            Padding = new Padding(8, 3, 8, 3),
+            BackColor = backColor,
+            ForeColor = foreColor,
+            BorderStyle = BorderStyle.FixedSingle,
+            Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+            Text = text,
+            AccessibleName = text,
+            AccessibleDescription = description
+        };
+    }
+
     private void PositionHeaderChrome()
     {
         if (_headerPanel is null || _titleLabel is null || _closeButton is null || _headerPanel.Width <= 0)
@@ -331,6 +434,12 @@ public sealed class KeyboardOverlayForm : Form
             _closeButton.Dispose();
             _titleLabel.Dispose();
             _headerPanel.Dispose();
+            _contractLabel.Dispose();
+            _statusStrip.Dispose();
+            _statusModeBadge.Dispose();
+            _statusTargetBadge.Dispose();
+            _statusModifierBadge.Dispose();
+            _statusSafetyBadge.Dispose();
             _cueLabel.Dispose();
             _safetyLabel.Dispose();
         }

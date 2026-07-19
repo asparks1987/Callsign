@@ -35,6 +35,7 @@ public static class RuntimeStatusFormatter
 
     public static string FormatHearingProof(RuntimeStateSnapshot snapshot)
     {
+        var snapshotFreshness = IsFreshSnapshot(snapshot) ? "fresh" : "stale";
         var canHearAudio = snapshot.CanHearAudio.HasValue
             ? snapshot.CanHearAudio.Value ? "true" : "false"
             : "unknown";
@@ -55,19 +56,29 @@ public static class RuntimeStatusFormatter
         var mode = string.IsNullOrWhiteSpace(snapshot.ModeDescription)
             ? "mode unknown"
             : snapshot.ModeDescription.Trim();
+        var recoveryHint = packetState is "no recent audio packets" or "packet timing unavailable"
+            ? "Next: check the microphone device and permissions."
+            : canHearAudio == "false"
+                ? "Next: check the microphone device and permissions."
+                : "Next: keep speaking and watch the live readout.";
+        if (snapshotFreshness == "stale")
+            recoveryHint = "Next: restart or reconnect the Callsign service before trusting microphone state.";
 
-        return $"Runtime proof: CanHearAudio={canHearAudio}; mic={device}; packet age={packetAge}; {packetState}; authority={authority}; mode={mode}.";
+        return $"Runtime proof: snapshot={snapshotFreshness}; CanHearAudio={canHearAudio}; mic={device}; packet age={packetAge}; {packetState}; {recoveryHint}; authority={authority}; mode={mode}.";
     }
 
     public static string FormatMicLevel(RuntimeStateSnapshot snapshot)
     {
+        if (!IsFreshSnapshot(snapshot))
+            return "Runtime microphone status is stale. Next: restart or reconnect the Callsign service before trusting microphone state.";
+
         if (snapshot.LastMicrophoneLevelState == null)
             return "Microphone telemetry unavailable.";
 
         if (snapshot.CanHearAudio == false && snapshot.IsListening)
             return HasRecentAudioPacket(snapshot)
-                ? "Runtime is receiving microphone packets, but speech is below the active threshold."
-                : "Runtime running but no microphone audio packets are arriving.";
+                ? "Runtime is receiving microphone packets, but speech is below the active threshold. Next: check input gain or speak closer to the microphone."
+                : "Runtime running but no microphone audio packets are arriving. Next: check the microphone device and permissions.";
 
         if (snapshot.CanHearAudio == true && string.Equals(snapshot.RuntimeAuthorityStatus, "authoritative-user-runtime", StringComparison.OrdinalIgnoreCase))
             return $"Microphone level: {snapshot.LastMicrophoneLevelState}. Authoritative runtime is hearing audio.";
@@ -83,10 +94,16 @@ public static class RuntimeStatusFormatter
         snapshot.SecondsSinceLastAudioPacket.HasValue
             && snapshot.SecondsSinceLastAudioPacket.Value <= 2.5;
 
+    public static bool IsFreshSnapshot(RuntimeStateSnapshot snapshot) =>
+        DateTime.UtcNow - snapshot.UpdatedUtc.ToUniversalTime() <= TimeSpan.FromSeconds(30);
+
     public static string FormatAuthority(RuntimeStateSnapshot? runtimeSnapshot, bool isListening, bool usingLocalPreviewListener)
     {
         if (runtimeSnapshot != null)
         {
+            if (!IsFreshSnapshot(runtimeSnapshot))
+                return "Runtime snapshot stale; current service health unknown";
+
             if (!string.IsNullOrWhiteSpace(runtimeSnapshot.RuntimeAuthorityStatus))
             {
                 var status = runtimeSnapshot.RuntimeAuthorityStatus.Trim();

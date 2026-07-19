@@ -37,6 +37,10 @@ public static class DictationTargetTextService
             case DictationTargetTextAction.MoveAfter:
                 result = new DictationTargetTextResult(text, start + length, 0, false, matchedText);
                 return true;
+            case DictationTargetTextAction.InsertBefore:
+                return TryInsertNearTarget(text, start, command.ReplacementText, true, matchedText, out result);
+            case DictationTargetTextAction.InsertAfter:
+                return TryInsertNearTarget(text, start + length, command.ReplacementText, false, matchedText, out result);
             case DictationTargetTextAction.Delete:
                 result = new DictationTargetTextResult(text.Remove(start, length), start, 0, true, matchedText);
                 return true;
@@ -55,6 +59,57 @@ public static class DictationTargetTextService
             default:
                 return false;
         }
+    }
+
+    private static bool TryInsertNearTarget(
+        string text,
+        int insertionIndex,
+        string insertionText,
+        bool beforeTarget,
+        string matchedText,
+        out DictationTargetTextResult result)
+    {
+        result = new DictationTargetTextResult(text, 0, 0, false, matchedText);
+        if (string.IsNullOrWhiteSpace(insertionText))
+            return false;
+
+        var insertion = BuildContextualInsertion(text, insertionIndex, insertionText.Trim(), beforeTarget);
+        var insertedText = text.Insert(insertionIndex, insertion);
+        var selectionStart = insertionIndex + Math.Max(0, insertion.IndexOf(insertionText.Trim(), StringComparison.Ordinal));
+        result = new DictationTargetTextResult(
+            insertedText,
+            selectionStart,
+            insertionText.Trim().Length,
+            true,
+            matchedText);
+        return true;
+    }
+
+    private static string BuildContextualInsertion(string text, int insertionIndex, string insertion, bool beforeTarget)
+    {
+        if (string.IsNullOrEmpty(insertion) || IsPunctuationOnly(insertion))
+            return insertion;
+
+        var prefix = string.Empty;
+        var suffix = string.Empty;
+        if (!beforeTarget && insertionIndex > 0 && !char.IsWhiteSpace(text[insertionIndex - 1]))
+            prefix = " ";
+
+        if (beforeTarget && insertionIndex < text.Length && !char.IsWhiteSpace(text[insertionIndex]))
+            suffix = " ";
+
+        return prefix + insertion + suffix;
+    }
+
+    private static bool IsPunctuationOnly(string value)
+    {
+        foreach (var character in value)
+        {
+            if (!char.IsPunctuation(character) && !char.IsSymbol(character))
+                return false;
+        }
+
+        return value.Length > 0;
     }
 
     public static bool TryFindPhraseSpan(string text, string phrase, out int start, out int length)

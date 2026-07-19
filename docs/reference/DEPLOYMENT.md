@@ -26,6 +26,7 @@ The build currently produces or refreshes:
 - `Callsign-Run.exe`
 - published UI/service binaries under `build/`
 - generated static documentation under `docs/`
+- `docs/downloads/Callsign-Setup.exe` for the website installer endpoint
 
 ## GitHub Pages deployment
 
@@ -87,9 +88,25 @@ From the Windows workstation, the helper script can copy only the generated webs
 .\deploy\website\deploy-pi.ps1
 ```
 
-The script rebuilds the website image on the Pi with `--no-cache`, starts the Compose stack remotely, and verifies the installer endpoint without storing SSH credentials in the repository.
+The script rebuilds the website image on the Pi with `--no-cache`, starts the Compose stack remotely, and verifies the installer endpoint without storing SSH credentials in the repository. It resolves the repo root from the script path, so it can be launched from any working directory inside the Callsign tree.
+
+If `-WebsiteDownloadUrl` is omitted and a local preview is already listening on port `8085`, the release-readiness and release-packet scripts automatically verify `http://localhost:8085/downloads/Callsign-Setup.exe` instead of skipping the download check. When `-RequireWebsiteVerification` is present, missing both an explicit website URL and a reachable local preview is a hard release blocker. When the local preview container is running, release-readiness can use a direct container-side installer hash check instead of downloading the large file over HTTP.
+
+The Pi deploy helper also derives `http://<remote-host>:8085/downloads/Callsign-Setup.exe` from the SSH target when `-WebsiteDownloadUrl` is omitted, so the public installer hash check runs automatically after deployment.
+
+The helper uses a short SSH connect timeout, so an offline Pi fails quickly instead of hanging during deploy.
+
+If the Pi is temporarily offline, pass `-LocalPreviewOnly` to regenerate the site, rebuild the local website container, and verify the local `/downloads/Callsign-Setup.exe` endpoint without attempting SSH deployment.
+
+The same `-LocalPreviewOnly` switch is available on `scripts/prepare-release-packet.ps1` so release packet generation can still complete a local website verification loop when the Pi is unavailable. When `docs/downloads/Callsign-Setup.exe` already exists, the packet flow hashes that generated website installer directly and avoids requiring Docker just to prove the local-preview artifact; otherwise it passes `-SkipSiteBuild` to the local preview deploy helper because the site has already been rebuilt by the readiness step.
+
+Pass `-RequireManualEvidence` to `scripts/prepare-release-packet.ps1` when you need the packet to fail hard unless a completed manual parity-evidence file is supplied. The packet summary records whether that gate was requested so release artifacts can show whether the run was evidence-only or release-candidate strict.
+
+The packet summary is written on any failure path, including readiness failures, so operators still get a failure artifact with the packet status and error text.
 
 The default remote path is `/home/aryns/callsign/website`, which avoids requiring sudo on the Pi.
+
+You can also pass `-WebsiteDownloadUrl` to the deploy helper so it verifies the public installer hash after the remote stack comes up, and `-RequireWebsiteVerification` if the deployment should fail when that public download check cannot be completed.
 
 ## Package boundary
 

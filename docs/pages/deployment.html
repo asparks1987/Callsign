@@ -57,7 +57,7 @@
 dotnet run --project tests/Callsign.AlphaSmoke/Callsign.AlphaSmoke.csproj
 python scripts/build_site.py</code></pre>
 <p>The build currently produces or refreshes:</p>
-<ul><li><code>Callsign-Setup.exe</code></li><li><code>Callsign-Run.exe</code></li><li>published UI/service binaries under <code>build/</code></li><li>generated static documentation under <code>docs/</code></li></ul>
+<ul><li><code>Callsign-Setup.exe</code></li><li><code>Callsign-Run.exe</code></li><li>published UI/service binaries under <code>build/</code></li><li>generated static documentation under <code>docs/</code></li><li><code>docs/downloads/Callsign-Setup.exe</code> for the website installer endpoint</li></ul>
 <h2>GitHub Pages deployment</h2>
 <p>The repository is arranged for GitHub Pages from <code>docs/</code>.</p>
 <p>Steps:</p>
@@ -79,8 +79,16 @@ docker compose -f deploy/website/docker-compose.yml up -d --build</code></pre>
 <pre><code class="language-text">http://&lt;pi-hostname-or-ip&gt;:8085/downloads/Callsign-Setup.exe</code></pre>
 <p>From the Windows workstation, the helper script can copy only the generated website, Dockerfile, Compose file, and installer to the Pi:</p>
 <pre><code class="language-powershell">.\deploy\website\deploy-pi.ps1</code></pre>
-<p>The script rebuilds the website image on the Pi with <code>--no-cache</code>, starts the Compose stack remotely, and verifies the installer endpoint without storing SSH credentials in the repository.</p>
+<p>The script rebuilds the website image on the Pi with <code>--no-cache</code>, starts the Compose stack remotely, and verifies the installer endpoint without storing SSH credentials in the repository. It resolves the repo root from the script path, so it can be launched from any working directory inside the Callsign tree.</p>
+<p>If <code>-WebsiteDownloadUrl</code> is omitted and a local preview is already listening on port <code>8085</code>, the release-readiness and release-packet scripts automatically verify <code>http://localhost:8085/downloads/Callsign-Setup.exe</code> instead of skipping the download check. When <code>-RequireWebsiteVerification</code> is present, missing both an explicit website URL and a reachable local preview is a hard release blocker. When the local preview container is running, release-readiness can use a direct container-side installer hash check instead of downloading the large file over HTTP.</p>
+<p>The Pi deploy helper also derives <code>http://&lt;remote-host&gt;:8085/downloads/Callsign-Setup.exe</code> from the SSH target when <code>-WebsiteDownloadUrl</code> is omitted, so the public installer hash check runs automatically after deployment.</p>
+<p>The helper uses a short SSH connect timeout, so an offline Pi fails quickly instead of hanging during deploy.</p>
+<p>If the Pi is temporarily offline, pass <code>-LocalPreviewOnly</code> to regenerate the site, rebuild the local website container, and verify the local <code>/downloads/Callsign-Setup.exe</code> endpoint without attempting SSH deployment.</p>
+<p>The same <code>-LocalPreviewOnly</code> switch is available on <code>scripts/prepare-release-packet.ps1</code> so release packet generation can still complete a local website verification loop when the Pi is unavailable. When <code>docs/downloads/Callsign-Setup.exe</code> already exists, the packet flow hashes that generated website installer directly and avoids requiring Docker just to prove the local-preview artifact; otherwise it passes <code>-SkipSiteBuild</code> to the local preview deploy helper because the site has already been rebuilt by the readiness step.</p>
+<p>Pass <code>-RequireManualEvidence</code> to <code>scripts/prepare-release-packet.ps1</code> when you need the packet to fail hard unless a completed manual parity-evidence file is supplied. The packet summary records whether that gate was requested so release artifacts can show whether the run was evidence-only or release-candidate strict.</p>
+<p>The packet summary is written on any failure path, including readiness failures, so operators still get a failure artifact with the packet status and error text.</p>
 <p>The default remote path is <code>/home/aryns/callsign/website</code>, which avoids requiring sudo on the Pi.</p>
+<p>You can also pass <code>-WebsiteDownloadUrl</code> to the deploy helper so it verifies the public installer hash after the remote stack comes up, and <code>-RequireWebsiteVerification</code> if the deployment should fail when that public download check cannot be completed.</p>
 <h2>Package boundary</h2>
 <p>The Free package should include:</p>
 <ul><li>setup/onboarding app</li><li>background service runtime</li><li>wake/identity runtime dependencies needed for Free</li><li><code>callsign.gif</code> overlay asset</li><li>local profile/enrollment storage</li><li>docs and license material</li></ul>

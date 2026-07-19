@@ -234,6 +234,99 @@ public sealed class DesktopVisibleControlService
         }
     }
 
+    public bool TryToggle(DesktopVisibleControlEntry entry, out string message)
+    {
+        message = string.Empty;
+        try
+        {
+            if (!entry.IsEnabled)
+            {
+                message = $"Visible control {entry.Number} is no longer enabled.";
+                return false;
+            }
+
+            if (entry.Element.TryGetCurrentPattern(TogglePattern.Pattern, out var togglePattern))
+            {
+                ((TogglePattern)togglePattern).Toggle();
+                message = $"Toggled '{entry.Label}' from the foreground window.";
+                return true;
+            }
+
+            if (entry.Element.TryGetCurrentPattern(InvokePattern.Pattern, out var invokePattern))
+            {
+                ((InvokePattern)invokePattern).Invoke();
+                message = $"Toggled '{entry.Label}' from the foreground window.";
+                return true;
+            }
+
+            message = $"Visible control {entry.Number} does not expose a toggle action.";
+            return false;
+        }
+        catch (ElementNotAvailableException)
+        {
+            message = $"Visible control {entry.Number} is no longer available.";
+            return false;
+        }
+        catch (InvalidOperationException ex)
+        {
+            message = $"Unable to toggle visible control {entry.Number}: {ex.Message}";
+            return false;
+        }
+        catch (COMException ex)
+        {
+            message = $"Unable to toggle visible control {entry.Number}: {ex.Message}";
+            return false;
+        }
+    }
+
+    public bool TrySetExpanded(DesktopVisibleControlEntry entry, bool expanded, out string message)
+    {
+        message = string.Empty;
+        try
+        {
+            if (!entry.IsEnabled)
+            {
+                message = $"Visible control {entry.Number} is no longer enabled.";
+                return false;
+            }
+
+            if (!entry.Element.TryGetCurrentPattern(ExpandCollapsePattern.Pattern, out var expandCollapsePattern))
+            {
+                message = $"Visible control {entry.Number} does not expose an expand or collapse action.";
+                return false;
+            }
+
+            var pattern = (ExpandCollapsePattern)expandCollapsePattern;
+            if (expanded)
+            {
+                if (pattern.Current.ExpandCollapseState != ExpandCollapseState.Expanded)
+                    pattern.Expand();
+                message = $"Expanded '{entry.Label}' from the foreground window.";
+                return true;
+            }
+
+            if (pattern.Current.ExpandCollapseState != ExpandCollapseState.Collapsed)
+                pattern.Collapse();
+            message = $"Collapsed '{entry.Label}' from the foreground window.";
+            return true;
+        }
+        catch (ElementNotAvailableException)
+        {
+            message = $"Visible control {entry.Number} is no longer available.";
+            return false;
+        }
+        catch (InvalidOperationException ex)
+        {
+            message = $"Unable to {(expanded ? "expand" : "collapse")} visible control {entry.Number}: {ex.Message}";
+            return false;
+        }
+        catch (COMException ex)
+        {
+            message = $"Unable to {(expanded ? "expand" : "collapse")} visible control {entry.Number}: {ex.Message}";
+            return false;
+        }
+    }
+
     public bool TryMouseAction(DesktopVisibleControlEntry entry, DesktopVisibleControlMouseAction action, out string message)
     {
         if (!entry.IsEnabled)
@@ -260,6 +353,15 @@ public sealed class DesktopVisibleControlService
                 mouse_event(MouseEventLeftUp, 0, 0, 0, UIntPtr.Zero);
                 message = $"Double-clicked '{entry.Label}' from the foreground window.";
                 return true;
+            case DesktopVisibleControlMouseAction.TripleClick:
+                mouse_event(MouseEventLeftDown, 0, 0, 0, UIntPtr.Zero);
+                mouse_event(MouseEventLeftUp, 0, 0, 0, UIntPtr.Zero);
+                mouse_event(MouseEventLeftDown, 0, 0, 0, UIntPtr.Zero);
+                mouse_event(MouseEventLeftUp, 0, 0, 0, UIntPtr.Zero);
+                mouse_event(MouseEventLeftDown, 0, 0, 0, UIntPtr.Zero);
+                mouse_event(MouseEventLeftUp, 0, 0, 0, UIntPtr.Zero);
+                message = $"Triple-clicked '{entry.Label}' from the foreground window.";
+                return true;
             case DesktopVisibleControlMouseAction.RightClick:
                 mouse_event(MouseEventRightDown, 0, 0, 0, UIntPtr.Zero);
                 mouse_event(MouseEventRightUp, 0, 0, 0, UIntPtr.Zero);
@@ -268,6 +370,88 @@ public sealed class DesktopVisibleControlService
             default:
                 message = $"Unsupported visible control mouse action: {action}.";
                 return false;
+        }
+    }
+
+    public bool TryMoveSlider(DesktopVisibleControlEntry entry, string direction, int steps, out string message)
+    {
+        message = string.Empty;
+        if (!entry.IsEnabled)
+        {
+            message = $"Visible control {entry.Number} is no longer enabled.";
+            return false;
+        }
+
+        if (steps is < 1 or > 10)
+        {
+            message = "Slider movement is limited to 1-10 steps.";
+            return false;
+        }
+
+        try
+        {
+            if (!entry.Element.TryGetCurrentPattern(RangeValuePattern.Pattern, out var rangePattern))
+            {
+                message = $"Visible control {entry.Number} is not an adjustable slider.";
+                return false;
+            }
+
+            var pattern = (RangeValuePattern)rangePattern;
+            if (pattern.Current.IsReadOnly)
+            {
+                message = $"Visible slider '{entry.Label}' is read-only.";
+                return false;
+            }
+
+            var current = pattern.Current.Value;
+            var minimum = pattern.Current.Minimum;
+            var maximum = pattern.Current.Maximum;
+            if (double.IsNaN(current) || double.IsNaN(minimum) || double.IsNaN(maximum) || maximum <= minimum)
+            {
+                message = $"Visible slider '{entry.Label}' did not expose a usable range.";
+                return false;
+            }
+
+            var sign = direction.Equals("up", StringComparison.OrdinalIgnoreCase)
+                || direction.Equals("right", StringComparison.OrdinalIgnoreCase)
+                    ? 1d
+                    : -1d;
+            var stepSize = Math.Max((maximum - minimum) / 20d, 1d);
+            var next = Math.Clamp(current + sign * stepSize * steps, minimum, maximum);
+            pattern.SetValue(next);
+            message = $"Moved slider '{entry.Label}' {direction} {steps.ToString(CultureInfo.InvariantCulture)} step{(steps == 1 ? string.Empty : "s")}.";
+            return true;
+        }
+        catch (ElementNotAvailableException)
+        {
+            message = $"Visible control {entry.Number} is no longer available.";
+            return false;
+        }
+        catch (InvalidOperationException ex)
+        {
+            message = $"Unable to move visible slider {entry.Number}: {ex.Message}";
+            return false;
+        }
+        catch (COMException ex)
+        {
+            message = $"Unable to move visible slider {entry.Number}: {ex.Message}";
+            return false;
+        }
+    }
+
+    public static bool IsSlider(DesktopVisibleControlEntry entry)
+    {
+        try
+        {
+            return entry.Element.TryGetCurrentPattern(RangeValuePattern.Pattern, out _);
+        }
+        catch (ElementNotAvailableException)
+        {
+            return false;
+        }
+        catch (COMException)
+        {
+            return false;
         }
     }
 
@@ -446,7 +630,8 @@ public sealed class DesktopVisibleControlService
             return element.TryGetCurrentPattern(InvokePattern.Pattern, out _)
                 || element.TryGetCurrentPattern(SelectionItemPattern.Pattern, out _)
                 || element.TryGetCurrentPattern(TogglePattern.Pattern, out _)
-                || element.TryGetCurrentPattern(ExpandCollapsePattern.Pattern, out _);
+                || element.TryGetCurrentPattern(ExpandCollapsePattern.Pattern, out _)
+                || element.TryGetCurrentPattern(RangeValuePattern.Pattern, out _);
         }
         catch (ElementNotAvailableException)
         {
@@ -611,5 +796,6 @@ public sealed class DesktopVisibleControlService
 public enum DesktopVisibleControlMouseAction
 {
     DoubleClick,
+    TripleClick,
     RightClick
 }

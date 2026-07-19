@@ -46,6 +46,7 @@ builder.Services.AddSingleton<ProfileStore>();
 builder.Services.AddSingleton<StartMenuLauncher>();
 builder.Services.AddSingleton<BrowserLaunchService>();
 builder.Services.AddSingleton<FileSearchService>();
+builder.Services.AddSingleton<SystemControlService>();
 builder.Services.AddSingleton<VoiceCommandService>();
 builder.Services.AddHostedService<CallsignRuntimeWorker>();
 

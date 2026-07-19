@@ -95,7 +95,7 @@ public sealed class AlphaSessionStateMachine
             LockedUntilUtc = DateTime.UtcNow.Add(_lockoutDuration);
             State = AlphaSessionState.LockedOut;
             StateEnteredUtc = DateTime.UtcNow;
-            StatusMessage = $"Identity mismatch. Locked out for {_lockoutDuration.TotalSeconds:0} seconds.";
+            StatusMessage = $"Identity did not match. Locked out for {_lockoutDuration.TotalSeconds:0} seconds.";
             message = StatusMessage;
             return false;
         }
@@ -104,7 +104,7 @@ public sealed class AlphaSessionStateMachine
         VerifiedCallsignUtc = DateTimeOffset.UtcNow;
         State = AlphaSessionState.WaitingForCommand;
         StateEnteredUtc = DateTime.UtcNow;
-        StatusMessage = $"Identity verified for {enrolled}. Speak the task.";
+        StatusMessage = $"Identity confirmed for {enrolled}. Say the app name.";
         message = StatusMessage;
         return true;
     }
@@ -132,7 +132,7 @@ public sealed class AlphaSessionStateMachine
                 LockedUntilUtc = DateTime.UtcNow.Add(_lockoutDuration);
                 State = AlphaSessionState.LockedOut;
                 StateEnteredUtc = DateTime.UtcNow;
-                StatusMessage = $"Identity mismatch. Locked out for {_lockoutDuration.TotalSeconds:0} seconds.";
+                StatusMessage = $"Identity did not match. Locked out for {_lockoutDuration.TotalSeconds:0} seconds.";
                 message = StatusMessage;
                 return false;
             }
@@ -155,7 +155,7 @@ public sealed class AlphaSessionStateMachine
         VerifiedCallsignUtc = DateTimeOffset.UtcNow;
         State = AlphaSessionState.WaitingForCommand;
         StateEnteredUtc = DateTime.UtcNow;
-        StatusMessage = $"Identity verified for {VerifiedCallsign}. Speak the task.";
+        StatusMessage = $"Identity confirmed for {VerifiedCallsign}. Say the app name.";
         message = StatusMessage;
         return true;
     }
@@ -172,7 +172,7 @@ public sealed class AlphaSessionStateMachine
         var command = commandText.Trim();
         if (string.IsNullOrWhiteSpace(command))
         {
-            message = "Speak the command before continuing.";
+            message = "Say the app name before continuing.";
             return false;
         }
 
@@ -216,6 +216,9 @@ public sealed class AlphaSessionStateMachine
         State = AlphaSessionState.Completed;
         StateEnteredUtc = DateTime.UtcNow;
         StatusMessage = "Launch complete.";
+        ClearAuthorization();
+        PendingCommand = null;
+        PendingApp = null;
     }
 
     public void FailLaunch(string reason)
@@ -257,6 +260,9 @@ public sealed class AlphaSessionStateMachine
         State = AlphaSessionState.LockedOut;
         StateEnteredUtc = DateTime.UtcNow;
         StatusMessage = $"Session timed out. Locked out for {_lockoutDuration.TotalSeconds:0} seconds.";
+        ClearAuthorization();
+        PendingCommand = null;
+        PendingApp = null;
     }
 
     public TimeSpan? GetLockoutRemaining()
@@ -270,6 +276,9 @@ public sealed class AlphaSessionStateMachine
 
     public bool HasFreshIdentity(TimeSpan freshness)
     {
+        if (State is not (AlphaSessionState.WaitingForCommand or AlphaSessionState.ReadyToLaunch or AlphaSessionState.Launching))
+            return false;
+
         if (string.IsNullOrWhiteSpace(VerifiedCallsign) || !VerifiedCallsignUtc.HasValue)
             return false;
 
@@ -277,6 +286,12 @@ public sealed class AlphaSessionStateMachine
             return true;
 
         return DateTimeOffset.UtcNow - VerifiedCallsignUtc.Value <= freshness;
+    }
+
+    private void ClearAuthorization()
+    {
+        VerifiedCallsign = null;
+        VerifiedCallsignUtc = null;
     }
 
     private static string Normalize(string? value)

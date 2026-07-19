@@ -30,10 +30,14 @@ public sealed class SystemControlService
 {
     private readonly bool _dryRun;
     private readonly object _mouseMotionSync = new();
+    private readonly object _continuousScrollSync = new();
     private System.Threading.Timer? _mouseMotionTimer;
+    private System.Threading.Timer? _continuousScrollTimer;
     private int _mouseMotionSpeedIndex = DefaultMouseMotionSpeedIndex;
     private MouseDirection _activeMouseMotionDirection;
     private bool _mouseMotionActive;
+    private MouseDirection _activeScrollDirection;
+    private bool _continuousScrollActive;
 
     public SystemControlService(bool dryRun = false)
     {
@@ -53,6 +57,21 @@ public sealed class SystemControlService
         {
             var normalizedAction = action.Trim().ToLowerInvariant();
             if (TryExecuteRepeatedAction(normalizedAction, out message))
+                return true;
+
+            if (TryExecuteCountedCharacterClipboardAction(normalizedAction, out message))
+                return true;
+
+            if (TryExecuteCountedParagraphClipboardAction(normalizedAction, out message))
+                return true;
+
+            if (TryExecuteCountedLineClipboardAction(normalizedAction, out message))
+                return true;
+
+            if (TryExecuteCountedWordClipboardAction(normalizedAction, out message))
+                return true;
+
+            if (TryExecuteUnitFormatAction(normalizedAction, out message))
                 return true;
 
             if (TryParseFunctionKeyAction(normalizedAction, out var functionKey, out var functionKeyName))
@@ -390,92 +409,112 @@ public sealed class SystemControlService
                     message = "Page down requested.";
                     return true;
                 case "system-mouse-click":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseClick();
                     message = "Mouse click requested.";
                     return true;
                 case "system-mouse-double-click":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseDoubleClick();
                     message = "Mouse double-click requested.";
                     return true;
                 case "system-mouse-triple-click":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseTripleClick();
                     message = "Mouse triple-click requested.";
                     return true;
                 case "system-mouse-right-click":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseRightClick();
                     message = "Mouse right-click requested.";
                     return true;
                 case "system-mouse-button-down":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseButtonDown();
                     message = "Mouse button down requested.";
                     return true;
                 case "system-mouse-button-up":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseButtonUp();
                     message = "Mouse button up requested.";
                     return true;
+                case "system-scroll-top":
+                    StopContinuousPointerActivity();
+                    SendKeyChord(VK_CONTROL, VK_HOME);
+                    message = "Scroll to top requested.";
+                    return true;
+                case "system-scroll-bottom":
+                    StopContinuousPointerActivity();
+                    SendKeyChord(VK_CONTROL, VK_END);
+                    message = "Scroll to bottom requested.";
+                    return true;
+                case "system-scroll-left-edge":
+                    StopContinuousPointerActivity();
+                    SendKey(VK_HOME);
+                    message = "Scroll to left edge requested.";
+                    return true;
+                case "system-scroll-right-edge":
+                    StopContinuousPointerActivity();
+                    SendKey(VK_END);
+                    message = "Scroll to right edge requested.";
+                    return true;
                 case "system-mouse-scroll-up":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseWheel(MOUSE_WHEEL_DELTA);
                     message = "Mouse scroll up requested.";
                     return true;
                 case "system-mouse-scroll-down":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseWheel(-MOUSE_WHEEL_DELTA);
                     message = "Mouse scroll down requested.";
                     return true;
                 case "system-mouse-scroll-left":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseHorizontalWheel(-MOUSE_WHEEL_DELTA);
                     message = "Mouse scroll left requested.";
                     return true;
                 case "system-mouse-scroll-right":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseHorizontalWheel(MOUSE_WHEEL_DELTA);
                     message = "Mouse scroll right requested.";
                     return true;
                 case "system-mouse-move-up":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseMove(0, -MOUSE_NUDGE_PIXELS);
                     message = "Mouse move up requested.";
                     return true;
                 case "system-mouse-move-down":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseMove(0, MOUSE_NUDGE_PIXELS);
                     message = "Mouse move down requested.";
                     return true;
                 case "system-mouse-move-left":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseMove(-MOUSE_NUDGE_PIXELS, 0);
                     message = "Mouse move left requested.";
                     return true;
                 case "system-mouse-move-right":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseMove(MOUSE_NUDGE_PIXELS, 0);
                     message = "Mouse move right requested.";
                     return true;
                 case "system-mouse-drag-up":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseDrag(0, -MOUSE_NUDGE_PIXELS);
                     message = "Mouse drag up requested.";
                     return true;
                 case "system-mouse-drag-down":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseDrag(0, MOUSE_NUDGE_PIXELS);
                     message = "Mouse drag down requested.";
                     return true;
                 case "system-mouse-drag-left":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseDrag(-MOUSE_NUDGE_PIXELS, 0);
                     message = "Mouse drag left requested.";
                     return true;
                 case "system-mouse-drag-right":
-                    StopContinuousMouseMove();
+                    StopContinuousPointerActivity();
                     SendMouseDrag(MOUSE_NUDGE_PIXELS, 0);
                     message = "Mouse drag right requested.";
                     return true;
@@ -498,6 +537,10 @@ public sealed class SystemControlService
                 case "system-save":
                     SendKeyChord(VK_CONTROL, VK_S);
                     message = "Save requested.";
+                    return true;
+                case "system-save-as":
+                    SendTwoModifierKeyChord(VK_CONTROL, VK_SHIFT, VK_S);
+                    message = "Save As dialog requested.";
                     return true;
                 case "system-undo":
                     SendKeyChord(VK_CONTROL, VK_Z);
@@ -522,6 +565,14 @@ public sealed class SystemControlService
                 case "system-find":
                     SendKeyChord(VK_CONTROL, VK_F);
                     message = "Find requested.";
+                    return true;
+                case "system-find-next":
+                    SendKey(VK_F3);
+                    message = "Find next requested.";
+                    return true;
+                case "system-find-previous":
+                    SendKeyChord(VK_SHIFT, VK_F3);
+                    message = "Find previous requested.";
                     return true;
                 case "system-new-window":
                     SendKeyChord(VK_CONTROL, VK_N);
@@ -579,6 +630,147 @@ public sealed class SystemControlService
                     SendKey(VK_DELETE);
                     message = "Delete next character requested.";
                     return true;
+                case "system-move-selection-start":
+                    SendKey(VK_LEFT);
+                    message = "Move to beginning of selection requested.";
+                    return true;
+                case "system-move-selection-end":
+                    SendKey(VK_RIGHT);
+                    message = "Move to end of selection requested.";
+                    return true;
+                case "system-clear-selection":
+                    SendKey(VK_RIGHT);
+                    message = "Clear selection requested.";
+                    return true;
+                case "system-select-current-word":
+                    SendCtrlArrow(VK_LEFT);
+                    SendCtrlShiftArrow(VK_RIGHT);
+                    message = "Select current word requested.";
+                    return true;
+                case "system-select-current-line":
+                    SendKey(VK_HOME);
+                    SendKeyChord(VK_SHIFT, VK_END);
+                    message = "Select current line requested.";
+                    return true;
+                case "system-select-current-paragraph":
+                    SendAltKey(VK_UP);
+                    SendAltShiftKey(VK_DOWN);
+                    message = "Select current paragraph requested.";
+                    return true;
+                case "system-delete-current-word":
+                    SendCtrlArrow(VK_LEFT);
+                    SendCtrlShiftArrow(VK_RIGHT);
+                    SendKey(VK_BACK);
+                    message = "Delete current word requested.";
+                    return true;
+                case "system-delete-current-line":
+                    SendKey(VK_HOME);
+                    SendKeyChord(VK_SHIFT, VK_END);
+                    SendKey(VK_DELETE);
+                    message = "Delete current line requested.";
+                    return true;
+                case "system-delete-current-paragraph":
+                    SendAltKey(VK_UP);
+                    SendAltShiftKey(VK_DOWN);
+                    SendKey(VK_BACK);
+                    message = "Delete current paragraph requested.";
+                    return true;
+                case "system-copy-current-word":
+                    SendCtrlArrow(VK_LEFT);
+                    SendCtrlShiftArrow(VK_RIGHT);
+                    SendKeyChord(VK_CONTROL, VK_C);
+                    message = "Copy current word requested.";
+                    return true;
+                case "system-copy-current-line":
+                    SendKey(VK_HOME);
+                    SendKeyChord(VK_SHIFT, VK_END);
+                    SendKeyChord(VK_CONTROL, VK_C);
+                    message = "Copy current line requested.";
+                    return true;
+                case "system-copy-current-paragraph":
+                    SendAltKey(VK_UP);
+                    SendAltShiftKey(VK_DOWN);
+                    SendKeyChord(VK_CONTROL, VK_C);
+                    message = "Copy current paragraph requested.";
+                    return true;
+                case "system-cut-current-word":
+                    SendCtrlArrow(VK_LEFT);
+                    SendCtrlShiftArrow(VK_RIGHT);
+                    SendKeyChord(VK_CONTROL, VK_X);
+                    message = "Cut current word requested.";
+                    return true;
+                case "system-cut-current-line":
+                    SendKey(VK_HOME);
+                    SendKeyChord(VK_SHIFT, VK_END);
+                    SendKeyChord(VK_CONTROL, VK_X);
+                    message = "Cut current line requested.";
+                    return true;
+                case "system-cut-current-paragraph":
+                    SendAltKey(VK_UP);
+                    SendAltShiftKey(VK_DOWN);
+                    SendKeyChord(VK_CONTROL, VK_X);
+                    message = "Cut current paragraph requested.";
+                    return true;
+                case "system-copy-previous-word":
+                    SendCtrlShiftArrow(VK_LEFT);
+                    SendKeyChord(VK_CONTROL, VK_C);
+                    message = "Copy previous word requested.";
+                    return true;
+                case "system-copy-next-word":
+                    SendCtrlShiftArrow(VK_RIGHT);
+                    SendKeyChord(VK_CONTROL, VK_C);
+                    message = "Copy next word requested.";
+                    return true;
+                case "system-cut-previous-word":
+                    SendCtrlShiftArrow(VK_LEFT);
+                    SendKeyChord(VK_CONTROL, VK_X);
+                    message = "Cut previous word requested.";
+                    return true;
+                case "system-cut-next-word":
+                    SendCtrlShiftArrow(VK_RIGHT);
+                    SendKeyChord(VK_CONTROL, VK_X);
+                    message = "Cut next word requested.";
+                    return true;
+                case "system-copy-previous-line":
+                    SendKeyChord(VK_SHIFT, VK_UP);
+                    SendKeyChord(VK_CONTROL, VK_C);
+                    message = "Copy previous line requested.";
+                    return true;
+                case "system-copy-next-line":
+                    SendKeyChord(VK_SHIFT, VK_DOWN);
+                    SendKeyChord(VK_CONTROL, VK_C);
+                    message = "Copy next line requested.";
+                    return true;
+                case "system-cut-previous-line":
+                    SendKeyChord(VK_SHIFT, VK_UP);
+                    SendKeyChord(VK_CONTROL, VK_X);
+                    message = "Cut previous line requested.";
+                    return true;
+                case "system-cut-next-line":
+                    SendKeyChord(VK_SHIFT, VK_DOWN);
+                    SendKeyChord(VK_CONTROL, VK_X);
+                    message = "Cut next line requested.";
+                    return true;
+                case "system-copy-previous-paragraph":
+                    SendAltShiftKey(VK_UP);
+                    SendKeyChord(VK_CONTROL, VK_C);
+                    message = "Copy previous paragraph requested.";
+                    return true;
+                case "system-copy-next-paragraph":
+                    SendAltShiftKey(VK_DOWN);
+                    SendKeyChord(VK_CONTROL, VK_C);
+                    message = "Copy next paragraph requested.";
+                    return true;
+                case "system-cut-previous-paragraph":
+                    SendAltShiftKey(VK_UP);
+                    SendKeyChord(VK_CONTROL, VK_X);
+                    message = "Cut previous paragraph requested.";
+                    return true;
+                case "system-cut-next-paragraph":
+                    SendAltShiftKey(VK_DOWN);
+                    SendKeyChord(VK_CONTROL, VK_X);
+                    message = "Cut next paragraph requested.";
+                    return true;
                 case "system-move-line-start":
                     SendKey(VK_HOME);
                     message = "Move to line start requested.";
@@ -630,6 +822,14 @@ public sealed class SystemControlService
                     SendKeyChord(VK_SHIFT, VK_DOWN);
                     SendKey(VK_DELETE);
                     message = "Delete next line requested.";
+                    return true;
+                case "system-move-word-start":
+                    SendCtrlArrow(VK_LEFT);
+                    message = "Move to word start requested.";
+                    return true;
+                case "system-move-word-end":
+                    SendCtrlArrow(VK_RIGHT);
+                    message = "Move to word end requested.";
                     return true;
                 case "system-move-previous-word":
                     SendCtrlArrow(VK_LEFT);
@@ -980,8 +1180,15 @@ public sealed class SystemControlService
     {
         if (string.Equals(action, "system-mouse-stop-moving", StringComparison.OrdinalIgnoreCase))
         {
-            StopContinuousMouseMove();
+            StopContinuousPointerActivity();
             message = "Mouse stop moving requested.";
+            return true;
+        }
+
+        if (string.Equals(action, "system-stop-scrolling", StringComparison.OrdinalIgnoreCase))
+        {
+            StopContinuousScroll();
+            message = "Stop scrolling requested.";
             return true;
         }
 
@@ -1001,14 +1208,23 @@ public sealed class SystemControlService
 
         if (TryParseMouseDirectionAction(action, "system-mouse-start-moving:", out var direction, out _))
         {
+            StopContinuousScroll();
             StartContinuousMouseMove(direction);
             message = $"Mouse move {direction.DisplayName} requested.";
             return true;
         }
 
+        if (TryParseCardinalMouseDirectionAction(action, "system-start-scrolling:", out direction))
+        {
+            StopContinuousPointerActivity();
+            StartContinuousScroll(direction);
+            message = $"Start scrolling {direction.DisplayName} requested.";
+            return true;
+        }
+
         if (TryParseMouseDirectionAction(action, "system-mouse-drag-direction:", out direction, out _))
         {
-            StopContinuousMouseMove();
+            StopContinuousPointerActivity();
             SendMouseDrag(direction.DeltaX * MOUSE_NUDGE_PIXELS, direction.DeltaY * MOUSE_NUDGE_PIXELS);
             message = $"Mouse drag {direction.DisplayName} requested.";
             return true;
@@ -1018,7 +1234,7 @@ public sealed class SystemControlService
             && int.TryParse(remainder, out var distance)
             && distance > 0)
         {
-            StopContinuousMouseMove();
+            StopContinuousPointerActivity();
             SendMouseMove(direction.DeltaX * MOUSE_FIXED_DISTANCE_PIXELS * distance, direction.DeltaY * MOUSE_FIXED_DISTANCE_PIXELS * distance);
             message = $"Mouse move {direction.DisplayName} {distance} requested.";
             return true;
@@ -1026,6 +1242,184 @@ public sealed class SystemControlService
 
         message = string.Empty;
         return false;
+    }
+
+    private bool TryExecuteUnitFormatAction(string action, out string message)
+    {
+        const string prefix = "system-format-";
+        message = string.Empty;
+        if (!action.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var parts = action[prefix.Length..].Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length != 3)
+            return false;
+
+        var (style, scope, unit) = (parts[0], parts[1], parts[2]);
+        if (!SelectTextUnit(scope, unit))
+            return false;
+
+        switch (style)
+        {
+            case "bold":
+                SendKeyChord(VK_CONTROL, VK_B);
+                break;
+            case "italic":
+                SendKeyChord(VK_CONTROL, VK_I);
+                break;
+            case "underline":
+                SendKeyChord(VK_CONTROL, VK_U);
+                break;
+            default:
+                return false;
+        }
+
+        message = $"{FormatDisplay(style)} {FormatDisplay(scope)} {FormatDisplay(unit)} requested.";
+        return true;
+    }
+
+    private bool SelectTextUnit(string scope, string unit)
+    {
+        switch ((scope, unit))
+        {
+            case ("current", "word"):
+                SendCtrlArrow(VK_LEFT);
+                SendCtrlShiftArrow(VK_RIGHT);
+                return true;
+            case ("current", "line"):
+                SendKey(VK_HOME);
+                SendKeyChord(VK_SHIFT, VK_END);
+                return true;
+            case ("current", "paragraph"):
+                SendAltKey(VK_UP);
+                SendAltShiftKey(VK_DOWN);
+                return true;
+            case ("previous", "word"):
+                SendCtrlShiftArrow(VK_LEFT);
+                return true;
+            case ("next", "word"):
+                SendCtrlShiftArrow(VK_RIGHT);
+                return true;
+            case ("previous", "line"):
+                SendKeyChord(VK_SHIFT, VK_UP);
+                return true;
+            case ("next", "line"):
+                SendKeyChord(VK_SHIFT, VK_DOWN);
+                return true;
+            case ("previous", "paragraph"):
+                SendAltShiftKey(VK_UP);
+                return true;
+            case ("next", "paragraph"):
+                SendAltShiftKey(VK_DOWN);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static string FormatDisplay(string value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : char.ToUpperInvariant(value[0]) + value[1..];
+
+    private bool TryExecuteCountedCharacterClipboardAction(string action, out string message)
+    {
+        message = string.Empty;
+        var match = System.Text.RegularExpressions.Regex.Match(
+            action,
+            @"^system-(?<verb>copy|cut)-(?<direction>previous|next)-characters:(?<count>\d+)$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
+        if (!match.Success)
+            return false;
+
+        var verb = match.Groups["verb"].Value;
+        var direction = match.Groups["direction"].Value;
+        if (!int.TryParse(match.Groups["count"].Value, out var count) || count is < 2 or > 20)
+            return false;
+
+        var arrow = direction == "previous" ? VK_LEFT : VK_RIGHT;
+        for (var index = 0; index < count; index++)
+            SendKeyChord(VK_SHIFT, arrow);
+
+        SendKeyChord(VK_CONTROL, verb == "copy" ? VK_C : VK_X);
+        message = $"{FormatDisplay(verb)} {direction} {count} characters requested.";
+        return true;
+    }
+
+    private bool TryExecuteCountedParagraphClipboardAction(string action, out string message)
+    {
+        message = string.Empty;
+        var match = System.Text.RegularExpressions.Regex.Match(
+            action,
+            @"^system-(?<verb>copy|cut)-(?<direction>previous|next)-paragraphs:(?<count>\d+)$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
+        if (!match.Success)
+            return false;
+
+        var verb = match.Groups["verb"].Value;
+        var direction = match.Groups["direction"].Value;
+        if (!int.TryParse(match.Groups["count"].Value, out var count) || count is < 2 or > 3)
+            return false;
+
+        var arrow = direction == "previous" ? VK_UP : VK_DOWN;
+        for (var index = 0; index < count; index++)
+            SendAltShiftKey(arrow);
+
+        SendKeyChord(VK_CONTROL, verb == "copy" ? VK_C : VK_X);
+        message = $"{FormatDisplay(verb)} {direction} {count} paragraphs requested.";
+        return true;
+    }
+
+    private bool TryExecuteCountedLineClipboardAction(string action, out string message)
+    {
+        message = string.Empty;
+        var match = System.Text.RegularExpressions.Regex.Match(
+            action,
+            @"^system-(?<verb>copy|cut)-(?<direction>previous|next)-lines:(?<count>\d+)$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
+        if (!match.Success)
+            return false;
+
+        var verb = match.Groups["verb"].Value;
+        var direction = match.Groups["direction"].Value;
+        if (!int.TryParse(match.Groups["count"].Value, out var count) || count is < 2 or > 10)
+            return false;
+
+        var arrow = direction == "previous" ? VK_UP : VK_DOWN;
+        for (var index = 0; index < count; index++)
+            SendKeyChord(VK_SHIFT, arrow);
+
+        SendKeyChord(VK_CONTROL, verb == "copy" ? VK_C : VK_X);
+        message = $"{FormatDisplay(verb)} {direction} {count} lines requested.";
+        return true;
+    }
+
+    private bool TryExecuteCountedWordClipboardAction(string action, out string message)
+    {
+        message = string.Empty;
+        var match = System.Text.RegularExpressions.Regex.Match(
+            action,
+            @"^system-(?<verb>copy|cut)-(?<direction>previous|next)-words:(?<count>\d+)$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
+        if (!match.Success)
+            return false;
+
+        var verb = match.Groups["verb"].Value;
+        var direction = match.Groups["direction"].Value;
+        if (!int.TryParse(match.Groups["count"].Value, out var count) || count is < 2 or > 10)
+            return false;
+
+        var arrow = direction == "previous" ? VK_LEFT : VK_RIGHT;
+        for (var index = 0; index < count; index++)
+            SendCtrlShiftArrow(arrow);
+
+        SendKeyChord(VK_CONTROL, verb == "copy" ? VK_C : VK_X);
+        message = $"{FormatDisplay(verb)} {direction} {count} words requested.";
+        return true;
     }
 
     private void OpenSettingsUri(string uri, string displayName)
@@ -1790,6 +2184,12 @@ public sealed class SystemControlService
         }
     }
 
+    private void StopContinuousPointerActivity()
+    {
+        StopContinuousMouseMove();
+        StopContinuousScroll();
+    }
+
     private void StopContinuousMouseMove()
     {
         lock (_mouseMotionSync)
@@ -1824,6 +2224,61 @@ public sealed class SystemControlService
         }
 
         SendMouseMove(direction.DeltaX * pixelsPerTick, direction.DeltaY * pixelsPerTick);
+    }
+
+    private void StartContinuousScroll(MouseDirection direction)
+    {
+        lock (_continuousScrollSync)
+        {
+            _activeScrollDirection = direction;
+            _continuousScrollActive = true;
+            if (_dryRun)
+                return;
+
+            _continuousScrollTimer ??= new System.Threading.Timer(_ => TickContinuousScroll(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            _continuousScrollTimer.Change(ContinuousScrollTickInterval, ContinuousScrollTickInterval);
+        }
+    }
+
+    private void StopContinuousScroll()
+    {
+        lock (_continuousScrollSync)
+        {
+            _continuousScrollActive = false;
+            if (_dryRun)
+                return;
+
+            _continuousScrollTimer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    private void TickContinuousScroll()
+    {
+        MouseDirection direction;
+        lock (_continuousScrollSync)
+        {
+            if (!_continuousScrollActive)
+                return;
+
+            direction = _activeScrollDirection;
+        }
+
+        if (direction.DeltaY < 0)
+            SendMouseWheel(MOUSE_WHEEL_DELTA);
+        else if (direction.DeltaY > 0)
+            SendMouseWheel(-MOUSE_WHEEL_DELTA);
+        else if (direction.DeltaX < 0)
+            SendMouseHorizontalWheel(-MOUSE_WHEEL_DELTA);
+        else if (direction.DeltaX > 0)
+            SendMouseHorizontalWheel(MOUSE_WHEEL_DELTA);
+    }
+
+    private static bool TryParseCardinalMouseDirectionAction(string action, string prefix, out MouseDirection direction)
+    {
+        if (!TryParseMouseDirectionAction(action, prefix, out direction, out _))
+            return false;
+
+        return direction.DeltaX == 0 || direction.DeltaY == 0;
     }
 
     private static bool TryParseMouseDirectionAction(string action, string prefix, out MouseDirection direction, out string remainder)
@@ -2184,6 +2639,7 @@ public sealed class SystemControlService
     private const ushort VK_PRIOR = 0x21;
     private const ushort VK_NEXT = 0x22;
     private const ushort VK_F1 = 0x70;
+    private const ushort VK_F3 = 0x72;
     private const ushort VirtualKeyLeftWindows = 0x5B;
     private const ushort VirtualKeyD = 0x44;
     private const ushort VirtualKeyLeftAlt = 0xA4;
@@ -2208,6 +2664,7 @@ public sealed class SystemControlService
     private const int DefaultMouseMotionSpeedIndex = 1;
     private static readonly int[] MouseMotionSpeedPixelsPerTick = [16, 28, 44, 64];
     private static readonly TimeSpan MouseMotionTickInterval = TimeSpan.FromMilliseconds(35);
+    private static readonly TimeSpan ContinuousScrollTickInterval = TimeSpan.FromMilliseconds(160);
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);

@@ -12,13 +12,16 @@ public sealed class CallsignRuntimeWorker : BackgroundService
     private readonly StartMenuLauncher _launcher;
     private readonly BrowserLaunchService _browserLaunchService;
     private readonly FileSearchService _fileSearchService;
+    private readonly SystemControlService _systemControlService;
     private readonly VoiceCommandService _voiceCommandService;
+    private readonly AlphaAuditLog _auditLog;
     private readonly VoiceBiometricVerificationService _voiceBiometricVerificationService = new();
     private readonly RuntimeStateStore _stateStore;
     private readonly RuntimeHostOptions _hostOptions;
     private readonly IHostApplicationLifetime _hostApplicationLifetime;
     private readonly DateTime _processStartedUtc = DateTime.UtcNow;
     private readonly AlphaSessionStateMachine _session = new();
+    private static readonly TimeSpan ExtensionCommandIdentityFreshness = TimeSpan.FromSeconds(90);
     private readonly object _gate = new();
     private UserProfile? _activeProfile;
     private WakeWordDetectionResult? _lastWakeWordDetection;
@@ -30,6 +33,7 @@ public sealed class CallsignRuntimeWorker : BackgroundService
     private string? _overlayReadout;
     private readonly List<string> _serviceDictationSegments = [];
     private bool _serviceDictationActive;
+    private DateTime? _serviceDictationStartedUtc;
     private DateTime? _serviceDictationUpdatedUtc;
     private string? _requestedUiMode;
     private DateTime? _requestedUiModeUtc;
@@ -46,6 +50,7 @@ public sealed class CallsignRuntimeWorker : BackgroundService
         StartMenuLauncher launcher,
         BrowserLaunchService browserLaunchService,
         FileSearchService fileSearchService,
+        SystemControlService systemControlService,
         VoiceCommandService voiceCommandService,
         RuntimeStateStore stateStore,
         RuntimeHostOptions hostOptions,
@@ -55,7 +60,9 @@ public sealed class CallsignRuntimeWorker : BackgroundService
         _launcher = launcher;
         _browserLaunchService = browserLaunchService;
         _fileSearchService = fileSearchService;
+        _systemControlService = systemControlService;
         _voiceCommandService = voiceCommandService;
+        _auditLog = new AlphaAuditLog(profileStore);
         _stateStore = stateStore;
         _hostOptions = hostOptions;
         _hostApplicationLifetime = hostApplicationLifetime;
@@ -327,17 +334,36 @@ public sealed class CallsignRuntimeWorker : BackgroundService
 
             if (_serviceDictationActive)
             {
-                if (AlphaVoiceTranscriptParser.IsStopDictationCommand(e.Text))
+                if (HasServiceDictationExceededDuration())
                 {
                     _serviceDictationActive = false;
-                    _statusMessage = "Service dictation stopped. Review text in the configuration manager Dictation tab.";
-                    RecordServiceAction("dictation", "service dictation", _statusMessage, succeeded: true);
+                    _statusMessage = $"Service dictation reached the {DictationReviewTextService.MaxCaptureSeconds / 60}-minute capture limit. Review text is preserved in the Dictation tab.";
+                    RecordServiceAction("dictation", "service dictation", _statusMessage, succeeded: true, profile);
                     RequestUiMode("Dictation");
                     WriteSnapshot();
                     return;
                 }
 
-                AppendServiceDictation(e.Text);
+                if (AlphaVoiceTranscriptParser.IsStopDictationCommand(e.Text))
+                {
+                    _serviceDictationActive = false;
+                    _statusMessage = "Service dictation stopped. Review text in the configuration manager Dictation tab.";
+                    RecordServiceAction("dictation", "service dictation", _statusMessage, succeeded: true, profile);
+                    RequestUiMode("Dictation");
+                    WriteSnapshot();
+                    return;
+                }
+
+                if (!AppendServiceDictation(e.Text, out var boundaryMessage))
+                {
+                    _serviceDictationActive = false;
+                    _statusMessage = boundaryMessage;
+                    RecordServiceAction("dictation", "service dictation", _statusMessage, succeeded: true, profile);
+                    RequestUiMode("Dictation");
+                    WriteSnapshot();
+                    return;
+                }
+
                 _statusMessage = "Service dictation updated. Say 'stop dictation' when finished.";
                 RequestUiMode("Dictation");
                 WriteSnapshot();
@@ -459,7 +485,12 @@ public sealed class CallsignRuntimeWorker : BackgroundService
         _statusMessage = result.RetryPrompt ?? "Say your callsign again.";
     }
 
-    private void ExecuteVerifiedCommand(UserProfile profile, AlphaVoiceIntent intent)
+    private void ExecuteVerifiedCommand(
+        UserProfile profile,
+        AlphaVoiceIntent intent,
+        bool completeSession = true,
+        int shortcutDepth = 0,
+        HashSet<string>? activeExtensionCommands = null)
     {
         _overlayReadout = FormatOverlayReadout(
             _session.State,
@@ -468,51 +499,90 @@ public sealed class CallsignRuntimeWorker : BackgroundService
             _session.PendingCommand,
             _session.PendingApp);
 
-        if (TryExecuteBrowserCommand(intent, out var browserMessage))
+        if (TryExecuteBrowserCommand(intent, profile, out var browserMessage, out var browserSucceeded))
         {
-            _session.CompleteLaunch();
+            if (completeSession)
+                _session.CompleteLaunch();
             _statusMessage = browserMessage;
-            RecordServiceAction("browser", intent.Target, browserMessage, succeeded: !browserMessage.StartsWith("Unable", StringComparison.OrdinalIgnoreCase));
+            RecordServiceAction("browser", intent.Target, browserMessage, succeeded: browserSucceeded, profile);
             return;
         }
 
-        if (TryExecuteFileSearchCommand(intent, out var fileSearchMessage))
+        if (TryExecuteFileSearchCommand(intent, profile, out var fileSearchMessage, out var fileSearchSucceeded))
         {
-            _session.CompleteLaunch();
+            if (completeSession)
+                _session.CompleteLaunch();
             _statusMessage = fileSearchMessage;
-            RecordServiceAction("file_search", intent.Target, fileSearchMessage, succeeded: !fileSearchMessage.StartsWith("No file", StringComparison.OrdinalIgnoreCase) && !fileSearchMessage.StartsWith("Unable", StringComparison.OrdinalIgnoreCase));
+            RecordServiceAction("file_search", intent.Target, fileSearchMessage, succeeded: fileSearchSucceeded, profile);
             return;
         }
 
-        if (TryExecuteDictationCommand(intent, out var dictationMessage))
+        if (TryExecuteSystemControlCommand(intent, profile, out var systemMessage, out var systemSucceeded))
         {
-            _session.CompleteLaunch();
+            if (completeSession)
+                _session.CompleteLaunch();
+            _statusMessage = systemMessage;
+            RecordServiceAction("system", intent.Target, systemMessage, succeeded: systemSucceeded, profile);
+            return;
+        }
+
+        if (TryExecuteDictationCommand(intent, profile, out var dictationMessage, out var dictationSucceeded))
+        {
+            if (completeSession)
+                _session.CompleteLaunch();
             _statusMessage = dictationMessage;
-            RecordServiceAction("dictation", "service dictation", dictationMessage, succeeded: true);
+            RecordServiceAction("dictation", "service dictation", dictationMessage, succeeded: dictationSucceeded, profile);
             return;
         }
 
         if (TryExecuteUiNavigationCommand(intent, out var uiNavigationMessage))
         {
-            _session.CompleteLaunch();
+            if (completeSession)
+                _session.CompleteLaunch();
             _statusMessage = uiNavigationMessage;
-            RecordServiceAction("ui_navigation", intent.Target, uiNavigationMessage, succeeded: true);
+            RecordServiceAction("ui_navigation", intent.Target, uiNavigationMessage, succeeded: true, profile);
             return;
         }
 
         if (TryExecuteUiActionCommand(intent, out var uiActionMessage))
         {
-            _session.CompleteLaunch();
+            if (completeSession)
+                _session.CompleteLaunch();
             _statusMessage = uiActionMessage;
-            RecordServiceAction("ui_action", intent.Target, uiActionMessage, succeeded: true);
+            RecordServiceAction("ui_action", intent.Target, uiActionMessage, succeeded: true, profile);
             return;
         }
 
         if (TryExecuteExtensionCommand(intent, profile, out var extensionResult))
         {
-            _session.CompleteLaunch();
+            if (extensionResult.Succeeded && extensionResult.FollowUpSteps is { Count: > 0 })
+            {
+                activeExtensionCommands ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var commandLabelKey = $"{intent.PackId}/{intent.Target}";
+                if (!activeExtensionCommands.Add(commandLabelKey))
+                {
+                    extensionResult = extensionResult with
+                    {
+                        Succeeded = false,
+                        Message = "Service voice shortcut execution detected a loop and was blocked."
+                    };
+                }
+                else
+                {
+                    extensionResult = ExecuteServiceVoiceShortcutFollowUpSteps(
+                        profile,
+                        intent,
+                        extensionResult,
+                        shortcutDepth + 1,
+                        activeExtensionCommands);
+                    activeExtensionCommands.Remove(commandLabelKey);
+                }
+            }
+
+            if (completeSession)
+                _session.CompleteLaunch();
             _statusMessage = extensionResult.Message;
-            RecordServiceAction("extension_command", $"{intent.PackId}/{intent.Target}", extensionResult.Message, succeeded: extensionResult.Succeeded);
+            RecordServiceAction("extension_command", $"{intent.PackId}/{intent.Target}", extensionResult.Message, succeeded: extensionResult.Succeeded, profile);
             return;
         }
 
@@ -534,62 +604,166 @@ public sealed class CallsignRuntimeWorker : BackgroundService
         {
             profile.Settings.LastLaunchedApp = _session.PendingApp ?? appName;
             _profileStore.Save(profile);
-            _session.CompleteLaunch();
+            if (completeSession)
+                _session.CompleteLaunch();
             _statusMessage = launchMessage;
-            RecordServiceAction("start_menu_launch", _session.PendingApp ?? appName, launchMessage, succeeded: true);
+            RecordServiceAction("start_menu_launch", _session.PendingApp ?? appName, launchMessage, succeeded: true, profile);
         }
         else
         {
             _session.FailLaunch(launchMessage);
             _statusMessage = launchMessage;
-            RecordServiceAction("start_menu_launch", _session.PendingApp ?? appName, launchMessage, succeeded: false);
+            RecordServiceAction("start_menu_launch", _session.PendingApp ?? appName, launchMessage, succeeded: false, profile);
         }
     }
 
-    private bool TryExecuteBrowserCommand(AlphaVoiceIntent intent, out string message)
+    private CallsignCommandExecutionResult ExecuteServiceVoiceShortcutFollowUpSteps(
+        UserProfile profile,
+        AlphaVoiceIntent sourceIntent,
+        CallsignCommandExecutionResult baseResult,
+        int shortcutDepth,
+        HashSet<string> activeExtensionCommands)
+    {
+        const int maxServiceShortcutDepth = 4;
+        if (shortcutDepth > maxServiceShortcutDepth)
+        {
+            return baseResult with
+            {
+                Succeeded = false,
+                Message = "Service voice shortcut execution exceeded the nesting limit and was blocked."
+            };
+        }
+
+        RequestUiMode("Shortcuts");
+        var steps = baseResult.FollowUpSteps ?? Array.Empty<CallsignFollowUpStep>();
+        for (var index = 0; index < steps.Count; index++)
+        {
+            var step = steps[index];
+            switch (step.Kind)
+            {
+                case CallsignFollowUpStepKind.Wait:
+                    var waitMilliseconds = Math.Clamp(
+                        step.DurationMilliseconds,
+                        VoiceShortcutConstants.MinWaitMilliseconds,
+                        VoiceShortcutConstants.MaxWaitMilliseconds);
+                    _statusMessage = $"Service voice shortcut '{sourceIntent.Target}' waiting {waitMilliseconds} ms before the next visible step.";
+                    WriteSnapshot();
+                    Thread.Sleep(waitMilliseconds);
+                    break;
+                case CallsignFollowUpStepKind.Command:
+                    var spokenCommand = step.Value?.Trim() ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(spokenCommand))
+                    {
+                        return baseResult with
+                        {
+                            Succeeded = false,
+                            Message = $"Service voice shortcut '{sourceIntent.Target}' contains an empty command step."
+                        };
+                    }
+
+                    if (string.IsNullOrWhiteSpace(profile.Callsign))
+                    {
+                        return baseResult with
+                        {
+                            Succeeded = false,
+                            Message = "Select an account before running service voice shortcuts."
+                        };
+                    }
+
+                    _statusMessage = $"Service voice shortcut '{sourceIntent.Target}' running step {index + 1} of {steps.Count}: {spokenCommand}";
+                    var wakeWord = string.IsNullOrWhiteSpace(profile.Settings.WakeWord)
+                        ? "Callsign"
+                        : profile.Settings.WakeWord;
+                    var transcript = $"{wakeWord} {profile.Callsign} {spokenCommand}";
+                    var intent = AlphaVoiceIntentParser.ParseVerifiedTranscript(transcript, wakeWord, profile.Callsign);
+                    if (string.IsNullOrWhiteSpace(intent.NormalizedCommand))
+                    {
+                        return baseResult with
+                        {
+                            Succeeded = false,
+                            Message = $"Service voice shortcut step '{spokenCommand}' could not be parsed."
+                        };
+                    }
+
+                    ExecuteVerifiedCommand(
+                        profile,
+                        intent,
+                        completeSession: false,
+                        shortcutDepth: shortcutDepth,
+                        activeExtensionCommands: activeExtensionCommands);
+
+                    if (_lastServiceActionSucceeded == false)
+                    {
+                        return baseResult with
+                        {
+                            Succeeded = false,
+                            Message = $"Service voice shortcut step '{spokenCommand}' did not complete: {_lastServiceActionMessage}"
+                        };
+                    }
+
+                    break;
+            }
+        }
+
+        return baseResult with
+        {
+            Message = $"Service voice shortcut '{sourceIntent.Target}' completed {steps.Count} visible step(s)."
+        };
+    }
+
+    private bool TryExecuteBrowserCommand(AlphaVoiceIntent intent, UserProfile profile, out string message, out bool succeeded)
     {
         message = string.Empty;
+        succeeded = false;
         if (intent.Kind != AlphaVoiceIntentKind.Browser)
             return false;
 
+        if (!TryAuthorizeServiceBuiltInIntent(intent, profile, out message))
+        {
+            RequestUiMode("Browser");
+            return true;
+        }
+
+        RequestUiMode("Browser");
         if (string.IsNullOrWhiteSpace(intent.Target))
         {
             message = "Browser command heard, but no website or search phrase was captured.";
             return true;
         }
 
-        if (TryExecuteBrowserAction(intent.Target, out message))
+        if (IsBrowserActionTarget(intent.Target))
+        {
+            succeeded = _browserLaunchService.TryExecuteBrowserAction(intent.Target, out message);
             return true;
+        }
 
         if (_browserLaunchService.TryOpen(intent.Target, out message, out _, browserTarget: intent.BrowserTarget))
+        {
+            succeeded = true;
             return true;
+        }
 
         return true;
     }
 
-    private bool TryExecuteBrowserAction(string target, out string message)
-    {
-        switch (target.Trim().ToLowerInvariant())
-        {
-            case "browser-back":
-            case "browser-forward":
-            case "browser-refresh":
-            case "browser-new-tab":
-            case "browser-close-tab":
-            case "browser-focus-address-bar":
-                return _browserLaunchService.TryExecuteBrowserAction(target, out message);
-            default:
-                message = string.Empty;
-                return false;
-        }
-    }
+    private static bool IsBrowserActionTarget(string? target) =>
+        !string.IsNullOrWhiteSpace(target)
+        && target.Trim().StartsWith("browser-", StringComparison.OrdinalIgnoreCase);
 
-    private bool TryExecuteFileSearchCommand(AlphaVoiceIntent intent, out string message)
+    private bool TryExecuteFileSearchCommand(AlphaVoiceIntent intent, UserProfile profile, out string message, out bool succeeded)
     {
         message = string.Empty;
+        succeeded = false;
         if (intent.Kind != AlphaVoiceIntentKind.FileSearch)
             return false;
 
+        if (!TryAuthorizeServiceBuiltInIntent(intent, profile, out message))
+        {
+            RequestUiMode("Files");
+            return true;
+        }
+
+        RequestUiMode("Files");
         if (string.IsNullOrWhiteSpace(intent.Target))
         {
             message = "File search command heard, but no file or folder name was captured.";
@@ -613,6 +787,7 @@ public sealed class CallsignRuntimeWorker : BackgroundService
             message = report.Warnings.Count == 0
                 ? openMessage
                 : $"{openMessage} Warnings: {string.Join(" ", report.Warnings)}";
+            succeeded = true;
             return true;
         }
 
@@ -620,17 +795,186 @@ public sealed class CallsignRuntimeWorker : BackgroundService
         return true;
     }
 
-    private bool TryExecuteDictationCommand(AlphaVoiceIntent intent, out string message)
+    private bool TryExecuteSystemControlCommand(AlphaVoiceIntent intent, UserProfile profile, out string message, out bool succeeded)
     {
         message = string.Empty;
+        succeeded = false;
+        if (intent.Kind != AlphaVoiceIntentKind.SystemControl)
+            return false;
+
+        if (!TryAuthorizeServiceBuiltInIntent(intent, profile, out message))
+        {
+            RequestUiMode("System");
+            return true;
+        }
+
+        RequestUiMode("System");
+        var action = intent.Target?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            message = "System command heard, but no visible system action was captured.";
+            return true;
+        }
+
+        if (action.StartsWith("system-switch-window:", StringComparison.OrdinalIgnoreCase))
+        {
+            var requestedWindow = action["system-switch-window:".Length..].Trim();
+            var resolution = _systemControlService.ResolveVisibleWindow(requestedWindow, ignoredProcessId: Environment.ProcessId);
+            if (resolution.IsAmbiguous)
+            {
+                message = $"{resolution.Message} Open the System tab to choose the visible numbered window.";
+                return true;
+            }
+
+            if (!resolution.IsResolved || resolution.SelectedCandidate == null)
+            {
+                message = resolution.Message;
+                return true;
+            }
+
+            succeeded = _systemControlService.TryActivateVisibleWindow(resolution.SelectedCandidate.Handle, out var switchMessage);
+            message = succeeded
+                ? FormatServiceSystemVisibleStatus(action, switchMessage)
+                : switchMessage;
+            return true;
+        }
+
+        succeeded = _systemControlService.TryExecute(action, out var actionMessage);
+        message = succeeded
+            ? FormatServiceSystemVisibleStatus(action, actionMessage)
+            : actionMessage;
+        return true;
+    }
+
+    private bool TryAuthorizeServiceBuiltInIntent(AlphaVoiceIntent intent, UserProfile profile, out string message)
+    {
+        var definition = CreateServiceBuiltInCommandDefinition(intent);
+        var identityVerified = string.Equals(_session.VerifiedCallsign, profile.Callsign, StringComparison.OrdinalIgnoreCase);
+        var freshIdentity = _session.HasFreshIdentity(UpdateCheckService.DefaultIdentityFreshness);
+        var policy = CallsignCommandPolicy.Evaluate(definition, identityVerified, freshIdentity);
+
+        if (policy.Decision is CallsignPolicyDecision.BlockedDangerousAction or CallsignPolicyDecision.Deny)
+        {
+            message = policy.Reason;
+            return false;
+        }
+
+        if (policy.Decision == CallsignPolicyDecision.RequireFreshIdentity)
+        {
+            message = policy.Reason;
+            return false;
+        }
+
+        if (policy.Decision == CallsignPolicyDecision.RequireApproval)
+        {
+            message = $"{definition.Kind} command '{definition.DisplayName}' requires visible approval in the visible Callsign surface before execution.";
+            return false;
+        }
+
+        message = policy.Reason;
+        return true;
+    }
+
+    private static CallsignCommandDefinition CreateServiceBuiltInCommandDefinition(AlphaVoiceIntent intent)
+    {
+        var kind = intent.Kind switch
+        {
+            AlphaVoiceIntentKind.Browser => CallsignCommandKind.Browser,
+            AlphaVoiceIntentKind.FileSearch => CallsignCommandKind.FileSearch,
+            AlphaVoiceIntentKind.Dictation => CallsignCommandKind.Dictation,
+            AlphaVoiceIntentKind.SystemControl => CallsignCommandKind.SystemControl,
+            AlphaVoiceIntentKind.UiAction => CallsignCommandKind.UiAction,
+            AlphaVoiceIntentKind.StartMenuLaunch => CallsignCommandKind.StartMenuLaunch,
+            _ => CallsignCommandKind.Extension
+        };
+
+        var risk = intent.Kind switch
+        {
+            AlphaVoiceIntentKind.FileSearch => CallsignCommandRiskTier.Observe,
+            AlphaVoiceIntentKind.SystemControl when intent.Target.Contains("print", StringComparison.OrdinalIgnoreCase) => CallsignCommandRiskTier.LocalStateChange,
+            AlphaVoiceIntentKind.SystemControl when intent.Target.Contains("close-window", StringComparison.OrdinalIgnoreCase) => CallsignCommandRiskTier.LocalStateChange,
+            AlphaVoiceIntentKind.SystemControl => CallsignCommandRiskTier.LocalReversible,
+            AlphaVoiceIntentKind.Dictation => CallsignCommandRiskTier.LocalStateChange,
+            _ => CallsignCommandRiskTier.LocalReversible
+        };
+
+        var privacy = intent.Kind switch
+        {
+            AlphaVoiceIntentKind.FileSearch => CallsignCommandPrivacyImpact.FilePath,
+            AlphaVoiceIntentKind.Dictation => CallsignCommandPrivacyImpact.Clipboard,
+            AlphaVoiceIntentKind.SystemControl when intent.Target.Contains("snipping-toolbar", StringComparison.OrdinalIgnoreCase) => CallsignCommandPrivacyImpact.ScreenshotOrOcr,
+            AlphaVoiceIntentKind.SystemControl when intent.Target.Contains("clipboard-history", StringComparison.OrdinalIgnoreCase) => CallsignCommandPrivacyImpact.Clipboard,
+            AlphaVoiceIntentKind.SystemControl when intent.Target.Contains("copy", StringComparison.OrdinalIgnoreCase)
+                || intent.Target.Contains("paste", StringComparison.OrdinalIgnoreCase)
+                || intent.Target.Contains("cut", StringComparison.OrdinalIgnoreCase) => CallsignCommandPrivacyImpact.Clipboard,
+            _ => CallsignCommandPrivacyImpact.WindowTitleOrProcess
+        };
+
+        var approval = intent.Kind switch
+        {
+            AlphaVoiceIntentKind.Dictation => CallsignCommandApprovalRequirement.RequireFreshIdentity,
+            AlphaVoiceIntentKind.SystemControl when intent.Target.Contains("snipping-toolbar", StringComparison.OrdinalIgnoreCase) => CallsignCommandApprovalRequirement.RequireApproval,
+            AlphaVoiceIntentKind.SystemControl when intent.Target.Contains("clipboard-history", StringComparison.OrdinalIgnoreCase) => CallsignCommandApprovalRequirement.RequireApproval,
+            AlphaVoiceIntentKind.SystemControl when intent.Target.Contains("print", StringComparison.OrdinalIgnoreCase) => CallsignCommandApprovalRequirement.RequireApproval,
+            AlphaVoiceIntentKind.SystemControl when intent.Target.Contains("close-window", StringComparison.OrdinalIgnoreCase) => CallsignCommandApprovalRequirement.RequireApproval,
+            _ => CallsignCommandApprovalRequirement.None
+        };
+
+        var actionTarget = string.IsNullOrWhiteSpace(intent.Target) ? intent.NormalizedCommand : intent.Target;
+        return new CallsignCommandDefinition(
+            CommandId: $"builtin.{intent.Kind.ToString().ToLowerInvariant()}",
+            DisplayName: FormatServiceSystemVisibleStatus(actionTarget, $"{actionTarget} requested."),
+            VoicePhrases: [intent.NormalizedCommand],
+            Description: "Built-in free Voice Access parity command.",
+            Kind: kind,
+            Tier: CallsignPackTier.Free,
+            RiskTier: risk,
+            VisibleAction: true,
+            Target: actionTarget,
+            Category: intent.Kind.ToString(),
+            PrivacyImpact: privacy,
+            ApprovalRequirement: approval,
+            HelpText: "Built-in Callsign command executed only after wake and identity verification.",
+            Examples: [intent.NormalizedCommand],
+            VerificationStrategy: CallsignCommandVerificationStrategy.VisibleStatus);
+    }
+
+    private static string FormatServiceSystemVisibleStatus(string action, string statusMessage)
+    {
+        if (string.IsNullOrWhiteSpace(statusMessage))
+            return string.Empty;
+
+        var trimmedMessage = statusMessage.Trim();
+        if (!trimmedMessage.EndsWith("requested.", StringComparison.OrdinalIgnoreCase))
+            return trimmedMessage;
+
+        var baseLabel = trimmedMessage[..^"requested.".Length].Trim();
+        if (string.IsNullOrWhiteSpace(baseLabel))
+            return "System action completed visibly.";
+
+        return $"{baseLabel} requested visibly through the System surface.";
+    }
+
+    private bool TryExecuteDictationCommand(AlphaVoiceIntent intent, UserProfile profile, out string message, out bool succeeded)
+    {
+        message = string.Empty;
+        succeeded = false;
         if (intent.Kind != AlphaVoiceIntentKind.Dictation)
             return false;
 
+        if (!TryAuthorizeServiceBuiltInIntent(intent, profile, out message))
+        {
+            RequestUiMode("Dictation");
+            return true;
+        }
+
         _serviceDictationActive = true;
         _serviceDictationSegments.Clear();
+        _serviceDictationStartedUtc = DateTime.UtcNow;
         _serviceDictationUpdatedUtc = DateTime.UtcNow;
         RequestUiMode("Dictation");
-        message = "Service dictation started. Speak naturally, then say 'stop dictation' when finished.";
+        message = $"Service dictation started. Speak naturally, then say 'stop dictation' when finished. Capture is bounded to {DictationReviewTextService.MaxCaptureSeconds / 60} minutes and {DictationReviewTextService.MaxReviewCharacters:N0} reviewed characters.";
+        succeeded = true;
         return true;
     }
 
@@ -663,6 +1007,13 @@ public sealed class CallsignRuntimeWorker : BackgroundService
             return true;
         }
 
+        if (intent.Target.StartsWith("ui-blocked-external-side-effect", StringComparison.OrdinalIgnoreCase))
+        {
+            RequestUiMode(intent.Target);
+            message = "Blocked external side effect. Callsign will not submit, send, upload, post, pay, accept terms, or run downloaded software from an alpha voice command.";
+            return true;
+        }
+
         RequestUiMode(intent.Target);
         message = $"Opening {intent.Target} action.";
         return true;
@@ -684,11 +1035,14 @@ public sealed class CallsignRuntimeWorker : BackgroundService
             DateTimeOffset.UtcNow,
             CancellationToken.None);
 
+        var identityVerified = string.Equals(_session.VerifiedCallsign, profile.Callsign, StringComparison.OrdinalIgnoreCase);
+        var freshIdentityVerified = _session.HasFreshIdentity(ExtensionCommandIdentityFreshness);
+
         if (!CallsignCommandRegistry.Shared.TryExecute(
             context,
             out result,
-            identityVerified: true,
-            freshIdentityVerified: true,
+            identityVerified: identityVerified,
+            freshIdentityVerified: freshIdentityVerified,
             approvalGranted: false))
         {
             result = new CallsignCommandExecutionResult(false, "No extension pack command matched the spoken phrase.");
@@ -698,15 +1052,44 @@ public sealed class CallsignRuntimeWorker : BackgroundService
         return true;
     }
 
-    private void AppendServiceDictation(string text)
+    private bool AppendServiceDictation(string text, out string boundaryMessage)
     {
+        boundaryMessage = string.Empty;
         var normalized = text.Trim();
         if (string.IsNullOrWhiteSpace(normalized))
-            return;
+            return true;
+
+        if (_serviceDictationSegments.Count >= DictationReviewTextService.MaxServiceDictationSegments)
+        {
+            boundaryMessage = $"Service dictation reached the {DictationReviewTextService.MaxServiceDictationSegments}-segment capture limit. Review text is preserved in the Dictation tab.";
+            return false;
+        }
+
+        var currentTextLength = string.Join(" ", _serviceDictationSegments).Length;
+        var separatorLength = currentTextLength == 0 ? 0 : 1;
+        var remainingCharacters = DictationReviewTextService.MaxReviewCharacters - currentTextLength - separatorLength;
+        if (remainingCharacters <= 0)
+        {
+            boundaryMessage = $"Service dictation reached the {DictationReviewTextService.MaxReviewCharacters:N0}-character review limit. Review text is preserved in the Dictation tab.";
+            return false;
+        }
+
+        if (normalized.Length > remainingCharacters)
+        {
+            _serviceDictationSegments.Add(normalized[..remainingCharacters]);
+            _serviceDictationUpdatedUtc = DateTime.UtcNow;
+            boundaryMessage = $"Service dictation reached the {DictationReviewTextService.MaxReviewCharacters:N0}-character review limit. Review text is preserved in the Dictation tab.";
+            return false;
+        }
 
         _serviceDictationSegments.Add(normalized);
         _serviceDictationUpdatedUtc = DateTime.UtcNow;
+        return true;
     }
+
+    private bool HasServiceDictationExceededDuration() =>
+        _serviceDictationStartedUtc.HasValue
+        && DateTime.UtcNow - _serviceDictationStartedUtc.Value >= TimeSpan.FromSeconds(DictationReviewTextService.MaxCaptureSeconds);
 
     private void RequestUiMode(string mode)
     {
@@ -714,17 +1097,48 @@ public sealed class CallsignRuntimeWorker : BackgroundService
         _requestedUiModeUtc = DateTime.UtcNow;
     }
 
-    private void RecordServiceAction(string kind, string? target, string message, bool succeeded)
+    private void RecordServiceAction(string kind, string? target, string message, bool succeeded, UserProfile? profile = null)
     {
+        var visibleMessage = message;
+        var auditWarning = RecordServiceAudit(profile, kind, target, message, succeeded);
+        if (!string.IsNullOrWhiteSpace(auditWarning))
+            visibleMessage = $"{message} Audit warning: {auditWarning}";
+
         _lastServiceActionKind = kind;
         _lastServiceActionTarget = target;
-        _lastServiceActionMessage = message;
+        _lastServiceActionMessage = visibleMessage;
         _lastServiceActionSucceeded = succeeded;
         _lastServiceActionUtc = DateTime.UtcNow;
-        _recentServiceActions.Add(new RuntimeServiceActionSnapshot(kind, target, message, succeeded, _lastServiceActionUtc.Value));
+        if (string.Equals(_statusMessage, message, StringComparison.Ordinal))
+            _statusMessage = visibleMessage;
+        _recentServiceActions.Add(new RuntimeServiceActionSnapshot(kind, target, visibleMessage, succeeded, _lastServiceActionUtc.Value));
         if (_recentServiceActions.Count > 20)
             _recentServiceActions.RemoveRange(0, _recentServiceActions.Count - 20);
         PersistRecentServiceActions();
+    }
+
+    private string? RecordServiceAudit(UserProfile? profile, string kind, string? target, string message, bool succeeded)
+    {
+        if (profile == null || string.IsNullOrWhiteSpace(profile.Callsign))
+            return null;
+
+        return _auditLog.TryRecordCommand(
+            profile,
+            eventType: "alpha.service_command_execution",
+            actionName: $"service_{kind}",
+            status: succeeded ? "succeeded" : "blocked_or_failed",
+            out _,
+            commandFamily: kind,
+            actionTarget: target,
+            details: message,
+            success: succeeded,
+            verificationMethod: "visible_status",
+            verificationSummary: succeeded
+                ? "Service command reached a visible Callsign status surface after wake and identity verification."
+                : "Service command did not execute or completed unsuccessfully; visible Callsign status captured the reason.",
+            auditSource: "service_runtime")
+            ? null
+            : "Service audit logging failed; review profile storage and disk permissions before trusting this action history.";
     }
 
     private static string FormatOverlayReadout(

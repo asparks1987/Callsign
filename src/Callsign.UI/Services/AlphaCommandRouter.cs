@@ -30,6 +30,8 @@ public static class AlphaCommandRouter
             (UiSessionPrefixes, "Session"),
             (UiDictationPrefixes, "Dictation"),
             (UiShortcutsPrefixes, "Shortcuts"),
+            (UiPlansPrefixes, "Plans"),
+            (UiUpdatesPrefixes, "Updates"),
             (UiBrowserPrefixes, "Browser"),
             (UiPacksPrefixes, "Packs"),
             (UiFilesPrefixes, "Files"),
@@ -119,6 +121,60 @@ public static class AlphaCommandRouter
             return true;
         }
 
+        if (TryStripAnyPrefix(command, UiImportPackFolderPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionImportPackFolder);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiImportPackPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionImportPack);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiUpdatePackPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionUpdatePack);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiRollbackPackPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionRollbackPack);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiRefreshPacksPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionRefreshPacks);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiOpenPacksFolderPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionOpenPacksFolder);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiEnableSelectedPackPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionEnableSelectedPack);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiDisableSelectedPackPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionDisableSelectedPack);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiRemoveSelectedPackPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionRemoveSelectedPack);
+            return true;
+        }
+
         if (TryStripAnyPrefix(command, UiOpenShortcutsPrefixes, out _))
         {
             route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionOpenShortcuts);
@@ -179,6 +235,12 @@ public static class AlphaCommandRouter
             return true;
         }
 
+        if (TryStripAnyPrefix(command, UiRestartListeningPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionRestartListening);
+            return true;
+        }
+
         if (TryStripAnyPrefix(command, UiStopListeningPrefixes, out _))
         {
             route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionStopListening);
@@ -200,9 +262,255 @@ public static class AlphaCommandRouter
             return true;
         }
 
+        if (TryMatchWholeCommand(command, UiBlockedExternalSideEffectPrefixes))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionBlockedExternalSideEffect);
+            return true;
+        }
+
         if (TryStripAnyPrefix(command, UiVoiceHelpPrefixes, out _))
         {
             route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionVoiceHelp);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiVoiceHelpSystemPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionVoiceHelpSystem);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiVoiceHelpBrowserPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionVoiceHelpBrowser);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiVoiceHelpDictationPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionVoiceHelpDictation);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiVoiceHelpVisiblePrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionVoiceHelpVisible);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiVoiceHelpExtensionsPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionVoiceHelpExtensions);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiVoiceHelpSafetyPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionVoiceHelpSafety);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiVoiceHelpFreePrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionVoiceHelpFree);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiVoiceHelpPaidPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionVoiceHelpPaid);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiVoiceHelpProPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionVoiceHelpPro);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiVoiceHelpAdvancedPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionVoiceHelpAdvanced);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiCheckUpdatesPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionCheckUpdatesNow);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadUpdateSummaryAgainPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadUpdateSummaryAgain);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadImportSummaryAgainPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadImportSummaryAgain);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadWatchStatusPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadWatchStatus);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiOpenReleaseProofPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionOpenReleaseProof);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadReleaseProofPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadReleaseProof);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadVoiceModeStatusPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadVoiceModeStatus);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiOpenManualEvidenceChecklistPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionOpenManualEvidenceChecklist);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadEvidenceHeaderPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadEvidenceHeader);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiOpenManualEvidencePrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionOpenManualEvidence);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiOpenReleaseEvidencePrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionOpenReleaseEvidence);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadProofNotesStatusPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadProofNotesStatus);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiCreateAllProofNotesPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionCreateAllProofNotes);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiCreateEvidenceDraftPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionCreateEvidenceDraft);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiOpenEvidenceDraftPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionOpenEvidenceDraft);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadEvidenceDraftPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadEvidenceDraft);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiOpenProofNotesPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionOpenProofNotes);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiOpenInstallerPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionOpenInstaller);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadUpdatesStatusPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadUpdatesStatus);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadCheckInStatusPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadCheckInStatus);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadEvidenceStatusPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadEvidenceStatus);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadReleaseBlockersPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadReleaseBlockers);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadNextProofPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadNextProof);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadReleaseGatesPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadReleaseGates);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadNextProofInstructionsPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadNextProofInstructions);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiCreateNextProofNotePrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionCreateNextProofNote);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadVisualStatusPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadVisualStatus);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadRestartProofPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadRestartProof);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiReadPlansStatusPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadPlansStatus);
+            return true;
+        }
+
+        if (TryMatchWholeCommand(command, UiReadClockStatusPrefixes))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionReadClockStatus);
             return true;
         }
 
@@ -227,6 +535,12 @@ public static class AlphaCommandRouter
         if (TryStripAnyPrefix(command, UiHideCommandPalettePrefixes, out _))
         {
             route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionHideCommandPalette);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, UiHideImportSplashPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionHideImportSplash);
             return true;
         }
 
@@ -305,6 +619,12 @@ public static class AlphaCommandRouter
             return true;
         }
 
+        if (TryStripAnyPrefix(command, BrowserStopLoadingPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.Browser, BrowserActionStopLoading);
+            return true;
+        }
+
         if (TryStripAnyPrefix(command, BrowserNewTabPrefixes, out _))
         {
             route = new AlphaCommandRoute(AlphaCommandKind.Browser, BrowserActionNewTab);
@@ -359,6 +679,21 @@ public static class AlphaCommandRouter
             return true;
         }
 
+        if (TryStripAnyPrefix(command, BrowserMoveTabLeftPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.Browser, BrowserActionMoveTabLeft);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, BrowserMoveTabRightPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.Browser, BrowserActionMoveTabRight);
+            return true;
+        }
+
+        if (TryRouteBrowserSelectTab(command, out route))
+            return true;
+
         if (TryStripAnyPrefix(command, BrowserCloseTabPrefixes, out _))
         {
             route = new AlphaCommandRoute(AlphaCommandKind.Browser, BrowserActionCloseTab);
@@ -368,6 +703,18 @@ public static class AlphaCommandRouter
         if (TryStripAnyPrefix(command, BrowserReopenClosedTabPrefixes, out _))
         {
             route = new AlphaCommandRoute(AlphaCommandKind.Browser, BrowserActionReopenClosedTab);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, BrowserDuplicateTabPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.Browser, BrowserActionDuplicateTab);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, BrowserCopyAddressPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.Browser, BrowserActionCopyAddress);
             return true;
         }
 
@@ -392,6 +739,24 @@ public static class AlphaCommandRouter
             return true;
         }
 
+        if (TryStripAnyPrefix(command, BrowserShowNumbersPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionShowVisibleControls);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, BrowserShowGridPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionShowMouseGridHere);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, BrowserHideOverlaysPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, UiActionHideBrowserOverlays);
+            return true;
+        }
+
         if (TryStripAnyPrefix(command, BrowserDownloadsPrefixes, out _))
         {
             route = new AlphaCommandRoute(AlphaCommandKind.Browser, BrowserActionOpenDownloads);
@@ -403,6 +768,9 @@ public static class AlphaCommandRouter
             route = new AlphaCommandRoute(AlphaCommandKind.Browser, BrowserActionOpenHistory);
             return true;
         }
+
+        if (TryRouteAppScopedFindAction(command, out route))
+            return true;
 
         if (TryRouteBrowserFindTextAction(command, out route))
             return true;
@@ -454,6 +822,9 @@ public static class AlphaCommandRouter
             route = new AlphaCommandRoute(AlphaCommandKind.Browser, BrowserActionStopScroll);
             return true;
         }
+
+        if (TryRouteBrowserPageScrollCount(command, out route))
+            return true;
 
         if (TryStripAnyPrefix(command, BrowserScrollUpPrefixes, out _))
         {
@@ -574,6 +945,12 @@ public static class AlphaCommandRouter
             route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionOpenTaskView);
             return true;
         }
+
+        if (TryRouteVisibleFieldLabelAction(command, out route))
+            return true;
+
+        if (TryRouteModifierChordAction(command, out route))
+            return true;
 
         if (TryParseNamedWindowSwitchCommand(command, out var requestedWindow))
         {
@@ -845,6 +1222,9 @@ public static class AlphaCommandRouter
         if (TryRouteRepeatedKeyPressAction(command, out route))
             return true;
 
+        if (TryRouteRepeatedDirectionalMoveAction(command, out route))
+            return true;
+
         if (TryRouteHeldModifierAction(command, out route))
             return true;
 
@@ -861,6 +1241,9 @@ public static class AlphaCommandRouter
             return true;
 
         if (TryRouteModifierChordAction(command, out route))
+            return true;
+
+        if (TryRouteBareSingleKeyAction(command, out route))
             return true;
 
         if (TryStripAnyPrefix(command, SystemPressEnterPrefixes, out _))
@@ -971,6 +1354,9 @@ public static class AlphaCommandRouter
             return true;
         }
 
+        if (TryRouteCountedCharacterAction(command, out route))
+            return true;
+
         if (TryStripAnyPrefix(command, SystemMovePreviousCharacterPrefixes, out _))
         {
             route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionMovePreviousCharacter);
@@ -1007,6 +1393,173 @@ public static class AlphaCommandRouter
             return true;
         }
 
+        if (TryStripAnyPrefix(command, SystemMoveSelectionStartPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionMoveSelectionStart);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemMoveSelectionEndPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionMoveSelectionEnd);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemClearSelectionPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionClearSelection);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemSelectCurrentWordPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionSelectCurrentWord);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemSelectCurrentLinePrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionSelectCurrentLine);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemSelectCurrentParagraphPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionSelectCurrentParagraph);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemDeleteCurrentWordPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionDeleteCurrentWord);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemDeleteCurrentLinePrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionDeleteCurrentLine);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemDeleteCurrentParagraphPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionDeleteCurrentParagraph);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCopyCurrentWordPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCopyCurrentWord);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCopyCurrentLinePrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCopyCurrentLine);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCopyCurrentParagraphPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCopyCurrentParagraph);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCutCurrentWordPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCutCurrentWord);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCutCurrentLinePrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCutCurrentLine);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCutCurrentParagraphPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCutCurrentParagraph);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCopyPreviousWordPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCopyPreviousWord);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCopyNextWordPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCopyNextWord);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCutPreviousWordPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCutPreviousWord);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCutNextWordPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCutNextWord);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCopyPreviousLinePrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCopyPreviousLine);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCopyNextLinePrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCopyNextLine);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCutPreviousLinePrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCutPreviousLine);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCutNextLinePrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCutNextLine);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCopyPreviousParagraphPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCopyPreviousParagraph);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCopyNextParagraphPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCopyNextParagraph);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCutPreviousParagraphPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCutPreviousParagraph);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemCutNextParagraphPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCutNextParagraph);
+            return true;
+        }
+
+        if (TryRouteUnitFormatAction(command, out route))
+        {
+            return true;
+        }
+
         if (TryStripAnyPrefix(command, SystemMoveLineStartPrefixes, out _))
         {
             route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionMoveLineStart);
@@ -1018,6 +1571,9 @@ public static class AlphaCommandRouter
             route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionMoveLineEnd);
             return true;
         }
+
+        if (TryRouteCountedLineAction(command, out route))
+            return true;
 
         if (TryStripAnyPrefix(command, SystemMovePreviousLinePrefixes, out _))
         {
@@ -1079,6 +1635,21 @@ public static class AlphaCommandRouter
             return true;
         }
 
+        if (TryRouteCountedWordAction(command, out route))
+            return true;
+
+        if (TryStripAnyPrefix(command, SystemMoveWordStartPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionMoveWordStart);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemMoveWordEndPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionMoveWordEnd);
+            return true;
+        }
+
         if (TryStripAnyPrefix(command, SystemMovePreviousWordPrefixes, out _))
         {
             route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionMovePreviousWord);
@@ -1115,6 +1686,9 @@ public static class AlphaCommandRouter
             return true;
         }
 
+        if (TryRouteCountedSentenceAction(command, out route))
+            return true;
+
         if (TryStripAnyPrefix(command, SystemMovePreviousSentencePrefixes, out _))
         {
             route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionMovePreviousSentence);
@@ -1150,6 +1724,9 @@ public static class AlphaCommandRouter
             route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionDeleteNextSentence);
             return true;
         }
+
+        if (TryRouteCountedParagraphAction(command, out route))
+            return true;
 
         if (TryStripAnyPrefix(command, SystemMoveParagraphStartPrefixes, out _))
         {
@@ -1223,10 +1800,25 @@ public static class AlphaCommandRouter
             return true;
         }
 
-        if (TryRouteVisibleControlLabelAction(command, out route))
+        if (TryRouteMousePointerAction(command, out route))
             return true;
 
-        if (TryRouteMousePointerAction(command, out route))
+        if (TryStripAnyPrefix(command, SystemMouseButtonDownPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionMouseButtonDown);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemMouseButtonUpPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionMouseButtonUp);
+            return true;
+        }
+
+        if (TryRouteVisibleSliderAction(command, out route))
+            return true;
+
+        if (TryRouteVisibleControlLabelAction(command, out route))
             return true;
 
         if (TryStripAnyPrefix(command, SystemMouseClickPrefixes, out _))
@@ -1253,15 +1845,57 @@ public static class AlphaCommandRouter
             return true;
         }
 
-        if (TryStripAnyPrefix(command, SystemMouseButtonDownPrefixes, out _))
+        if (TryStripAnyPrefix(command, SystemScrollTopPrefixes, out _))
         {
-            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionMouseButtonDown);
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionScrollTop);
             return true;
         }
 
-        if (TryStripAnyPrefix(command, SystemMouseButtonUpPrefixes, out _))
+        if (TryStripAnyPrefix(command, SystemScrollBottomPrefixes, out _))
         {
-            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionMouseButtonUp);
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionScrollBottom);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemScrollLeftEdgePrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionScrollLeftEdge);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemScrollRightEdgePrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionScrollRightEdge);
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemStartScrollingUpPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, $"{SystemActionStartScrollingPrefix}up");
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemStartScrollingDownPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, $"{SystemActionStartScrollingPrefix}down");
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemStartScrollingLeftPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, $"{SystemActionStartScrollingPrefix}left");
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemStartScrollingRightPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, $"{SystemActionStartScrollingPrefix}right");
+            return true;
+        }
+
+        if (TryStripAnyPrefix(command, SystemStopScrollingPrefixes, out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionStopScrolling);
             return true;
         }
 
@@ -1361,6 +1995,12 @@ public static class AlphaCommandRouter
             return true;
         }
 
+        if (TryMatchWholeCommand(command, SystemSaveAsPrefixes))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionSaveAs);
+            return true;
+        }
+
         if (TryMatchWholeCommand(command, SystemUndoPrefixes))
         {
             route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionUndo);
@@ -1394,6 +2034,18 @@ public static class AlphaCommandRouter
         if (TryStripAnyPrefix(command, SystemFindPrefixes, out _))
         {
             route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionFind);
+            return true;
+        }
+
+        if (TryMatchWholeCommand(command, SystemFindNextPrefixes))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionFindNext);
+            return true;
+        }
+
+        if (TryMatchWholeCommand(command, SystemFindPreviousPrefixes))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionFindPrevious);
             return true;
         }
 
@@ -1447,12 +2099,18 @@ public static class AlphaCommandRouter
 
         if (TryStripAnyPrefix(command, ChromeBrowserPrefixes, out var chromeTarget))
         {
+            if (IsBrowserTabSelectionText(chromeTarget))
+                return false;
+
             route = new AlphaCommandRoute(AlphaCommandKind.Browser, TrimBrowserTargetLeadIn(chromeTarget), BrowserOpenTarget.Chrome);
             return true;
         }
 
         if (TryStripAnyPrefix(command, BrowserPrefixes, out var browserTarget))
         {
+            if (IsBrowserTabSelectionText(browserTarget))
+                return false;
+
             route = new AlphaCommandRoute(AlphaCommandKind.Browser, TrimBrowserTargetLeadIn(browserTarget));
             return true;
         }
@@ -1505,11 +2163,40 @@ public static class AlphaCommandRouter
 
         var normalizedSearchText = AlphaVoiceTranscriptParser.NormalizeSpeechText(searchText);
         normalizedSearchText = TrimBrowserFindTextLeadIn(normalizedSearchText);
+        normalizedSearchText = TrimBrowserFindTextSuffix(normalizedSearchText);
         if (string.IsNullOrWhiteSpace(normalizedSearchText))
+            return false;
+
+        if (LooksLikeFileSearchLeadIn(normalizedSearchText))
             return false;
 
         route = new AlphaCommandRoute(AlphaCommandKind.Browser, $"{BrowserActionFindTextPrefix}{normalizedSearchText}");
         return true;
+    }
+
+    private static bool TryRouteAppScopedFindAction(string command, out AlphaCommandRoute route)
+    {
+        route = new AlphaCommandRoute(AlphaCommandKind.None, string.Empty);
+
+        if (TryStripAnyPrefix(command, ["find in app", "find in this app", "search in app", "search this app"], out _))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionFind);
+            return true;
+        }
+
+        if (TryMatchWholeCommand(command, ["find next in app", "find next in this app", "next match in app", "next match in this app"]))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionFindNext);
+            return true;
+        }
+
+        if (TryMatchWholeCommand(command, ["find previous in app", "find previous in this app", "previous match in app", "previous match in this app"]))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionFindPrevious);
+            return true;
+        }
+
+        return false;
     }
 
     private static bool TryRouteBrowserAddressTextAction(string command, out AlphaCommandRoute route)
@@ -1524,8 +2211,42 @@ public static class AlphaCommandRouter
         if (string.IsNullOrWhiteSpace(normalizedAddressText))
             return false;
 
+        if (IsBrowserTabSelectionText(normalizedAddressText))
+        {
+            return false;
+        }
+
         route = new AlphaCommandRoute(AlphaCommandKind.Browser, $"{BrowserActionAddressTextPrefix}{normalizedAddressText}");
         return true;
+    }
+
+    private static bool IsBrowserTabSelectionText(string value)
+    {
+        var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(value).Trim();
+        return normalized.StartsWith("tab ", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("browser tab ", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryRouteBrowserSelectTab(string command, out AlphaCommandRoute route)
+    {
+        route = new AlphaCommandRoute(AlphaCommandKind.None, string.Empty);
+        foreach (var prefix in BrowserSelectTabPrefixes)
+        {
+            if (!command.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var tabText = command[prefix.Length..]
+                .Replace(" tab", string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Trim();
+
+            if (!TryParseResultNumber(tabText, out var tabNumber) || tabNumber is < 1 or > 9)
+                return false;
+
+            route = new AlphaCommandRoute(AlphaCommandKind.Browser, $"{BrowserActionSelectTabPrefix}{tabNumber}");
+            return true;
+        }
+
+        return false;
     }
 
     private static bool TryStripBrowserFindTextSuffix(string command, out string searchText)
@@ -1586,6 +2307,50 @@ public static class AlphaCommandRouter
         return trimmed;
     }
 
+    private static string TrimBrowserFindTextSuffix(string value)
+    {
+        var trimmed = value.Trim();
+        foreach (var suffix in BrowserFindTextSuffixes)
+        {
+            if (trimmed.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                return trimmed[..^suffix.Length].Trim();
+        }
+
+        return trimmed;
+    }
+
+    private static bool LooksLikeFileSearchLeadIn(string value)
+    {
+        var trimmed = value.Trim();
+        foreach (var prefix in new[]
+                 {
+                     "file ",
+                     "folder ",
+                     "files ",
+                     "folders ",
+                     "my file ",
+                     "my files ",
+                     "my folder ",
+                     "my folders ",
+                     "my documents ",
+                     "my pc ",
+                     "my computer ",
+                     "this pc ",
+                     "the file ",
+                     "the folder ",
+                     "open file ",
+                     "open folder ",
+                     "search explorer ",
+                     "explorer "
+                 })
+        {
+            if (trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
     private static string TrimBrowserAddressTextLeadIn(string value)
     {
         var trimmed = value.Trim();
@@ -1644,7 +2409,9 @@ public static class AlphaCommandRouter
     private static bool TryMatchWholeCommand(string command, IReadOnlyList<string> phrases)
     {
         var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(command);
-        return phrases.Any(phrase => normalized.Equals(phrase, StringComparison.OrdinalIgnoreCase));
+        return phrases.Any(phrase => normalized.Equals(
+            AlphaVoiceTranscriptParser.NormalizeSpeechText(phrase),
+            StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool TryRouteVisibleControlLabelAction(string command, out AlphaCommandRoute route)
@@ -1673,6 +2440,28 @@ public static class AlphaCommandRouter
             return true;
         }
 
+        foreach (var prefix in UiVisibleControlTripleClickLabelPrefixes)
+        {
+            if (!TryStripAnyPrefix(command, new[] { prefix }, out var remainder))
+                continue;
+
+            if (TryParseVisibleControlNumber(remainder, out var controlNumber))
+            {
+                route = new AlphaCommandRoute(AlphaCommandKind.UiAction, $"{UiActionTripleClickLabelPrefix}{controlNumber}");
+                return true;
+            }
+
+            var normalizedLabel = NormalizeVisibleControlLabel(remainder);
+            if (string.IsNullOrWhiteSpace(normalizedLabel))
+                continue;
+
+            if (IsListeningLabel(normalizedLabel))
+                continue;
+
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, $"{UiActionTripleClickLabelPrefix}{normalizedLabel}");
+            return true;
+        }
+
         foreach (var prefix in UiVisibleControlRightClickLabelPrefixes)
         {
             if (!TryStripAnyPrefix(command, new[] { prefix }, out var remainder))
@@ -1692,6 +2481,72 @@ public static class AlphaCommandRouter
                 continue;
 
             route = new AlphaCommandRoute(AlphaCommandKind.UiAction, $"{UiActionRightClickLabelPrefix}{normalizedLabel}");
+            return true;
+        }
+
+        foreach (var prefix in UiVisibleControlToggleLabelPrefixes)
+        {
+            if (!TryStripAnyPrefix(command, new[] { prefix }, out var remainder))
+                continue;
+
+            if (TryParseVisibleControlNumber(remainder, out var controlNumber))
+            {
+                route = new AlphaCommandRoute(AlphaCommandKind.UiAction, $"{UiActionToggleLabelPrefix}{controlNumber}");
+                return true;
+            }
+
+            var normalizedLabel = NormalizeVisibleControlLabel(remainder);
+            if (string.IsNullOrWhiteSpace(normalizedLabel))
+                continue;
+
+            if (IsListeningLabel(normalizedLabel))
+                continue;
+
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, $"{UiActionToggleLabelPrefix}{normalizedLabel}");
+            return true;
+        }
+
+        foreach (var prefix in UiVisibleControlExpandLabelPrefixes)
+        {
+            if (!TryStripAnyPrefix(command, new[] { prefix }, out var remainder))
+                continue;
+
+            if (TryParseVisibleControlNumber(remainder, out var controlNumber))
+            {
+                route = new AlphaCommandRoute(AlphaCommandKind.UiAction, $"{UiActionExpandLabelPrefix}{controlNumber}");
+                return true;
+            }
+
+            var normalizedLabel = NormalizeVisibleControlLabel(remainder);
+            if (string.IsNullOrWhiteSpace(normalizedLabel))
+                continue;
+
+            if (IsListeningLabel(normalizedLabel))
+                continue;
+
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, $"{UiActionExpandLabelPrefix}{normalizedLabel}");
+            return true;
+        }
+
+        foreach (var prefix in UiVisibleControlCollapseLabelPrefixes)
+        {
+            if (!TryStripAnyPrefix(command, new[] { prefix }, out var remainder))
+                continue;
+
+            if (TryParseVisibleControlNumber(remainder, out var controlNumber))
+            {
+                route = new AlphaCommandRoute(AlphaCommandKind.UiAction, $"{UiActionCollapseLabelPrefix}{controlNumber}");
+                return true;
+            }
+
+            var normalizedLabel = NormalizeVisibleControlLabel(remainder);
+            if (string.IsNullOrWhiteSpace(normalizedLabel))
+                continue;
+
+            if (IsListeningLabel(normalizedLabel))
+                continue;
+
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, $"{UiActionCollapseLabelPrefix}{normalizedLabel}");
             return true;
         }
 
@@ -1718,6 +2573,85 @@ public static class AlphaCommandRouter
         }
 
         return false;
+    }
+
+    private static bool TryRouteVisibleFieldLabelAction(string command, out AlphaCommandRoute route)
+    {
+        route = new AlphaCommandRoute(AlphaCommandKind.None, string.Empty);
+        foreach (var prefix in UiVisibleFieldLabelPrefixes)
+        {
+            if (!TryStripAnyPrefix(command, new[] { prefix }, out var remainder))
+                continue;
+
+            var normalizedLabel = NormalizeVisibleControlLabel(remainder);
+            if (string.IsNullOrWhiteSpace(normalizedLabel))
+                continue;
+
+            if (IsListeningLabel(normalizedLabel))
+                continue;
+
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, $"{UiActionActivateLabelPrefix}{normalizedLabel}");
+            return true;
+        }
+
+        foreach (var prefix in UiVisibleFieldSuffixLabelPrefixes)
+        {
+            if (!TryStripAnyPrefix(command, new[] { prefix }, out var remainder))
+                continue;
+
+            if (!HasVisibleFieldLabelSuffix(remainder))
+                continue;
+
+            var normalizedLabel = NormalizeVisibleControlLabel(remainder);
+            if (string.IsNullOrWhiteSpace(normalizedLabel))
+                continue;
+
+            if (IsListeningLabel(normalizedLabel))
+                continue;
+
+            route = new AlphaCommandRoute(AlphaCommandKind.UiAction, $"{UiActionActivateLabelPrefix}{normalizedLabel}");
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryRouteVisibleSliderAction(string command, out AlphaCommandRoute route)
+    {
+        route = new AlphaCommandRoute(AlphaCommandKind.None, string.Empty);
+        var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(command);
+        var match = Regex.Match(
+            normalized,
+            @"^\s*(?:move|adjust|slide)\s+(?:(?<label>.+?)\s+)?slider\s+(?<direction>up|down|left|right)(?:\s+(?<count>.+?))?\s*$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
+        if (!match.Success)
+            return false;
+
+        var direction = match.Groups["direction"].Value.Trim().ToLowerInvariant();
+        var label = NormalizeVisibleControlLabel(match.Groups["label"].Value.Trim());
+        var countText = match.Groups["count"].Value.Trim();
+        var steps = 1;
+        if (!string.IsNullOrWhiteSpace(countText))
+        {
+            foreach (var suffix in new[] { " times", " time", " steps", " step", " notches", " notch" })
+            {
+                if (countText.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                {
+                    countText = countText[..^suffix.Length].Trim();
+                    break;
+                }
+            }
+
+            if (!TryParseResultNumber(countText, out steps))
+                return false;
+        }
+
+        if (steps is < 1 or > 10)
+            return false;
+
+        route = new AlphaCommandRoute(AlphaCommandKind.UiAction, $"{UiActionMoveSliderPrefix}{direction}:{steps}:{label}");
+        return true;
     }
 
     private static bool TryParseVisibleControlNumber(string value, out int controlNumber)
@@ -1926,6 +2860,53 @@ public static class AlphaCommandRouter
         return false;
     }
 
+    private static bool TryRouteBrowserPageScrollCount(string command, out AlphaCommandRoute route)
+    {
+        route = new AlphaCommandRoute(AlphaCommandKind.None, string.Empty);
+
+        if (TryParseBrowserPageScrollCount(command, BrowserScrollUpPageCountPrefixes, out var upCount))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.Browser, $"{BrowserActionScrollUpPagesPrefix}{upCount}");
+            return true;
+        }
+
+        if (TryParseBrowserPageScrollCount(command, BrowserScrollDownPageCountPrefixes, out var downCount))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.Browser, $"{BrowserActionScrollDownPagesPrefix}{downCount}");
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryParseBrowserPageScrollCount(string command, IReadOnlyList<string> prefixes, out int pageCount)
+    {
+        pageCount = 0;
+        foreach (var prefix in prefixes)
+        {
+            if (!TryStripAnyPrefix(command, [prefix], out var remainder))
+                continue;
+
+            var normalized = remainder
+                .Replace(" pages", string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Replace(" page", string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Trim();
+            if (string.Equals(normalized, "twice", StringComparison.OrdinalIgnoreCase))
+                normalized = "two";
+
+            if (!TryParseResultNumber(normalized, out pageCount))
+                return false;
+
+            if (pageCount < 2)
+                return false;
+
+            pageCount = Math.Min(pageCount, 5);
+            return true;
+        }
+
+        return false;
+    }
+
     private static bool TryRouteVoiceModeAction(string command, out AlphaCommandRoute route)
     {
         if (TryMatchWholeCommand(command, UiCommandsOnlyModePrefixes))
@@ -1987,7 +2968,7 @@ public static class AlphaCommandRouter
         var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(command);
         var match = Regex.Match(
             normalized,
-            @"^\s*(?:show\s+numbers|show\s+control\s+numbers)\s+on\s+(?<target>.+?)\s*$",
+            @"^\s*(?:show\s+numbers|show\s+control\s+numbers|show\s+names|show\s+labels|show\s+all\s+labels)\s+(?:on|for|in)\s+(?<target>.+?)\s*$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
             TimeSpan.FromMilliseconds(100));
         if (!match.Success)
@@ -2014,7 +2995,7 @@ public static class AlphaCommandRouter
         var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(command);
         var match = Regex.Match(
             normalized,
-            @"^\s*(?:add\s+(?<word>.+?)\s+to\s+(?:my\s+)?(?:dictation\s+)?vocabulary|add\s+to\s+(?:my\s+)?(?:dictation\s+)?vocabulary\s+(?<word>.+?)|add\s+(?<word>.+?)\s+to\s+(?:my\s+)?dictionary|add\s+to\s+(?:my\s+)?dictionary\s+(?<word>.+?))\s*$",
+            @"^\s*(?:add\s+(?:word|phrase|term)\s+(?<word>.+?)\s+to\s+(?:my\s+)?(?:dictation\s+)?vocabulary|add\s+(?<word>.+?)\s+to\s+(?:my\s+)?(?:dictation\s+)?vocabulary|add\s+to\s+(?:my\s+)?(?:dictation\s+)?vocabulary\s+(?<word>.+?)|add\s+(?:word|phrase|term)\s+(?<word>.+?)\s+to\s+(?:my\s+)?dictionary|add\s+(?<word>.+?)\s+to\s+(?:my\s+)?dictionary|add\s+to\s+(?:my\s+)?dictionary\s+(?<word>.+?))\s*$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
             TimeSpan.FromMilliseconds(100));
         if (!match.Success)
@@ -2037,8 +3018,8 @@ public static class AlphaCommandRouter
         {
             "turn on fluid dictation" or "fluid dictation on" or "enable fluid dictation" or "start fluid dictation" => "fluid-dictation:on",
             "turn off fluid dictation" or "fluid dictation off" or "disable fluid dictation" or "stop fluid dictation" => "fluid-dictation:off",
-            "turn on automatic punctuation" or "automatic punctuation on" or "enable automatic punctuation" or "start automatic punctuation" => "automatic-punctuation:on",
-            "turn off automatic punctuation" or "automatic punctuation off" or "disable automatic punctuation" or "stop automatic punctuation" => "automatic-punctuation:off",
+            "turn on automatic punctuation" or "automatic punctuation on" or "enable automatic punctuation" or "start automatic punctuation" or "turn on auto punctuation" or "auto punctuation on" or "enable auto punctuation" => "automatic-punctuation:on",
+            "turn off automatic punctuation" or "automatic punctuation off" or "disable automatic punctuation" or "stop automatic punctuation" or "turn off auto punctuation" or "auto punctuation off" or "disable auto punctuation" => "automatic-punctuation:off",
             "turn on profanity filter" or "profanity filter on" or "enable profanity filter" or "filter profanity" or "hide profanity" => "profanity-filter:on",
             "turn off profanity filter" or "profanity filter off" or "disable profanity filter" or "do not filter profanity" or "show profanity" => "profanity-filter:off",
             _ => string.Empty
@@ -2165,17 +3146,20 @@ public static class AlphaCommandRouter
                 || remainder.StartsWith("sentence ", StringComparison.OrdinalIgnoreCase)
                 || remainder.StartsWith("paragraph ", StringComparison.OrdinalIgnoreCase)
                 || remainder.StartsWith("character ", StringComparison.OrdinalIgnoreCase)
+                || remainder.StartsWith("tab ", StringComparison.OrdinalIgnoreCase)
                 || remainder.StartsWith("the line ", StringComparison.OrdinalIgnoreCase)
                 || remainder.StartsWith("the word ", StringComparison.OrdinalIgnoreCase)
                 || remainder.StartsWith("the sentence ", StringComparison.OrdinalIgnoreCase)
                 || remainder.StartsWith("the paragraph ", StringComparison.OrdinalIgnoreCase)
                 || remainder.StartsWith("the character ", StringComparison.OrdinalIgnoreCase)
+                || remainder.StartsWith("the tab ", StringComparison.OrdinalIgnoreCase)
                 || remainder.StartsWith("beginning", StringComparison.OrdinalIgnoreCase)
                 || remainder.StartsWith("the beginning", StringComparison.OrdinalIgnoreCase)
                 || remainder.StartsWith("end", StringComparison.OrdinalIgnoreCase)
                 || remainder.StartsWith("the end", StringComparison.OrdinalIgnoreCase)
                 || remainder.StartsWith("top", StringComparison.OrdinalIgnoreCase)
                 || remainder.StartsWith("bottom", StringComparison.OrdinalIgnoreCase)
+                || remainder.StartsWith("last ", StringComparison.OrdinalIgnoreCase)
                 || remainder.StartsWith("previous ", StringComparison.OrdinalIgnoreCase)
                 || remainder.StartsWith("next ", StringComparison.OrdinalIgnoreCase))
             {
@@ -2268,7 +3252,7 @@ public static class AlphaCommandRouter
     private static string TrimGridCellSpeech(string value)
     {
         var normalized = value.Trim();
-        foreach (var prefix in new[] { "mouse grid cell ", "grid cell ", "grid ", "cell ", "number " })
+        foreach (var prefix in new[] { "mouse grid cell ", "grid cell ", "grid square ", "grid ", "cell ", "square ", "number " })
         {
             if (normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 return normalized[prefix.Length..].Trim();
@@ -2414,14 +3398,15 @@ public static class AlphaCommandRouter
     {
         route = new AlphaCommandRoute(AlphaCommandKind.None, string.Empty);
         var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(command);
-        foreach (var prefix in new[] { "press ", "hit ", "function key ", "f key " })
+        foreach (var prefix in new[] { "press ", "hit ", "tap ", "function key ", "function ", "f key " })
         {
             if (!normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 continue;
 
             var keyText = normalized[prefix.Length..].Trim();
             if ((prefix.Equals("press ", StringComparison.OrdinalIgnoreCase)
-                    || prefix.Equals("hit ", StringComparison.OrdinalIgnoreCase))
+                    || prefix.Equals("hit ", StringComparison.OrdinalIgnoreCase)
+                    || prefix.Equals("tap ", StringComparison.OrdinalIgnoreCase))
                 && !keyText.StartsWith("f", StringComparison.OrdinalIgnoreCase)
                 && !keyText.StartsWith("function", StringComparison.OrdinalIgnoreCase))
             {
@@ -2444,7 +3429,7 @@ public static class AlphaCommandRouter
         var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(command);
         var match = Regex.Match(
             normalized,
-            @"^\s*(?:press|hit)\s+(?<key>.+?)\s+(?<count>.+?)\s+times?\s*$",
+            @"^\s*(?:press|hit|tap)\s+(?<key>.+?)\s+(?<count>.+?)\s+times?\s*$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
             TimeSpan.FromMilliseconds(100));
         if (!match.Success)
@@ -2456,6 +3441,346 @@ public static class AlphaCommandRouter
             return false;
 
         if (!TryRouteRepeatableSingleKeyAction(keyText, out var repeatedAction))
+            return false;
+
+        route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, $"{SystemActionRepeatPrefix}{repeatedAction}:{count}");
+        return true;
+    }
+
+    private static bool TryRouteRepeatedDirectionalMoveAction(string command, out AlphaCommandRoute route)
+    {
+        route = new AlphaCommandRoute(AlphaCommandKind.None, string.Empty);
+        var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(command);
+        var match = Regex.Match(
+            normalized,
+            @"^\s*(?:move|go)\s+(?<direction>up|down|left|right)\s+(?<count>.+?)\s+times?\s*$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
+        if (!match.Success)
+            return false;
+
+        var direction = match.Groups["direction"].Value.Trim();
+        var countText = match.Groups["count"].Value.Trim();
+        if (!TryParseResultNumber(countText, out var count) || count is < 2 or > 20)
+            return false;
+
+        var repeatedAction = direction switch
+        {
+            "up" => SystemActionPressUp,
+            "down" => SystemActionPressDown,
+            "left" => SystemActionPressLeft,
+            "right" => SystemActionPressRight,
+            _ => string.Empty
+        };
+        if (string.IsNullOrWhiteSpace(repeatedAction))
+            return false;
+
+        route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, $"{SystemActionRepeatPrefix}{repeatedAction}:{count}");
+        return true;
+    }
+
+    private static bool TryRouteCountedWordAction(string command, out AlphaCommandRoute route)
+    {
+        route = new AlphaCommandRoute(AlphaCommandKind.None, string.Empty);
+        var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(command);
+        var match = Regex.Match(
+            normalized,
+            @"^\s*(?:system\s+)?(?:(?<verb>move|go|select|highlight|delete|remove|copy|cut)\s+(?:to\s+)?(?<direction>previous|last|backward|left|next|forward|right)\s+(?<count>.+?)\s+words?|(?<directionOnly>previous|last|backward|left|next|forward|right)\s+(?<directionCount>.+?)\s+words?)\s*$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
+        if (!match.Success)
+            return false;
+
+        var verb = match.Groups["verb"].Success ? match.Groups["verb"].Value.Trim() : "move";
+        var direction = match.Groups["direction"].Success
+            ? match.Groups["direction"].Value.Trim()
+            : match.Groups["directionOnly"].Value.Trim();
+        var countText = match.Groups["count"].Success
+            ? match.Groups["count"].Value.Trim()
+            : match.Groups["directionCount"].Value.Trim();
+
+        direction = direction switch
+        {
+            "last" or "backward" or "left" => "previous",
+            "forward" or "right" => "next",
+            _ => direction
+        };
+
+        if (!TryParseResultNumber(countText, out var count) || count < 2)
+            return false;
+
+        count = Math.Min(count, 10);
+        if (verb is "copy" or "cut")
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, $"system-{verb}-{direction}-words:{count}");
+            return true;
+        }
+
+        var repeatedAction = (verb, direction) switch
+        {
+            ("move" or "go", "previous") => SystemActionMovePreviousWord,
+            ("move" or "go", "next") => SystemActionMoveNextWord,
+            ("select" or "highlight", "previous") => SystemActionSelectPreviousWord,
+            ("select" or "highlight", "next") => SystemActionSelectNextWord,
+            ("delete" or "remove", "previous") => SystemActionDeletePreviousWord,
+            ("delete" or "remove", "next") => SystemActionDeleteNextWord,
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrWhiteSpace(repeatedAction))
+            return false;
+
+        route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, $"{SystemActionRepeatPrefix}{repeatedAction}:{count}");
+        return true;
+    }
+
+    private static bool TryRouteUnitFormatAction(string command, out AlphaCommandRoute route)
+    {
+        route = new AlphaCommandRoute(AlphaCommandKind.None, string.Empty);
+        var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(command);
+        var match = Regex.Match(
+            normalized,
+            @"^\s*(?:system\s+)?(?:(?<style>bold|boldface|italic|italicize|underline)\s+(?:(?<scope>current|this|previous|last|next)\s+)?(?<unit>word|line|paragraph)|make\s+(?:(?<reverseScope>current|this|previous|last|next)\s+)?(?<reverseUnit>word|line|paragraph)\s+(?<reverseStyle>bold|boldface|italic|italicized|underline|underlined))\s*$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
+        if (!match.Success)
+            return false;
+
+        var styleText = match.Groups["style"].Success
+            ? match.Groups["style"].Value
+            : match.Groups["reverseStyle"].Value;
+        var unit = match.Groups["unit"].Success
+            ? match.Groups["unit"].Value
+            : match.Groups["reverseUnit"].Value;
+        var scopeText = match.Groups["scope"].Success
+            ? match.Groups["scope"].Value
+            : match.Groups["reverseScope"].Value;
+
+        var style = styleText switch
+        {
+            "bold" or "boldface" => "bold",
+            "italic" or "italicize" or "italicized" => "italic",
+            "underline" or "underlined" => "underline",
+            _ => string.Empty
+        };
+        if (string.IsNullOrWhiteSpace(style))
+            return false;
+
+        var scope = scopeText switch
+        {
+            "" or "current" or "this" => "current",
+            "previous" or "last" => "previous",
+            "next" => "next",
+            _ => string.Empty
+        };
+        if (string.IsNullOrWhiteSpace(scope))
+            return false;
+
+        route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, $"system-format-{style}-{scope}-{unit}");
+        return true;
+    }
+
+    private static bool TryRouteCountedSentenceAction(string command, out AlphaCommandRoute route)
+    {
+        route = new AlphaCommandRoute(AlphaCommandKind.None, string.Empty);
+        var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(command);
+        var match = Regex.Match(
+            normalized,
+            @"^\s*(?:system\s+)?(?:(?<verb>move|go|select|highlight|delete|remove)\s+(?:to\s+)?(?<direction>previous|next)\s+(?<count>.+?)\s+sentences?|(?<directionOnly>previous|next)\s+(?<directionCount>.+?)\s+sentences?)\s*$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
+        if (!match.Success)
+            return false;
+
+        var verb = match.Groups["verb"].Success ? match.Groups["verb"].Value.Trim() : "move";
+        var direction = match.Groups["direction"].Success
+            ? match.Groups["direction"].Value.Trim()
+            : match.Groups["directionOnly"].Value.Trim();
+        var countText = match.Groups["count"].Success
+            ? match.Groups["count"].Value.Trim()
+            : match.Groups["directionCount"].Value.Trim();
+
+        if (!TryParseResultNumber(countText, out var count) || count < 2)
+            return false;
+
+        count = Math.Min(count, 5);
+        var repeatedAction = (verb, direction) switch
+        {
+            ("move" or "go", "previous") => SystemActionMovePreviousSentence,
+            ("move" or "go", "next") => SystemActionMoveNextSentence,
+            ("select" or "highlight", "previous") => SystemActionSelectPreviousSentence,
+            ("select" or "highlight", "next") => SystemActionSelectNextSentence,
+            ("delete" or "remove", "previous") => SystemActionDeletePreviousSentence,
+            ("delete" or "remove", "next") => SystemActionDeleteNextSentence,
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrWhiteSpace(repeatedAction))
+            return false;
+
+        route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, $"{SystemActionRepeatPrefix}{repeatedAction}:{count}");
+        return true;
+    }
+
+    private static bool TryRouteCountedParagraphAction(string command, out AlphaCommandRoute route)
+    {
+        route = new AlphaCommandRoute(AlphaCommandKind.None, string.Empty);
+        var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(command);
+        var match = Regex.Match(
+            normalized,
+            @"^\s*(?:system\s+)?(?:(?<verb>move|go|select|highlight|delete|remove|copy|cut)\s+(?:to\s+)?(?<direction>previous|last|backward|up|back|next|forward|down)\s+(?<count>.+?)\s+paragraphs?|(?<directionOnly>previous|last|backward|up|back|next|forward|down)\s+(?<directionCount>.+?)\s+paragraphs?)\s*$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
+        if (!match.Success)
+            return false;
+
+        var verb = match.Groups["verb"].Success ? match.Groups["verb"].Value.Trim() : "move";
+        var direction = match.Groups["direction"].Success
+            ? match.Groups["direction"].Value.Trim()
+            : match.Groups["directionOnly"].Value.Trim();
+        direction = direction switch
+        {
+            "last" or "backward" or "up" or "back" => "previous",
+            "forward" or "down" => "next",
+            _ => direction
+        };
+
+        var countText = match.Groups["count"].Success
+            ? match.Groups["count"].Value.Trim()
+            : match.Groups["directionCount"].Value.Trim();
+
+        if (!TryParseResultNumber(countText, out var count) || count < 2)
+            return false;
+
+        count = Math.Min(count, 3);
+        if (verb is "copy" or "cut")
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, $"system-{verb}-{direction}-paragraphs:{count}");
+            return true;
+        }
+
+        var repeatedAction = (verb, direction) switch
+        {
+            ("move" or "go", "previous") => SystemActionMovePreviousParagraph,
+            ("move" or "go", "next") => SystemActionMoveNextParagraph,
+            ("select" or "highlight", "previous") => SystemActionSelectPreviousParagraph,
+            ("select" or "highlight", "next") => SystemActionSelectNextParagraph,
+            ("delete" or "remove", "previous") => SystemActionDeletePreviousParagraph,
+            ("delete" or "remove", "next") => SystemActionDeleteNextParagraph,
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrWhiteSpace(repeatedAction))
+            return false;
+
+        route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, $"{SystemActionRepeatPrefix}{repeatedAction}:{count}");
+        return true;
+    }
+
+    private static bool TryRouteCountedCharacterAction(string command, out AlphaCommandRoute route)
+    {
+        route = new AlphaCommandRoute(AlphaCommandKind.None, string.Empty);
+        var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(command);
+        var match = Regex.Match(
+            normalized,
+            @"^\s*(?:system\s+)?(?:(?<verb>move|go|select|highlight|delete|remove|copy|cut)\s+(?:to\s+)?(?<direction>previous|last|backward|left|next|forward|right)\s+(?<count>.+?)\s+(?:characters?|letters?|chars?)|(?<directionOnly>previous|last|backward|left|next|forward|right)\s+(?<directionCount>.+?)\s+(?:characters?|letters?|chars?))\s*$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
+        if (!match.Success)
+            return false;
+
+        var verb = match.Groups["verb"].Success ? match.Groups["verb"].Value.Trim() : "move";
+        var direction = match.Groups["direction"].Success
+            ? match.Groups["direction"].Value.Trim()
+            : match.Groups["directionOnly"].Value.Trim();
+        direction = direction switch
+        {
+            "last" or "backward" or "left" => "previous",
+            "forward" or "right" => "next",
+            _ => direction
+        };
+
+        var countText = match.Groups["count"].Success
+            ? match.Groups["count"].Value.Trim()
+            : match.Groups["directionCount"].Value.Trim();
+
+        if (!TryParseResultNumber(countText, out var count) || count < 2)
+            return false;
+
+        count = Math.Min(count, 20);
+        if (verb is "copy" or "cut")
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, $"system-{verb}-{direction}-characters:{count}");
+            return true;
+        }
+
+        var repeatedAction = (verb, direction) switch
+        {
+            ("move" or "go", "previous") => SystemActionMovePreviousCharacter,
+            ("move" or "go", "next") => SystemActionMoveNextCharacter,
+            ("select" or "highlight", "previous") => SystemActionSelectPreviousCharacter,
+            ("select" or "highlight", "next") => SystemActionSelectNextCharacter,
+            ("delete" or "remove", "previous") => SystemActionDeletePreviousCharacter,
+            ("delete" or "remove", "next") => SystemActionDeleteNextCharacter,
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrWhiteSpace(repeatedAction))
+            return false;
+
+        route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, $"{SystemActionRepeatPrefix}{repeatedAction}:{count}");
+        return true;
+    }
+
+    private static bool TryRouteCountedLineAction(string command, out AlphaCommandRoute route)
+    {
+        route = new AlphaCommandRoute(AlphaCommandKind.None, string.Empty);
+        var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(command);
+        var match = Regex.Match(
+            normalized,
+            @"^\s*(?:system\s+)?(?:(?<verb>move|go|select|highlight|delete|remove|copy|cut)\s+(?:to\s+)?(?<direction>previous|last|backward|up|back|next|forward|down)\s+(?<count>.+?)\s+lines?|(?<directionOnly>previous|last|backward|up|back|next|forward|down)\s+(?<directionCount>.+?)\s+lines?)\s*$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
+        if (!match.Success)
+            return false;
+
+        var verb = match.Groups["verb"].Success ? match.Groups["verb"].Value.Trim() : "move";
+        var direction = match.Groups["direction"].Success
+            ? match.Groups["direction"].Value.Trim()
+            : match.Groups["directionOnly"].Value.Trim();
+        var countText = match.Groups["count"].Success
+            ? match.Groups["count"].Value.Trim()
+            : match.Groups["directionCount"].Value.Trim();
+
+        direction = direction switch
+        {
+            "last" or "backward" or "up" or "back" => "previous",
+            "forward" or "down" => "next",
+            _ => direction
+        };
+
+        if (!TryParseResultNumber(countText, out var count) || count < 2)
+            return false;
+
+        count = Math.Min(count, 10);
+        if (verb is "copy" or "cut")
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, $"system-{verb}-{direction}-lines:{count}");
+            return true;
+        }
+
+        var repeatedAction = (verb, direction) switch
+        {
+            ("move" or "go", "previous") => SystemActionMovePreviousLine,
+            ("move" or "go", "next") => SystemActionMoveNextLine,
+            ("select" or "highlight", "previous") => SystemActionSelectPreviousLine,
+            ("select" or "highlight", "next") => SystemActionSelectNextLine,
+            ("delete" or "remove", "previous") => SystemActionDeletePreviousLine,
+            ("delete" or "remove", "next") => SystemActionDeleteNextLine,
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrWhiteSpace(repeatedAction))
             return false;
 
         route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, $"{SystemActionRepeatPrefix}{repeatedAction}:{count}");
@@ -2477,7 +3802,7 @@ public static class AlphaCommandRouter
         normalized = string.Join(' ', normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries));
         action = normalized switch
         {
-            "enter" or "enter key" => SystemActionPressEnter,
+            "enter" or "enter key" or "return" or "return key" => SystemActionPressEnter,
             "tab" or "tab key" => SystemActionPressTab,
             "escape" or "escape key" or "esc" or "esc key" => SystemActionPressEscape,
             "backspace" or "backspace key" => SystemActionPressBackspace,
@@ -2493,19 +3818,54 @@ public static class AlphaCommandRouter
             "right" or "right arrow" => SystemActionPressRight,
             "home" or "home key" => SystemActionPressHome,
             "end" or "end key" => SystemActionPressEnd,
-            "page up" => SystemActionPageUp,
-            "page down" => SystemActionPageDown,
+            "page up" or "page up key" => SystemActionPageUp,
+            "page down" or "page down key" => SystemActionPageDown,
             _ => string.Empty
         };
 
         return action.Length > 0;
     }
 
+    private static bool TryRouteBareSingleKeyAction(string command, out AlphaCommandRoute route)
+    {
+        route = new AlphaCommandRoute(AlphaCommandKind.None, string.Empty);
+        var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(command);
+        normalized = string.Join(' ', normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        var action = normalized switch
+        {
+            "enter" or "enter key" or "return" or "return key" => SystemActionPressEnter,
+            "tab" or "tab key" => SystemActionPressTab,
+            "escape" or "escape key" or "esc" or "esc key" => SystemActionPressEscape,
+            "backspace" or "backspace key" => SystemActionPressBackspace,
+            "space" or "space key" or "space bar" => SystemActionPressSpace,
+            "delete" or "delete key" => SystemActionPressDelete,
+            "insert" or "insert key" => SystemActionPressInsert,
+            "windows" or "windows key" => SystemActionPressWindows,
+            "context menu" or "context menu key" or "menu key" => SystemActionPressContextMenu,
+            "caps lock" or "caps lock key" => SystemActionPressCapsLock,
+            "up" or "up arrow" => SystemActionPressUp,
+            "down" or "down arrow" => SystemActionPressDown,
+            "left" or "left arrow" => SystemActionPressLeft,
+            "right" or "right arrow" => SystemActionPressRight,
+            "home" or "home key" => SystemActionPressHome,
+            "end" or "end key" => SystemActionPressEnd,
+            "page up" or "page up key" => SystemActionPageUp,
+            "page down" or "page down key" => SystemActionPageDown,
+            _ => string.Empty
+        };
+
+        if (action.Length == 0)
+            return false;
+
+        route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, action);
+        return true;
+    }
+
     private static bool TryRouteDigitKeyAction(string command, out AlphaCommandRoute route)
     {
         route = new AlphaCommandRoute(AlphaCommandKind.None, string.Empty);
         var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(command);
-        foreach (var prefix in new[] { "press number ", "press digit ", "number key ", "digit key ", "press " })
+        foreach (var prefix in new[] { "press number ", "tap number ", "press digit ", "tap digit ", "number key ", "digit key ", "press ", "tap " })
         {
             if (!normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 continue;
@@ -2549,7 +3909,7 @@ public static class AlphaCommandRouter
     {
         route = new AlphaCommandRoute(AlphaCommandKind.None, string.Empty);
         var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(command);
-        foreach (var prefix in new[] { "press letter ", "letter key ", "press " })
+        foreach (var prefix in new[] { "press letter ", "tap letter ", "letter key ", "press ", "tap " })
         {
             if (!normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 continue;
@@ -2582,7 +3942,7 @@ public static class AlphaCommandRouter
     {
         route = new AlphaCommandRoute(AlphaCommandKind.None, string.Empty);
         var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(command);
-        foreach (var prefix in new[] { "press symbol ", "press punctuation ", "press ", "symbol key ", "punctuation key ", "key " })
+        foreach (var prefix in new[] { "press symbol ", "tap symbol ", "press punctuation ", "tap punctuation ", "press ", "tap ", "symbol key ", "punctuation key ", "key " })
         {
             if (!normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 continue;
@@ -2734,11 +4094,19 @@ public static class AlphaCommandRouter
     {
         direction = string.Empty;
         distance = null;
-        const string prefix = "move mouse ";
-        if (!normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        var remainder = string.Empty;
+        foreach (var prefix in MouseMoveActionPrefixes)
+        {
+            if (!normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            remainder = normalized[prefix.Length..].Trim();
+            break;
+        }
+
+        if (string.IsNullOrWhiteSpace(remainder))
             return false;
 
-        var remainder = normalized[prefix.Length..].Trim();
         if (!TryParseMouseDirectionPhrase(remainder, out direction, out var distanceText))
             return false;
 
@@ -2755,11 +4123,19 @@ public static class AlphaCommandRouter
     private static bool TryParseMouseDragDirectionAction(string normalized, out string direction)
     {
         direction = string.Empty;
-        const string prefix = "drag mouse ";
-        if (!normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        var remainder = string.Empty;
+        foreach (var prefix in MouseDragActionPrefixes)
+        {
+            if (!normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            remainder = normalized[prefix.Length..].Trim();
+            break;
+        }
+
+        if (string.IsNullOrWhiteSpace(remainder))
             return false;
 
-        var remainder = normalized[prefix.Length..].Trim();
         return TryParseMouseDirectionPhrase(remainder, out direction, out var trailingText)
             && string.IsNullOrWhiteSpace(trailingText);
     }
@@ -2866,10 +4242,40 @@ public static class AlphaCommandRouter
             "alt right" or "alt right arrow" => "alt-right",
             "alt up" or "alt up arrow" => "alt-up",
             "alt down" or "alt down arrow" => "alt-down",
-            "control home" => "control-home",
-            "control end" => "control-end",
-            "control shift home" or "shift control home" => "control-shift-home",
-            "control shift end" or "shift control end" => "control-shift-end",
+            "control home"
+                or "go to document start"
+                or "go to start of document"
+                or "go to beginning of document"
+                or "go to top of document"
+                or "move to document start"
+                or "move to start of document"
+                or "move to beginning of document"
+                or "document start"
+                or "start of document"
+                or "beginning of document" => "control-home",
+            "control end"
+                or "go to document end"
+                or "go to end of document"
+                or "go to bottom of document"
+                or "move to document end"
+                or "move to end of document"
+                or "document end"
+                or "end of document" => "control-end",
+            "control shift home"
+                or "shift control home"
+                or "select to document start"
+                or "select to start of document"
+                or "select to beginning of document"
+                or "highlight to document start"
+                or "highlight to start of document"
+                or "highlight to beginning of document" => "control-shift-home",
+            "control shift end"
+                or "shift control end"
+                or "select to document end"
+                or "select to end of document"
+                or "highlight to document end"
+                or "highlight to end of document" => "control-shift-end",
+            "alt f4" => SystemActionCloseWindow,
             _ => TryParseControlShiftChordName(normalized, out var parsedControlShiftChordName)
                 ? parsedControlShiftChordName
                 : TryParseControlChordName(normalized, out var parsedControlChordName)
@@ -2883,6 +4289,12 @@ public static class AlphaCommandRouter
 
         if (chordName.Length == 0)
             return false;
+
+        if (string.Equals(chordName, SystemActionCloseWindow, StringComparison.OrdinalIgnoreCase))
+        {
+            route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, SystemActionCloseWindow);
+            return true;
+        }
 
         route = new AlphaCommandRoute(AlphaCommandKind.SystemControl, $"system-press-chord:{chordName}");
         return true;
@@ -3112,6 +4524,18 @@ public static class AlphaCommandRouter
         return normalized;
     }
 
+    private static bool HasVisibleFieldLabelSuffix(string value)
+    {
+        var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(value);
+        foreach (var suffix in VisibleFieldLabelSuffixes)
+        {
+            if (normalized.EndsWith($" {suffix}", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
     private static bool TryParseVisibleControlNumberLabel(string value, out int controlNumber)
     {
         var normalized = AlphaVoiceTranscriptParser.NormalizeSpeechText(value).Trim();
@@ -3199,8 +4623,15 @@ public static class AlphaCommandRouter
     [
         "browser back",
         "back browser",
+        "go back",
+        "back a page",
+        "back one page",
         "back page",
+        "go back a page",
+        "go back one page",
         "browser previous page",
+        "previous browser page",
+        "previous web page",
         "go back in browser",
         "go browser back"
     ];
@@ -3209,8 +4640,16 @@ public static class AlphaCommandRouter
     [
         "browser forward",
         "forward browser",
+        "go forward",
+        "forward a page",
+        "forward one page",
+        "forward page",
+        "go forward a page",
+        "go forward one page",
         "next page",
         "browser next page",
+        "next browser page",
+        "next web page",
         "go forward in browser",
         "go browser forward"
     ];
@@ -3220,8 +4659,25 @@ public static class AlphaCommandRouter
         "browser refresh",
         "refresh browser",
         "refresh page",
+        "refresh this page",
+        "refresh current page",
         "reload browser",
-        "reload page"
+        "reload page",
+        "reload this page",
+        "reload current page"
+    ];
+
+    private static readonly string[] BrowserStopLoadingPrefixes =
+    [
+        "browser stop loading",
+        "browser stop loading page",
+        "stop loading page",
+        "stop loading this page",
+        "stop page loading",
+        "cancel page load",
+        "cancel loading page",
+        "cancel browser load",
+        "cancel browser loading"
     ];
 
     private static readonly string[] BrowserNewTabPrefixes =
@@ -3270,9 +4726,13 @@ public static class AlphaCommandRouter
         "browser bookmarks",
         "open bookmarks",
         "show bookmarks",
+        "open bookmarks page",
+        "show bookmarks page",
         "browser favorites",
         "open favorites",
         "show favorites",
+        "open favorites page",
+        "show favorites page",
         "bookmark manager",
         "favorites manager"
     ];
@@ -3317,6 +4777,41 @@ public static class AlphaCommandRouter
         "browser back tab"
     ];
 
+    private static readonly string[] BrowserMoveTabLeftPrefixes =
+    [
+        "browser move tab left",
+        "browser move current tab left",
+        "move browser tab left",
+        "move current tab left",
+        "move tab left",
+        "shift tab left",
+        "reorder tab left"
+    ];
+
+    private static readonly string[] BrowserMoveTabRightPrefixes =
+    [
+        "browser move tab right",
+        "browser move current tab right",
+        "move browser tab right",
+        "move current tab right",
+        "move tab right",
+        "shift tab right",
+        "reorder tab right"
+    ];
+
+    private static readonly string[] BrowserSelectTabPrefixes =
+    [
+        "browser tab ",
+        "browser go to tab ",
+        "browser switch to tab ",
+        "go to browser tab ",
+        "switch to browser tab ",
+        "go to tab ",
+        "switch to tab ",
+        "select tab ",
+        "tab number "
+    ];
+
     private static readonly string[] BrowserCloseTabPrefixes =
     [
         "browser close tab",
@@ -3332,6 +4827,38 @@ public static class AlphaCommandRouter
         "browser restore closed tab",
         "undo close tab",
         "reopen last closed tab"
+    ];
+
+    private static readonly string[] BrowserDuplicateTabPrefixes =
+    [
+        "browser duplicate tab",
+        "duplicate browser tab",
+        "duplicate tab",
+        "copy browser tab",
+        "copy current tab",
+        "clone browser tab",
+        "clone current tab",
+        "open this page in new tab",
+        "open current page in new tab"
+    ];
+
+    private static readonly string[] BrowserCopyAddressPrefixes =
+    [
+        "browser copy address",
+        "browser copy url",
+        "browser copy link",
+        "copy page address",
+        "copy page url",
+        "copy page link",
+        "copy current page address",
+        "copy current page url",
+        "copy current page link",
+        "copy this page address",
+        "copy this page url",
+        "copy this page link",
+        "copy website address",
+        "copy web address",
+        "copy address bar"
     ];
 
     private static readonly string[] BrowserFocusAddressBarPrefixes =
@@ -3373,10 +4900,18 @@ public static class AlphaCommandRouter
     [
         "browser home",
         "browser home page",
+        "browser go home",
+        "browser go to home",
+        "home page",
+        "go home page",
+        "go to home page",
+        "go to my home page",
+        "open home page",
         "go browser home",
         "go to browser home",
         "go to browser home page",
-        "open browser home"
+        "open browser home",
+        "open browser home page"
     ];
 
     private static readonly string[] BrowserFullscreenPrefixes =
@@ -3389,11 +4924,38 @@ public static class AlphaCommandRouter
         "browser fullscreen mode"
     ];
 
+    private static readonly string[] BrowserShowNumbersPrefixes =
+    [
+        "browser show numbers",
+        "browser show control numbers",
+        "browser show labels",
+        "browser show clickable controls"
+    ];
+
+    private static readonly string[] BrowserShowGridPrefixes =
+    [
+        "browser show grid",
+        "browser show mouse grid",
+        "browser show numbered grid"
+    ];
+
+    private static readonly string[] BrowserHideOverlaysPrefixes =
+    [
+        "browser hide overlays",
+        "hide browser overlays",
+        "hide overlays",
+        "hide the overlays",
+        "hide browser aids",
+        "close browser overlays"
+    ];
+
     private static readonly string[] BrowserDownloadsPrefixes =
     [
         "browser downloads",
         "open browser downloads",
         "show browser downloads",
+        "open downloads page",
+        "show downloads page",
         "downloads in browser",
         "show downloads"
     ];
@@ -3403,6 +4965,8 @@ public static class AlphaCommandRouter
         "browser history",
         "open browser history",
         "show browser history",
+        "open history page",
+        "show history page",
         "history in browser",
         "show history"
     ];
@@ -3410,6 +4974,7 @@ public static class AlphaCommandRouter
     private static readonly string[] BrowserFindPrefixes =
     [
         "browser find",
+        "browser search for",
         "find in page",
         "find on page",
         "search in page",
@@ -3429,10 +4994,12 @@ public static class AlphaCommandRouter
         "browser find text ",
         "browser find for ",
         "browser find ",
+        "browser search for ",
         "find in page for ",
         "find on page for ",
         "find text ",
         "find phrase ",
+        "search for ",
         "search in page for ",
         "search page for ",
         "search this page for "
@@ -3487,38 +5054,43 @@ public static class AlphaCommandRouter
         "move up page"
     ];
 
+    private static readonly string[] BrowserScrollUpPageCountPrefixes =
+    [
+        "browser scroll up ",
+        "scroll up ",
+        "browser page up ",
+        "page up ",
+        "scroll page up ",
+        "move up "
+    ];
+
     private static readonly string[] BrowserStartScrollUpPrefixes =
     [
         "browser start scrolling up",
-        "start scrolling up",
         "start browser scrolling up"
     ];
 
     private static readonly string[] BrowserStartScrollDownPrefixes =
     [
         "browser start scrolling down",
-        "start scrolling down",
         "start browser scrolling down"
     ];
 
     private static readonly string[] BrowserStartScrollLeftPrefixes =
     [
         "browser start scrolling left",
-        "start scrolling left",
         "start browser scrolling left"
     ];
 
     private static readonly string[] BrowserStartScrollRightPrefixes =
     [
         "browser start scrolling right",
-        "start scrolling right",
         "start browser scrolling right"
     ];
 
     private static readonly string[] BrowserStopScrollPrefixes =
     [
         "browser stop scrolling",
-        "stop scrolling",
         "stop browser scrolling"
     ];
 
@@ -3530,6 +5102,16 @@ public static class AlphaCommandRouter
         "page down in browser",
         "scroll page down",
         "move down page"
+    ];
+
+    private static readonly string[] BrowserScrollDownPageCountPrefixes =
+    [
+        "browser scroll down ",
+        "scroll down ",
+        "browser page down ",
+        "page down ",
+        "scroll page down ",
+        "move down "
     ];
 
     private static readonly string[] BrowserScrollLeftPrefixes =
@@ -3551,37 +5133,39 @@ public static class AlphaCommandRouter
     private static readonly string[] BrowserScrollTopPrefixes =
     [
         "browser scroll top",
-        "scroll to top",
         "scroll top",
         "top of page",
         "go to top of page",
-        "browser top",
-        "go to top"
+        "browser top"
     ];
 
     private static readonly string[] BrowserScrollBottomPrefixes =
     [
         "browser scroll bottom",
-        "scroll to bottom",
         "scroll bottom",
         "bottom of page",
         "go to bottom of page",
-        "browser bottom",
-        "go to bottom"
+        "browser bottom"
     ];
 
     private static readonly string[] BrowserZoomInPrefixes =
     [
         "browser zoom in",
         "browser bigger",
-        "browser larger"
+        "browser larger",
+        "browser increase text size",
+        "browser make text bigger",
+        "browser make page bigger"
     ];
 
     private static readonly string[] BrowserZoomOutPrefixes =
     [
         "browser zoom out",
         "browser smaller",
-        "browser smaller text"
+        "browser smaller text",
+        "browser decrease text size",
+        "browser make text smaller",
+        "browser make page smaller"
     ];
 
     private static readonly string[] BrowserZoomResetPrefixes =
@@ -3589,7 +5173,11 @@ public static class AlphaCommandRouter
         "browser zoom reset",
         "browser reset zoom",
         "browser normal size",
-        "browser actual size"
+        "browser normal zoom",
+        "browser actual size",
+        "browser default size",
+        "browser default zoom",
+        "browser reset size"
     ];
 
     private static readonly string[] SystemVolumeUpPrefixes =
@@ -3730,6 +5318,9 @@ public static class AlphaCommandRouter
         "task view",
         "open task view",
         "show task view",
+        "windowing",
+        "show windowing",
+        "open windowing",
         "show windows",
         "show all windows",
         "show open windows",
@@ -3911,6 +5502,10 @@ public static class AlphaCommandRouter
     [
         "bluetooth settings",
         "open bluetooth settings",
+        "bluetooth and devices settings",
+        "open bluetooth and devices settings",
+        "devices settings",
+        "open devices settings",
         "system bluetooth settings"
     ];
 
@@ -3930,6 +5525,8 @@ public static class AlphaCommandRouter
         "open network settings",
         "internet settings",
         "open internet settings",
+        "network and internet settings",
+        "open network and internet settings",
         "system network settings"
     ];
 
@@ -4065,6 +5662,8 @@ public static class AlphaCommandRouter
         "open apps settings",
         "installed apps settings",
         "open installed apps settings",
+        "apps and features settings",
+        "open apps and features settings",
         "applications settings",
         "system apps settings"
     ];
@@ -4073,9 +5672,10 @@ public static class AlphaCommandRouter
     [
         "default apps settings",
         "open default apps settings",
+        "default app settings",
+        "open default app settings",
         "default application settings",
         "open default application settings",
-        "default app settings",
         "system default apps settings"
     ];
 
@@ -4085,6 +5685,8 @@ public static class AlphaCommandRouter
         "date and time settings",
         "open date time settings",
         "open date and time settings",
+        "time and language settings",
+        "open time and language settings",
         "time settings",
         "open time settings",
         "system date time settings"
@@ -4193,7 +5795,12 @@ public static class AlphaCommandRouter
     [
         "press enter",
         "hit enter",
+        "tap enter",
         "enter key",
+        "press return",
+        "hit return",
+        "tap return",
+        "return key",
         "system press enter"
     ];
 
@@ -4201,6 +5808,7 @@ public static class AlphaCommandRouter
     [
         "press tab",
         "hit tab",
+        "tap tab",
         "tab key",
         "system press tab"
     ];
@@ -4210,14 +5818,18 @@ public static class AlphaCommandRouter
         "dismiss",
         "press escape",
         "hit escape",
+        "tap escape",
         "escape key",
+        "esc key",
         "system press escape"
     ];
 
     private static readonly string[] SystemPressBackspacePrefixes =
     [
+        "backspace",
         "press backspace",
         "hit backspace",
+        "tap backspace",
         "backspace key",
         "system press backspace"
     ];
@@ -4226,8 +5838,10 @@ public static class AlphaCommandRouter
     [
         "press space",
         "hit space",
+        "tap space",
         "space key",
         "press space bar",
+        "tap space bar",
         "space bar",
         "system press space"
     ];
@@ -4236,6 +5850,7 @@ public static class AlphaCommandRouter
     [
         "press delete",
         "hit delete",
+        "tap delete",
         "delete key",
         "system press delete"
     ];
@@ -4244,6 +5859,7 @@ public static class AlphaCommandRouter
     [
         "press insert",
         "hit insert",
+        "tap insert",
         "insert key",
         "system press insert"
     ];
@@ -4251,16 +5867,29 @@ public static class AlphaCommandRouter
     private static readonly string[] SystemPressWindowsPrefixes =
     [
         "press windows",
+        "tap windows",
         "press windows key",
+        "tap windows key",
         "windows key",
         "press start key",
+        "tap start key",
         "start key",
-        "open start menu"
+        "open start",
+        "show start",
+        "start menu",
+        "open start menu",
+        "show start menu",
+        "open windows search",
+        "show windows search",
+        "windows search",
+        "open search menu",
+        "show search menu"
     ];
 
     private static readonly string[] SystemPressContextMenuPrefixes =
     [
         "press context menu",
+        "tap context menu",
         "context menu key",
         "application key",
         "apps key",
@@ -4270,6 +5899,7 @@ public static class AlphaCommandRouter
     private static readonly string[] SystemPressCapsLockPrefixes =
     [
         "press caps lock",
+        "tap caps lock",
         "caps lock",
         "caps lock key",
         "toggle caps lock"
@@ -4278,7 +5908,9 @@ public static class AlphaCommandRouter
     private static readonly string[] SystemPressUpPrefixes =
     [
         "press up",
+        "tap up",
         "press up arrow",
+        "tap up arrow",
         "up arrow",
         "system press up"
     ];
@@ -4286,7 +5918,9 @@ public static class AlphaCommandRouter
     private static readonly string[] SystemPressDownPrefixes =
     [
         "press down",
+        "tap down",
         "press down arrow",
+        "tap down arrow",
         "down arrow",
         "system press down"
     ];
@@ -4294,7 +5928,9 @@ public static class AlphaCommandRouter
     private static readonly string[] SystemPressLeftPrefixes =
     [
         "press left",
+        "tap left",
         "press left arrow",
+        "tap left arrow",
         "left arrow",
         "system press left"
     ];
@@ -4302,7 +5938,9 @@ public static class AlphaCommandRouter
     private static readonly string[] SystemPressRightPrefixes =
     [
         "press right",
+        "tap right",
         "press right arrow",
+        "tap right arrow",
         "right arrow",
         "system press right"
     ];
@@ -4310,6 +5948,7 @@ public static class AlphaCommandRouter
     private static readonly string[] SystemPressHomePrefixes =
     [
         "press home",
+        "tap home",
         "home key",
         "go to home",
         "system press home"
@@ -4318,6 +5957,7 @@ public static class AlphaCommandRouter
     private static readonly string[] SystemPressEndPrefixes =
     [
         "press end",
+        "tap end",
         "end key",
         "go to end",
         "system press end"
@@ -4327,6 +5967,8 @@ public static class AlphaCommandRouter
     [
         "page up",
         "press page up",
+        "tap page up",
+        "page up key",
         "go page up",
         "system page up"
     ];
@@ -4335,6 +5977,8 @@ public static class AlphaCommandRouter
     [
         "page down",
         "press page down",
+        "tap page down",
+        "page down key",
         "go page down",
         "system page down"
     ];
@@ -4376,8 +6020,22 @@ public static class AlphaCommandRouter
         "mouse button down",
         "left mouse down",
         "hold mouse",
+        "hold mouse button",
+        "hold left mouse",
+        "hold left mouse button",
+        "hold down mouse",
+        "hold down mouse button",
+        "hold down left mouse button",
         "hold click",
+        "click and hold",
+        "click and hold mouse",
+        "click and hold mouse button",
+        "click and hold left mouse button",
+        "press and hold mouse",
+        "press and hold mouse button",
+        "press and hold left mouse button",
         "press mouse button",
+        "press left mouse button",
         "start drag",
         "begin drag",
         "system mouse button down"
@@ -4388,8 +6046,13 @@ public static class AlphaCommandRouter
         "mouse button up",
         "left mouse up",
         "release mouse",
+        "release left mouse",
+        "release left mouse button",
         "release click",
         "release mouse button",
+        "let go mouse",
+        "let go of mouse",
+        "let go of mouse button",
         "drop",
         "end drag",
         "system mouse button up"
@@ -4427,6 +6090,89 @@ public static class AlphaCommandRouter
         "scroll wheel right",
         "wheel right",
         "system mouse scroll right"
+    ];
+
+    private static readonly string[] SystemScrollTopPrefixes =
+    [
+        "scroll to top",
+        "scroll to the top",
+        "go to top",
+        "go to the top",
+        "top of window",
+        "top of the window",
+        "scroll to top of window",
+        "scroll to the top of window"
+    ];
+
+    private static readonly string[] SystemScrollBottomPrefixes =
+    [
+        "scroll to bottom",
+        "scroll to the bottom",
+        "go to bottom",
+        "go to the bottom",
+        "bottom of window",
+        "bottom of the window",
+        "scroll to bottom of window",
+        "scroll to the bottom of window"
+    ];
+
+    private static readonly string[] SystemScrollLeftEdgePrefixes =
+    [
+        "scroll to left edge",
+        "scroll to the left edge",
+        "go to left edge",
+        "go to the left edge",
+        "left edge",
+        "left edge of window"
+    ];
+
+    private static readonly string[] SystemScrollRightEdgePrefixes =
+    [
+        "scroll to right edge",
+        "scroll to the right edge",
+        "go to right edge",
+        "go to the right edge",
+        "right edge",
+        "right edge of window"
+    ];
+
+    private static readonly string[] SystemStartScrollingUpPrefixes =
+    [
+        "start scrolling up",
+        "start scroll up",
+        "begin scrolling up",
+        "begin scroll up"
+    ];
+
+    private static readonly string[] SystemStartScrollingDownPrefixes =
+    [
+        "start scrolling down",
+        "start scroll down",
+        "begin scrolling down",
+        "begin scroll down"
+    ];
+
+    private static readonly string[] SystemStartScrollingLeftPrefixes =
+    [
+        "start scrolling left",
+        "start scroll left",
+        "begin scrolling left",
+        "begin scroll left"
+    ];
+
+    private static readonly string[] SystemStartScrollingRightPrefixes =
+    [
+        "start scrolling right",
+        "start scroll right",
+        "begin scrolling right",
+        "begin scroll right"
+    ];
+
+    private static readonly string[] SystemStopScrollingPrefixes =
+    [
+        "stop scrolling",
+        "stop scroll",
+        "stop active scrolling"
     ];
 
     private static readonly string[] SystemMouseMoveUpPrefixes =
@@ -4521,10 +6267,31 @@ public static class AlphaCommandRouter
         ("right", "right")
     ];
 
+    private static readonly string[] MouseMoveActionPrefixes =
+    [
+        "move mouse ",
+        "move the mouse ",
+        "move pointer ",
+        "move the pointer ",
+        "move cursor ",
+        "move the cursor "
+    ];
+
+    private static readonly string[] MouseDragActionPrefixes =
+    [
+        "drag mouse ",
+        "drag the mouse ",
+        "drag pointer ",
+        "drag the pointer ",
+        "drag cursor ",
+        "drag the cursor "
+    ];
+
     private static readonly string[] SystemCopyPrefixes =
     [
         "copy",
         "system copy",
+        "copy that",
         "copy selection",
         "copy selected text"
     ];
@@ -4533,6 +6300,8 @@ public static class AlphaCommandRouter
     [
         "paste",
         "system paste",
+        "paste that",
+        "paste here",
         "paste clipboard",
         "paste selection"
     ];
@@ -4541,6 +6310,7 @@ public static class AlphaCommandRouter
     [
         "cut",
         "system cut",
+        "cut that",
         "cut selection",
         "cut selected text"
     ];
@@ -4550,6 +6320,9 @@ public static class AlphaCommandRouter
         "select all",
         "system select all",
         "select all text",
+        "highlight all",
+        "highlight everything",
+        "select everything",
         "highlight all text"
     ];
 
@@ -4559,7 +6332,23 @@ public static class AlphaCommandRouter
         "system save",
         "save file",
         "save document",
-        "save it"
+        "save that",
+        "save this",
+        "save it",
+        "save changes",
+        "save current file",
+        "save current document"
+    ];
+
+    private static readonly string[] SystemSaveAsPrefixes =
+    [
+        "save as",
+        "save file as",
+        "save document as",
+        "save this as",
+        "save that as",
+        "open save as dialog",
+        "show save as dialog"
     ];
 
     private static readonly string[] SystemUndoPrefixes =
@@ -4575,6 +6364,8 @@ public static class AlphaCommandRouter
         "redo",
         "system redo",
         "redo last change",
+        "redo that",
+        "do that again",
         "redo it"
     ];
 
@@ -4628,8 +6419,28 @@ public static class AlphaCommandRouter
     [
         "system find",
         "find in app",
+        "find in this app",
         "find text",
-        "search in app"
+        "search in app",
+        "search this app"
+    ];
+
+    private static readonly string[] SystemFindNextPrefixes =
+    [
+        "find next in app",
+        "find next in this app",
+        "next match in app",
+        "next match in this app",
+        "next search result in app"
+    ];
+
+    private static readonly string[] SystemFindPreviousPrefixes =
+    [
+        "find previous in app",
+        "find previous in this app",
+        "previous match in app",
+        "previous match in this app",
+        "previous search result in app"
     ];
 
     private static readonly string[] SystemNewWindowPrefixes =
@@ -4643,8 +6454,12 @@ public static class AlphaCommandRouter
     [
         "new document",
         "new file",
+        "start new document",
+        "start new file",
         "create new document",
-        "create new file"
+        "create new file",
+        "make new document",
+        "make new file"
     ];
 
     private static readonly string[] SystemOpenFilePrefixes =
@@ -4652,12 +6467,18 @@ public static class AlphaCommandRouter
         "open file",
         "open document",
         "open a file",
-        "open a document"
+        "open a document",
+        "open existing file",
+        "open existing document",
+        "open saved file",
+        "open saved document"
     ];
 
     private static readonly string[] SystemPrintPrefixes =
     [
         "print",
+        "print that",
+        "print this",
         "print document",
         "open print dialog",
         "show print dialog"
@@ -4667,23 +6488,32 @@ public static class AlphaCommandRouter
     [
         "zoom in",
         "increase zoom",
+        "larger",
         "make bigger",
-        "make text bigger"
+        "make larger",
+        "make text bigger",
+        "make text larger",
+        "increase text size"
     ];
 
     private static readonly string[] SystemZoomOutPrefixes =
     [
         "zoom out",
         "decrease zoom",
+        "smaller",
         "make smaller",
-        "make text smaller"
+        "make text smaller",
+        "decrease text size"
     ];
 
     private static readonly string[] SystemZoomResetPrefixes =
     [
         "reset zoom",
         "zoom reset",
-        "default zoom"
+        "default zoom",
+        "actual size",
+        "default size",
+        "normal size"
     ];
 
     private static readonly string[] SystemCloseWindowPrefixes =
@@ -4696,7 +6526,9 @@ public static class AlphaCommandRouter
         "close app",
         "close application",
         "close current app",
-        "close active app"
+        "close active app",
+        "alt f4",
+        "press alt f4"
     ];
 
     private static readonly string[] SystemMovePreviousCharacterPrefixes =
@@ -4704,8 +6536,11 @@ public static class AlphaCommandRouter
         "system move previous character",
         "move previous character",
         "previous character",
+        "last character",
         "previous letter",
+        "last letter",
         "go to previous character",
+        "go to last character",
         "move to previous character"
     ];
 
@@ -4723,7 +6558,9 @@ public static class AlphaCommandRouter
     [
         "system select previous character",
         "select previous character",
+        "select last character",
         "select previous letter",
+        "select last letter",
         "highlight previous character"
     ];
 
@@ -4739,9 +6576,12 @@ public static class AlphaCommandRouter
     [
         "system delete previous character",
         "delete previous character",
+        "delete last character",
         "remove previous character",
+        "remove last character",
         "backspace character",
         "delete previous letter",
+        "delete last letter",
         "backspace letter"
     ];
 
@@ -4751,6 +6591,211 @@ public static class AlphaCommandRouter
         "delete next character",
         "remove next character",
         "delete next letter"
+    ];
+
+    private static readonly string[] SystemMoveSelectionStartPrefixes =
+    [
+        "system move to beginning of selection",
+        "move to beginning of selection",
+        "move to start of selection",
+        "go to beginning of selection",
+        "go to start of selection"
+    ];
+
+    private static readonly string[] SystemMoveSelectionEndPrefixes =
+    [
+        "system move to end of selection",
+        "move to end of selection",
+        "go to end of selection"
+    ];
+
+    private static readonly string[] SystemClearSelectionPrefixes =
+    [
+        "system clear selection",
+        "clear selection",
+        "unselect that",
+        "unselect",
+        "clear selected text"
+    ];
+
+    private static readonly string[] SystemSelectCurrentWordPrefixes =
+    [
+        "system select word",
+        "select word",
+        "select this word",
+        "highlight word",
+        "highlight this word"
+    ];
+
+    private static readonly string[] SystemSelectCurrentLinePrefixes =
+    [
+        "system select line",
+        "select line",
+        "select this line",
+        "highlight line",
+        "highlight this line"
+    ];
+
+    private static readonly string[] SystemSelectCurrentParagraphPrefixes =
+    [
+        "system select paragraph",
+        "select paragraph",
+        "select this paragraph",
+        "highlight paragraph",
+        "highlight this paragraph"
+    ];
+
+    private static readonly string[] SystemDeleteCurrentWordPrefixes =
+    [
+        "system delete word",
+        "delete word",
+        "delete this word",
+        "remove word",
+        "remove this word"
+    ];
+
+    private static readonly string[] SystemDeleteCurrentLinePrefixes =
+    [
+        "system delete line",
+        "delete line",
+        "delete this line",
+        "remove line",
+        "remove this line"
+    ];
+
+    private static readonly string[] SystemDeleteCurrentParagraphPrefixes =
+    [
+        "system delete paragraph",
+        "delete paragraph",
+        "delete this paragraph",
+        "remove paragraph",
+        "remove this paragraph"
+    ];
+
+    private static readonly string[] SystemCopyCurrentWordPrefixes =
+    [
+        "system copy word",
+        "copy word",
+        "copy this word"
+    ];
+
+    private static readonly string[] SystemCopyCurrentLinePrefixes =
+    [
+        "system copy line",
+        "copy line",
+        "copy this line"
+    ];
+
+    private static readonly string[] SystemCopyCurrentParagraphPrefixes =
+    [
+        "system copy paragraph",
+        "copy paragraph",
+        "copy this paragraph"
+    ];
+
+    private static readonly string[] SystemCutCurrentWordPrefixes =
+    [
+        "system cut word",
+        "cut word",
+        "cut this word"
+    ];
+
+    private static readonly string[] SystemCutCurrentLinePrefixes =
+    [
+        "system cut line",
+        "cut line",
+        "cut this line"
+    ];
+
+    private static readonly string[] SystemCutCurrentParagraphPrefixes =
+    [
+        "system cut paragraph",
+        "cut paragraph",
+        "cut this paragraph"
+    ];
+
+    private static readonly string[] SystemCopyPreviousWordPrefixes =
+    [
+        "system copy previous word",
+        "system copy last word",
+        "copy previous word",
+        "copy last word"
+    ];
+
+    private static readonly string[] SystemCopyNextWordPrefixes =
+    [
+        "system copy next word",
+        "copy next word"
+    ];
+
+    private static readonly string[] SystemCutPreviousWordPrefixes =
+    [
+        "system cut previous word",
+        "system cut last word",
+        "cut previous word",
+        "cut last word"
+    ];
+
+    private static readonly string[] SystemCutNextWordPrefixes =
+    [
+        "system cut next word",
+        "cut next word"
+    ];
+
+    private static readonly string[] SystemCopyPreviousLinePrefixes =
+    [
+        "system copy previous line",
+        "system copy last line",
+        "copy previous line",
+        "copy last line"
+    ];
+
+    private static readonly string[] SystemCopyNextLinePrefixes =
+    [
+        "system copy next line",
+        "copy next line"
+    ];
+
+    private static readonly string[] SystemCutPreviousLinePrefixes =
+    [
+        "system cut previous line",
+        "system cut last line",
+        "cut previous line",
+        "cut last line"
+    ];
+
+    private static readonly string[] SystemCutNextLinePrefixes =
+    [
+        "system cut next line",
+        "cut next line"
+    ];
+
+    private static readonly string[] SystemCopyPreviousParagraphPrefixes =
+    [
+        "system copy previous paragraph",
+        "system copy last paragraph",
+        "copy previous paragraph",
+        "copy last paragraph"
+    ];
+
+    private static readonly string[] SystemCopyNextParagraphPrefixes =
+    [
+        "system copy next paragraph",
+        "copy next paragraph"
+    ];
+
+    private static readonly string[] SystemCutPreviousParagraphPrefixes =
+    [
+        "system cut previous paragraph",
+        "system cut last paragraph",
+        "cut previous paragraph",
+        "cut last paragraph"
+    ];
+
+    private static readonly string[] SystemCutNextParagraphPrefixes =
+    [
+        "system cut next paragraph",
+        "cut next paragraph"
     ];
 
     private static readonly string[] SystemMoveLineStartPrefixes =
@@ -4842,13 +6887,44 @@ public static class AlphaCommandRouter
         "remove next line"
     ];
 
+    private static readonly string[] SystemMoveWordStartPrefixes =
+    [
+        "system go to word start",
+        "system go to beginning of word",
+        "go to word start",
+        "go to beginning of word",
+        "go to start of word",
+        "move to word start",
+        "move to beginning of word",
+        "move to start of word",
+        "word start",
+        "start of word",
+        "beginning of word"
+    ];
+
+    private static readonly string[] SystemMoveWordEndPrefixes =
+    [
+        "system go to word end",
+        "system go to end of word",
+        "go to word end",
+        "go to end of word",
+        "move to word end",
+        "move to end of word",
+        "word end",
+        "end of word"
+    ];
+
     private static readonly string[] SystemMovePreviousWordPrefixes =
     [
         "system move previous word",
+        "system move last word",
         "move previous word",
+        "move last word",
         "previous word",
+        "last word",
         "go previous word",
         "go to previous word",
+        "go to last word",
         "move to previous word"
     ];
 
@@ -4865,7 +6941,9 @@ public static class AlphaCommandRouter
     private static readonly string[] SystemSelectPreviousWordPrefixes =
     [
         "system select previous word",
+        "system select last word",
         "select previous word",
+        "select last word",
         "highlight previous word"
     ];
 
@@ -4879,7 +6957,9 @@ public static class AlphaCommandRouter
     private static readonly string[] SystemDeletePreviousWordPrefixes =
     [
         "system delete previous word",
+        "system delete last word",
         "delete previous word",
+        "delete last word",
         "remove previous word"
     ];
 
@@ -4893,9 +6973,13 @@ public static class AlphaCommandRouter
     private static readonly string[] SystemMovePreviousSentencePrefixes =
     [
         "system move previous sentence",
+        "system move last sentence",
         "move previous sentence",
+        "move last sentence",
         "previous sentence",
+        "last sentence",
         "go to previous sentence",
+        "go to last sentence",
         "move to previous sentence"
     ];
 
@@ -4911,7 +6995,9 @@ public static class AlphaCommandRouter
     private static readonly string[] SystemSelectPreviousSentencePrefixes =
     [
         "system select previous sentence",
+        "system select last sentence",
         "select previous sentence",
+        "select last sentence",
         "highlight previous sentence"
     ];
 
@@ -4925,7 +7011,9 @@ public static class AlphaCommandRouter
     private static readonly string[] SystemDeletePreviousSentencePrefixes =
     [
         "system delete previous sentence",
+        "system delete last sentence",
         "delete previous sentence",
+        "delete last sentence",
         "remove previous sentence"
     ];
 
@@ -4985,9 +7073,13 @@ public static class AlphaCommandRouter
     private static readonly string[] SystemMovePreviousParagraphPrefixes =
     [
         "system move previous paragraph",
+        "system move last paragraph",
         "move previous paragraph",
+        "move last paragraph",
         "previous paragraph",
+        "last paragraph",
         "go to previous paragraph",
+        "go to last paragraph",
         "move to previous paragraph"
     ];
 
@@ -5003,7 +7095,9 @@ public static class AlphaCommandRouter
     private static readonly string[] SystemSelectPreviousParagraphPrefixes =
     [
         "system select previous paragraph",
+        "system select last paragraph",
         "select previous paragraph",
+        "select last paragraph",
         "highlight previous paragraph"
     ];
 
@@ -5017,7 +7111,9 @@ public static class AlphaCommandRouter
     private static readonly string[] SystemDeletePreviousParagraphPrefixes =
     [
         "system delete previous paragraph",
+        "system delete last paragraph",
         "delete previous paragraph",
+        "delete last paragraph",
         "remove previous paragraph"
     ];
 
@@ -5031,6 +7127,7 @@ public static class AlphaCommandRouter
     private const string BrowserActionBack = "browser-back";
     private const string BrowserActionForward = "browser-forward";
     private const string BrowserActionRefresh = "browser-refresh";
+    private const string BrowserActionStopLoading = "browser-stop-loading";
     private const string BrowserActionNewTab = "browser-new-tab";
     private const string BrowserActionNewWindow = "browser-new-window";
     private const string BrowserActionPrivateWindow = "browser-private-window";
@@ -5040,8 +7137,13 @@ public static class AlphaCommandRouter
     private const string BrowserActionPrintPage = "browser-print-page";
     private const string BrowserActionNextTab = "browser-next-tab";
     private const string BrowserActionPreviousTab = "browser-previous-tab";
+    private const string BrowserActionMoveTabLeft = "browser-move-tab-left";
+    private const string BrowserActionMoveTabRight = "browser-move-tab-right";
+    private const string BrowserActionSelectTabPrefix = "browser-select-tab:";
     private const string BrowserActionCloseTab = "browser-close-tab";
     private const string BrowserActionReopenClosedTab = "browser-reopen-closed-tab";
+    private const string BrowserActionDuplicateTab = "browser-duplicate-tab";
+    private const string BrowserActionCopyAddress = "browser-copy-address";
     private const string BrowserActionFocusAddressBar = "browser-focus-address-bar";
     private const string BrowserActionAddressTextPrefix = "browser-address-text:";
     private const string BrowserActionHome = "browser-home";
@@ -5059,6 +7161,8 @@ public static class AlphaCommandRouter
     private const string BrowserActionStopScroll = "browser-stop-scroll";
     private const string BrowserActionScrollUp = "browser-scroll-up";
     private const string BrowserActionScrollDown = "browser-scroll-down";
+    private const string BrowserActionScrollUpPagesPrefix = "browser-scroll-up-pages:";
+    private const string BrowserActionScrollDownPagesPrefix = "browser-scroll-down-pages:";
     private const string BrowserActionScrollLeft = "browser-scroll-left";
     private const string BrowserActionScrollRight = "browser-scroll-right";
     private const string BrowserActionScrollTop = "browser-scroll-top";
@@ -5146,6 +7250,12 @@ public static class AlphaCommandRouter
     private const string SystemActionMouseRightClick = "system-mouse-right-click";
     private const string SystemActionMouseButtonDown = "system-mouse-button-down";
     private const string SystemActionMouseButtonUp = "system-mouse-button-up";
+    private const string SystemActionScrollTop = "system-scroll-top";
+    private const string SystemActionScrollBottom = "system-scroll-bottom";
+    private const string SystemActionScrollLeftEdge = "system-scroll-left-edge";
+    private const string SystemActionScrollRightEdge = "system-scroll-right-edge";
+    private const string SystemActionStartScrollingPrefix = "system-start-scrolling:";
+    private const string SystemActionStopScrolling = "system-stop-scrolling";
     private const string SystemActionMouseScrollUp = "system-mouse-scroll-up";
     private const string SystemActionMouseScrollDown = "system-mouse-scroll-down";
     private const string SystemActionMouseScrollLeft = "system-mouse-scroll-left";
@@ -5172,12 +7282,15 @@ public static class AlphaCommandRouter
     private const string SystemActionCut = "system-cut";
     private const string SystemActionSelectAll = "system-select-all";
     private const string SystemActionSave = "system-save";
+    private const string SystemActionSaveAs = "system-save-as";
     private const string SystemActionUndo = "system-undo";
     private const string SystemActionRedo = "system-redo";
     private const string SystemActionBold = "system-bold";
     private const string SystemActionItalic = "system-italic";
     private const string SystemActionUnderline = "system-underline";
     private const string SystemActionFind = "system-find";
+    private const string SystemActionFindNext = "system-find-next";
+    private const string SystemActionFindPrevious = "system-find-previous";
     private const string SystemActionNewWindow = "system-new-window";
     private const string SystemActionNewDocument = "system-new-document";
     private const string SystemActionOpenFile = "system-open-file";
@@ -5192,6 +7305,33 @@ public static class AlphaCommandRouter
     private const string SystemActionSelectNextCharacter = "system-select-next-character";
     private const string SystemActionDeletePreviousCharacter = "system-delete-previous-character";
     private const string SystemActionDeleteNextCharacter = "system-delete-next-character";
+    private const string SystemActionMoveSelectionStart = "system-move-selection-start";
+    private const string SystemActionMoveSelectionEnd = "system-move-selection-end";
+    private const string SystemActionClearSelection = "system-clear-selection";
+    private const string SystemActionSelectCurrentWord = "system-select-current-word";
+    private const string SystemActionSelectCurrentLine = "system-select-current-line";
+    private const string SystemActionSelectCurrentParagraph = "system-select-current-paragraph";
+    private const string SystemActionDeleteCurrentWord = "system-delete-current-word";
+    private const string SystemActionDeleteCurrentLine = "system-delete-current-line";
+    private const string SystemActionDeleteCurrentParagraph = "system-delete-current-paragraph";
+    private const string SystemActionCopyCurrentWord = "system-copy-current-word";
+    private const string SystemActionCopyCurrentLine = "system-copy-current-line";
+    private const string SystemActionCopyCurrentParagraph = "system-copy-current-paragraph";
+    private const string SystemActionCutCurrentWord = "system-cut-current-word";
+    private const string SystemActionCutCurrentLine = "system-cut-current-line";
+    private const string SystemActionCutCurrentParagraph = "system-cut-current-paragraph";
+    private const string SystemActionCopyPreviousWord = "system-copy-previous-word";
+    private const string SystemActionCopyNextWord = "system-copy-next-word";
+    private const string SystemActionCutPreviousWord = "system-cut-previous-word";
+    private const string SystemActionCutNextWord = "system-cut-next-word";
+    private const string SystemActionCopyPreviousLine = "system-copy-previous-line";
+    private const string SystemActionCopyNextLine = "system-copy-next-line";
+    private const string SystemActionCutPreviousLine = "system-cut-previous-line";
+    private const string SystemActionCutNextLine = "system-cut-next-line";
+    private const string SystemActionCopyPreviousParagraph = "system-copy-previous-paragraph";
+    private const string SystemActionCopyNextParagraph = "system-copy-next-paragraph";
+    private const string SystemActionCutPreviousParagraph = "system-cut-previous-paragraph";
+    private const string SystemActionCutNextParagraph = "system-cut-next-paragraph";
     private const string SystemActionMoveLineStart = "system-move-line-start";
     private const string SystemActionMoveLineEnd = "system-move-line-end";
     private const string SystemActionMovePreviousLine = "system-move-previous-line";
@@ -5204,6 +7344,8 @@ public static class AlphaCommandRouter
     private const string SystemActionDeleteToLineEnd = "system-delete-to-line-end";
     private const string SystemActionDeletePreviousLine = "system-delete-previous-line";
     private const string SystemActionDeleteNextLine = "system-delete-next-line";
+    private const string SystemActionMoveWordStart = "system-move-word-start";
+    private const string SystemActionMoveWordEnd = "system-move-word-end";
     private const string SystemActionMovePreviousWord = "system-move-previous-word";
     private const string SystemActionMoveNextWord = "system-move-next-word";
     private const string SystemActionSelectPreviousWord = "system-select-previous-word";
@@ -5238,6 +7380,15 @@ public static class AlphaCommandRouter
     private const string UiActionOpenAppFolder = "ui-open-app-folder";
     private const string UiActionGettingStarted = "ui-getting-started";
     private const string UiActionOpenPacks = "ui-open-packs";
+    private const string UiActionImportPack = "ui-import-pack";
+    private const string UiActionImportPackFolder = "ui-import-pack-folder";
+    private const string UiActionUpdatePack = "ui-update-pack";
+    private const string UiActionRollbackPack = "ui-rollback-pack";
+    private const string UiActionRefreshPacks = "ui-refresh-packs";
+    private const string UiActionOpenPacksFolder = "ui-open-packs-folder";
+    private const string UiActionEnableSelectedPack = "ui-enable-selected-pack";
+    private const string UiActionDisableSelectedPack = "ui-disable-selected-pack";
+    private const string UiActionRemoveSelectedPack = "ui-remove-selected-pack";
     private const string UiActionOpenShortcuts = "ui-open-shortcuts";
     private const string UiActionNewVoiceShortcut = "ui-new-voice-shortcut";
     private const string UiActionSaveVoiceShortcut = "ui-save-voice-shortcut";
@@ -5248,19 +7399,63 @@ public static class AlphaCommandRouter
     private const string UiActionAddVoiceShortcutWaitAction = "ui-add-voice-shortcut-wait-action";
     private const string UiActionRemoveVoiceShortcutAction = "ui-remove-voice-shortcut-action";
     private const string UiActionStartListening = "ui-start-listening";
+    private const string UiActionRestartListening = "ui-restart-listening";
     private const string UiActionStopListening = "ui-stop-listening";
     private const string UiActionCancelSession = "ui-cancel-session";
     private const string UiActionResetSession = "ui-reset-session";
+    private const string UiActionBlockedExternalSideEffect = "ui-blocked-external-side-effect";
     private const string UiActionVoiceHelp = "ui-voice-help";
+    private const string UiActionVoiceHelpSystem = "ui-voice-help-system";
+    private const string UiActionVoiceHelpBrowser = "ui-voice-help-browser";
+    private const string UiActionVoiceHelpDictation = "ui-voice-help-dictation";
+    private const string UiActionVoiceHelpVisible = "ui-voice-help-visible";
+    private const string UiActionVoiceHelpExtensions = "ui-voice-help-extensions";
+    private const string UiActionVoiceHelpSafety = "ui-voice-help-safety";
+    private const string UiActionVoiceHelpFree = "ui-voice-help-free";
+    private const string UiActionVoiceHelpPaid = "ui-voice-help-paid";
+    private const string UiActionVoiceHelpPro = "ui-voice-help-pro";
+    private const string UiActionVoiceHelpAdvanced = "ui-voice-help-advanced";
+    private const string UiActionCheckUpdatesNow = "ui-check-updates-now";
+    private const string UiActionReadUpdateSummaryAgain = "ui-read-update-summary-again";
+    private const string UiActionReadImportSummaryAgain = "ui-read-import-summary-again";
+    private const string UiActionReadWatchStatus = "ui-read-watch-status";
+    private const string UiActionOpenReleaseProof = "ui-open-release-proof";
+    private const string UiActionReadReleaseProof = "ui-read-release-proof";
+    private const string UiActionOpenReleaseEvidence = "ui-open-release-evidence";
+    private const string UiActionOpenProofNotes = "ui-open-proof-notes";
+    private const string UiActionOpenManualEvidence = "ui-open-manual-evidence";
+    private const string UiActionOpenManualEvidenceChecklist = "ui-open-manual-evidence-checklist";
+    private const string UiActionOpenInstaller = "ui-open-installer";
+    private const string UiActionReadUpdatesStatus = "ui-read-updates-status";
+    private const string UiActionReadCheckInStatus = "ui-read-check-in-status";
+    private const string UiActionReadEvidenceStatus = "ui-read-evidence-status";
+    private const string UiActionReadEvidenceHeader = "ui-read-evidence-header";
+    private const string UiActionReadReleaseBlockers = "ui-read-release-blockers";
+    private const string UiActionReadNextProof = "ui-read-next-proof";
+    private const string UiActionReadReleaseGates = "ui-read-release-gates";
+    private const string UiActionReadNextProofInstructions = "ui-read-next-proof-instructions";
+    private const string UiActionReadProofNotesStatus = "ui-read-proof-notes-status";
+    private const string UiActionCreateNextProofNote = "ui-create-next-proof-note";
+    private const string UiActionCreateAllProofNotes = "ui-create-all-proof-notes";
+    private const string UiActionCreateEvidenceDraft = "ui-create-evidence-draft";
+    private const string UiActionOpenEvidenceDraft = "ui-open-evidence-draft";
+    private const string UiActionReadEvidenceDraft = "ui-read-evidence-draft";
+    private const string UiActionReadVisualStatus = "ui-read-visual-status";
+    private const string UiActionReadRestartProof = "ui-read-restart-proof";
+    private const string UiActionReadPlansStatus = "ui-read-plans-status";
+    private const string UiActionReadVoiceModeStatus = "ui-read-voice-mode-status";
+    private const string UiActionReadClockStatus = "ui-read-clock-status";
     private const string UiActionReadStatus = "ui-read-status";
     private const string UiActionStopStatusReadback = "ui-stop-status-readback";
     private const string UiActionClearRecentSpeech = "ui-clear-recent-speech";
     private const string UiActionHideCommandPalette = "ui-hide-command-palette";
+    private const string UiActionHideImportSplash = "ui-hide-import-splash";
     private const string UiActionHideUpdateSplash = "ui-hide-update-splash";
     private const string UiActionShowVisibleControls = "ui-show-visible-controls";
     private const string UiActionShowVisibleControlsTaskbar = "ui-show-visible-controls-taskbar";
     private const string UiActionShowVisibleControlsWindowPrefix = "ui-show-visible-controls-window:";
     private const string UiActionHideVisibleControls = "ui-hide-visible-controls";
+    private const string UiActionHideBrowserOverlays = "ui-hide-browser-overlays";
     private const string UiActionSetVoiceModePrefix = "ui-set-voice-mode:";
     private const string UiActionShowKeyboard = "ui-show-keyboard";
     private const string UiActionHideKeyboard = "ui-hide-keyboard";
@@ -5565,6 +7760,17 @@ public static class AlphaCommandRouter
         "unmute mic"
     ];
 
+    private static readonly string[] UiRestartListeningPrefixes =
+    [
+        "restart listening",
+        "restart voice",
+        "restart callsign",
+        "restart microphone",
+        "restart voice access",
+        "restart listener",
+        "relisten"
+    ];
+
     private static readonly string[] UiStopListeningPrefixes =
     [
         "stop listening",
@@ -5611,6 +7817,35 @@ public static class AlphaCommandRouter
         "reset callsign"
     ];
 
+    private static readonly string[] UiBlockedExternalSideEffectPrefixes =
+    [
+        "submit",
+        "submit form",
+        "submit this form",
+        "click submit",
+        "press submit",
+        "send",
+        "send message",
+        "send email",
+        "send mail",
+        "post",
+        "post comment",
+        "publish",
+        "upload",
+        "upload file",
+        "accept terms",
+        "accept legal terms",
+        "purchase",
+        "buy now",
+        "pay",
+        "pay now",
+        "delete cloud data",
+        "download and run",
+        "download and execute",
+        "run downloaded file",
+        "open downloaded installer"
+    ];
+
     private static readonly string[] UiVoiceHelpPrefixes =
     [
         "voice help",
@@ -5624,6 +7859,68 @@ public static class AlphaCommandRouter
         "help",
         "open voice access help",
         "show voice access help"
+    ];
+
+    private static readonly string[] UiVoiceHelpSystemPrefixes =
+    [
+        "show system commands",
+        "show system help",
+        "show safe system commands"
+    ];
+
+    private static readonly string[] UiVoiceHelpBrowserPrefixes =
+    [
+        "show browser commands",
+        "show browser help"
+    ];
+
+    private static readonly string[] UiVoiceHelpDictationPrefixes =
+    [
+        "show dictation commands",
+        "show dictation help"
+    ];
+
+    private static readonly string[] UiVoiceHelpVisiblePrefixes =
+    [
+        "show visible commands",
+        "show visible controls commands"
+    ];
+
+    private static readonly string[] UiVoiceHelpExtensionsPrefixes =
+    [
+        "show extension commands",
+        "show extensions commands"
+    ];
+
+    private static readonly string[] UiVoiceHelpSafetyPrefixes =
+    [
+        "show safety commands",
+        "show stop commands"
+    ];
+
+    private static readonly string[] UiVoiceHelpFreePrefixes =
+    [
+        "show free commands",
+        "show built in commands",
+        "show built in help"
+    ];
+
+    private static readonly string[] UiVoiceHelpPaidPrefixes =
+    [
+        "show paid commands",
+        "show paid help"
+    ];
+
+    private static readonly string[] UiVoiceHelpProPrefixes =
+    [
+        "show pro commands",
+        "show pro help"
+    ];
+
+    private static readonly string[] UiVoiceHelpAdvancedPrefixes =
+    [
+        "show advanced commands",
+        "show advanced help"
     ];
 
     private static readonly string[] UiReadStatusPrefixes =
@@ -5640,6 +7937,26 @@ public static class AlphaCommandRouter
         "speak status",
         "read the status",
         "repeat the status"
+    ];
+
+    private static readonly string[] UiReadClockStatusPrefixes =
+    [
+        "what time is it",
+        "what is the time",
+        "tell me the time",
+        "read the time",
+        "read time",
+        "current time",
+        "what's today's date",
+        "what is today's date",
+        "what is todays date",
+        "what date is it",
+        "tell me the date",
+        "read the date",
+        "read date",
+        "current date",
+        "read time and date",
+        "read date and time"
     ];
 
     private static readonly string[] UiStopStatusReadbackPrefixes =
@@ -5685,6 +8002,199 @@ public static class AlphaCommandRouter
         "hide update",
         "close update",
         "dismiss update"
+    ];
+
+    private static readonly string[] UiHideImportSplashPrefixes =
+    [
+        "hide import splash",
+        "close import splash",
+        "cancel import splash",
+        "dismiss import splash",
+        "hide pack import splash",
+        "close pack import splash",
+        "dismiss pack import splash"
+    ];
+
+    private static readonly string[] UiReadUpdateSummaryAgainPrefixes =
+    [
+        "read update summary again",
+        "repeat update summary",
+        "read summary again",
+        "repeat summary",
+        "read update notes again"
+    ];
+
+    private static readonly string[] UiReadUpdatesStatusPrefixes =
+    [
+        "read updates status",
+        "repeat updates status",
+        "read update status",
+        "repeat update status",
+        "read the updates status",
+        "repeat the updates status"
+    ];
+
+    private static readonly string[] UiReadCheckInStatusPrefixes =
+    [
+        "read check-in status",
+        "read check in status",
+        "repeat check-in status",
+        "repeat check in status",
+        "read phone-home status",
+        "repeat phone-home status",
+        "read phone home status",
+        "repeat phone home status"
+    ];
+
+    private static readonly string[] UiReadEvidenceStatusPrefixes =
+    [
+        "read evidence status",
+        "repeat evidence status",
+        "read release evidence status",
+        "repeat release evidence status",
+        "read manual evidence status",
+        "repeat manual evidence status",
+        "read parity evidence status",
+        "repeat parity evidence status"
+    ];
+
+    private static readonly string[] UiReadReleaseBlockersPrefixes =
+    [
+        "read release blockers",
+        "repeat release blockers",
+        "read parity blockers",
+        "repeat parity blockers",
+        "read blocker status",
+        "repeat blocker status",
+        "why is release blocked",
+        "why is parity blocked",
+        "why are we blocked",
+        "what is blocking release",
+        "what is blocking parity"
+    ];
+
+    private static readonly string[] UiReadNextProofPrefixes =
+    [
+        "read next proof",
+        "repeat next proof",
+        "read next evidence proof",
+        "read next parity proof",
+        "read next manual proof",
+        "read next manual evidence",
+        "read next missing proof",
+        "what proof is next",
+        "what evidence is next",
+        "what manual proof is next"
+    ];
+
+    private static readonly string[] UiReadReleaseGatesPrefixes =
+    [
+        "read release gates",
+        "repeat release gates",
+        "read parity gates",
+        "repeat parity gates",
+        "read evidence gates",
+        "repeat evidence gates",
+        "what gates remain",
+        "what release gates remain",
+        "what parity gates remain",
+        "which gates remain",
+        "which release gates remain"
+    ];
+
+    private static readonly string[] UiReadNextProofInstructionsPrefixes =
+    [
+        "read proof steps",
+        "repeat proof steps",
+        "read next proof steps",
+        "repeat next proof steps",
+        "read proof instructions",
+        "repeat proof instructions",
+        "read next proof instructions",
+        "repeat next proof instructions",
+        "what are the proof steps",
+        "what are the next proof steps",
+        "how do i prove the next check",
+        "how do I prove the next check"
+    ];
+
+    private static readonly string[] UiCreateNextProofNotePrefixes =
+    [
+        "create proof note",
+        "create next proof note",
+        "make proof note",
+        "make next proof note",
+        "create evidence note",
+        "create next evidence note",
+        "make evidence note",
+        "make next evidence note",
+        "open proof note",
+        "open next proof note"
+    ];
+
+    private static readonly string[] UiReadVisualStatusPrefixes =
+    [
+        "read visual status",
+        "repeat visual status",
+        "read visual polish status",
+        "repeat visual polish status",
+        "read apple style status",
+        "read mac os style status",
+        "read macos style status",
+        "read visual contract",
+        "repeat visual contract",
+        "read accessibility mode",
+        "repeat accessibility mode",
+        "read accessibility status",
+        "repeat accessibility status",
+        "read high contrast status",
+        "repeat high contrast status",
+        "read text scale status",
+        "repeat text scale status",
+        "read text scaling status",
+        "repeat text scaling status",
+        "read reduced motion status",
+        "repeat reduced motion status"
+    ];
+
+    private static readonly string[] UiReadRestartProofPrefixes =
+    [
+        "restart proof",
+        "read restart proof",
+        "repeat restart proof",
+        "read the restart proof",
+        "repeat the restart proof"
+    ];
+
+    private static readonly string[] UiReadPlansStatusPrefixes =
+    [
+        "read plans status",
+        "repeat plans status",
+        "read tier status",
+        "repeat tier status",
+        "read pricing status",
+        "repeat pricing status",
+        "read paywall status",
+        "repeat paywall status"
+    ];
+
+    private static readonly string[] UiReadImportSummaryAgainPrefixes =
+    [
+        "read import summary again",
+        "repeat import summary",
+        "read import again",
+        "repeat import again",
+        "read pack import summary again"
+    ];
+
+    private static readonly string[] UiReadWatchStatusPrefixes =
+    [
+        "read watch status",
+        "read packs watch status",
+        "read watched folder status",
+        "repeat watch status",
+        "repeat packs watch status",
+        "repeat watched folder status"
     ];
 
     private static readonly string[] UiCommandsOnlyModePrefixes =
@@ -5735,7 +8245,13 @@ public static class AlphaCommandRouter
         "show numbers on taskbar",
         "show numbers on the taskbar",
         "show control numbers on taskbar",
-        "show control numbers on the taskbar"
+        "show control numbers on the taskbar",
+        "show names on taskbar",
+        "show names on the taskbar",
+        "show labels on taskbar",
+        "show labels on the taskbar",
+        "show all labels on taskbar",
+        "show all labels on the taskbar"
     ];
 
     private static readonly string[] UiShowVisibleControlsPrefixes =
@@ -5752,9 +8268,14 @@ public static class AlphaCommandRouter
         "show all labels",
         "number controls",
         "number the controls",
+        "number buttons",
         "number clickable controls",
         "show visible controls",
         "show controls",
+        "show buttons",
+        "show clickable buttons",
+        "show click targets",
+        "show clickable targets",
         "show what i can click",
         "show clickable controls"
     ];
@@ -5814,7 +8335,8 @@ public static class AlphaCommandRouter
     private static readonly string[] UiShowMouseGridHerePrefixes =
     [
         "show grid here",
-        "show mouse grid here"
+        "show mouse grid here",
+        "mouse grid here"
     ];
 
     private static readonly string[] UiShowMouseGridPrefixes =
@@ -5822,6 +8344,8 @@ public static class AlphaCommandRouter
         "show grid",
         "show grid everywhere",
         "show window grid",
+        "show mouse grid everywhere",
+        "show mouse window grid",
         "show mouse grid",
         "show mousegrid",
         "show numbered grid",
@@ -5875,6 +8399,10 @@ public static class AlphaCommandRouter
         "select cell ",
         "choose grid cell ",
         "select grid cell ",
+        "square ",
+        "choose square ",
+        "select square ",
+        "grid square ",
         "choose grid ",
         "select grid ",
         "mouse grid cell ",
@@ -5886,12 +8414,16 @@ public static class AlphaCommandRouter
         "click grid ",
         "click cell ",
         "click grid cell ",
+        "click square ",
+        "click grid square ",
         "press grid ",
         "press cell ",
         "press grid cell ",
+        "press square ",
         "tap grid ",
         "tap cell ",
         "tap grid cell ",
+        "tap square ",
         "click mouse grid "
     ];
 
@@ -5902,8 +8434,12 @@ public static class AlphaCommandRouter
         "drag from grid ",
         "drag cell ",
         "drag from cell ",
+        "drag square ",
+        "drag from square ",
         "drag grid cell ",
         "drag from grid cell ",
+        "drag grid square ",
+        "drag from grid square ",
         "move grid "
     ];
 
@@ -5964,6 +8500,10 @@ public static class AlphaCommandRouter
 
     private static readonly string[] UiVisibleControlLabelPrefixes =
     [
+        "focus on the ",
+        "focus on ",
+        "focus the ",
+        "focus ",
         "click on the ",
         "click on ",
         "press on ",
@@ -5978,6 +8518,24 @@ public static class AlphaCommandRouter
         "tap ",
     ];
 
+    private static readonly string[] UiVisibleFieldLabelPrefixes =
+    [
+        "go to the field ",
+        "go to field ",
+        "move to the field ",
+        "move to field ",
+        "focus the field ",
+        "focus field "
+    ];
+
+    private static readonly string[] UiVisibleFieldSuffixLabelPrefixes =
+    [
+        "go to the ",
+        "go to ",
+        "move to the ",
+        "move to "
+    ];
+
     private static readonly string[] UiVisibleControlDoubleClickLabelPrefixes =
     [
         "double click on the ",
@@ -5988,6 +8546,16 @@ public static class AlphaCommandRouter
         "double tap "
     ];
 
+    private static readonly string[] UiVisibleControlTripleClickLabelPrefixes =
+    [
+        "triple click on the ",
+        "triple click on ",
+        "triple click the ",
+        "triple click ",
+        "triple tap the ",
+        "triple tap "
+    ];
+
     private static readonly string[] UiVisibleControlRightClickLabelPrefixes =
     [
         "right click on the ",
@@ -5996,6 +8564,50 @@ public static class AlphaCommandRouter
         "right click ",
         "context click the ",
         "context click "
+    ];
+
+    private static readonly string[] UiVisibleControlToggleLabelPrefixes =
+    [
+        "toggle on the ",
+        "toggle the ",
+        "toggle ",
+        "flip on the ",
+        "flip the ",
+        "flip ",
+        "check the ",
+        "check ",
+        "uncheck the ",
+        "uncheck ",
+        "turn on the ",
+        "turn on ",
+        "turn off the ",
+        "turn off "
+    ];
+
+    private static readonly string[] UiVisibleControlExpandLabelPrefixes =
+    [
+        "expand on the ",
+        "expand the ",
+        "expand ",
+        "open the menu ",
+        "open menu ",
+        "open the dropdown ",
+        "open dropdown ",
+        "show options for ",
+        "show choices for "
+    ];
+
+    private static readonly string[] UiVisibleControlCollapseLabelPrefixes =
+    [
+        "collapse on the ",
+        "collapse the ",
+        "collapse ",
+        "close the menu ",
+        "close menu ",
+        "close the dropdown ",
+        "close dropdown ",
+        "hide options for ",
+        "hide choices for "
     ];
 
     private static readonly string[] UiAccountPrefixes =
@@ -6056,6 +8668,181 @@ public static class AlphaCommandRouter
         "shortcuts tab"
     ];
 
+    private static readonly string[] UiPlansPrefixes =
+    [
+        "open plans",
+        "show plans",
+        "go to plans",
+        "switch to plans",
+        "paywall",
+        "pay wall",
+        "paid wall",
+        "upgrade",
+        "subscription",
+        "plans tab",
+        "open plans tab",
+        "show plans tab"
+    ];
+
+    private static readonly string[] UiUpdatesPrefixes =
+    [
+        "open updates",
+        "show updates",
+        "go to updates",
+        "switch to updates",
+        "updates tab",
+        "open updates tab",
+        "show updates tab"
+    ];
+
+    private static readonly string[] UiCheckUpdatesPrefixes =
+    [
+        "check for updates now",
+        "check updates now",
+        "check for updates",
+        "check updates",
+        "update now",
+        "force update check",
+        "phone home now",
+        "phone home for updates"
+    ];
+
+    private static readonly string[] UiOpenInstallerPrefixes =
+    [
+        "open installer",
+        "show installer",
+        "open current installer",
+        "open update installer",
+        "download installer"
+    ];
+
+    private static readonly string[] UiOpenReleaseProofPrefixes =
+    [
+        "open release proof",
+        "show release proof",
+        "release proof"
+    ];
+
+    private static readonly string[] UiReadReleaseProofPrefixes =
+    [
+        "read release proof",
+        "repeat release proof",
+        "read the release proof",
+        "repeat the release proof"
+    ];
+
+    private static readonly string[] UiReadVoiceModeStatusPrefixes =
+    [
+        "read voice mode status",
+        "repeat voice mode status",
+        "read voice mode",
+        "repeat voice mode"
+    ];
+
+    private static readonly string[] UiOpenReleaseEvidencePrefixes =
+    [
+        "open release evidence",
+        "show release evidence",
+        "release evidence",
+        "open evidence",
+        "show evidence"
+    ];
+
+    private static readonly string[] UiOpenProofNotesPrefixes =
+    [
+        "open proof notes",
+        "show proof notes",
+        "open manual proof notes",
+        "show manual proof notes",
+        "open evidence notes",
+        "show evidence notes",
+        "open manual evidence notes",
+        "show manual evidence notes"
+    ];
+
+    private static readonly string[] UiReadProofNotesStatusPrefixes =
+    [
+        "read proof notes",
+        "repeat proof notes",
+        "read proof notes status",
+        "repeat proof notes status",
+        "read manual proof notes",
+        "read evidence notes",
+        "what proof notes exist",
+        "how many proof notes exist"
+    ];
+
+    private static readonly string[] UiCreateAllProofNotesPrefixes =
+    [
+        "create all proof notes",
+        "prepare all proof notes",
+        "create all manual proof notes",
+        "prepare all manual proof notes",
+        "create all evidence notes",
+        "prepare all evidence notes"
+    ];
+
+    private static readonly string[] UiCreateEvidenceDraftPrefixes =
+    [
+        "create evidence draft",
+        "create manual evidence draft",
+        "prefill evidence draft",
+        "prefill manual evidence",
+        "prefill manual evidence draft",
+        "make evidence draft",
+        "make manual evidence draft"
+    ];
+
+    private static readonly string[] UiOpenEvidenceDraftPrefixes =
+    [
+        "open evidence draft",
+        "show evidence draft",
+        "open manual evidence draft",
+        "show manual evidence draft",
+        "open draft evidence",
+        "show draft evidence"
+    ];
+
+    private static readonly string[] UiReadEvidenceDraftPrefixes =
+    [
+        "read evidence draft",
+        "repeat evidence draft",
+        "read manual evidence draft",
+        "repeat manual evidence draft",
+        "read draft evidence",
+        "what is in the evidence draft",
+        "what remains in the evidence draft"
+    ];
+
+    private static readonly string[] UiOpenManualEvidencePrefixes =
+    [
+        "open manual evidence",
+        "show manual evidence",
+        "open manual evidence template",
+        "manual evidence",
+        "manual evidence template"
+    ];
+
+    private static readonly string[] UiOpenManualEvidenceChecklistPrefixes =
+    [
+        "open manual evidence checklist",
+        "show manual evidence checklist",
+        "open checklist",
+        "manual evidence checklist",
+        "checklist"
+    ];
+
+    private static readonly string[] UiReadEvidenceHeaderPrefixes =
+    [
+        "read evidence header",
+        "repeat evidence header",
+        "read manual evidence header",
+        "repeat manual evidence header",
+        "read documentation evidence header",
+        "what header is missing",
+        "what evidence header is missing"
+    ];
+
     private static readonly string[] UiPacksPrefixes =
     [
         "open packs",
@@ -6067,6 +8854,79 @@ public static class AlphaCommandRouter
         "show packs tab",
         "command packs",
         "manage packs"
+    ];
+
+    private static readonly string[] UiImportPackPrefixes =
+    [
+        "import extension pack",
+        "import pack",
+        "import dll",
+        "add extension pack",
+        "add dll",
+        "install extension pack",
+        "install dll",
+        "drop dll",
+        "drop extension pack",
+        "drag and drop dll"
+    ];
+
+    private static readonly string[] UiImportPackFolderPrefixes =
+    [
+        "import extension folder",
+        "import folder",
+        "import dll folder",
+        "add extension folder",
+        "add dll folder",
+        "install extension folder",
+        "install dll folder",
+        "drop dll folder",
+        "drag and drop dll folder"
+    ];
+
+    private static readonly string[] UiUpdatePackPrefixes =
+    [
+        "update extension pack",
+        "update pack",
+        "reimport extension pack",
+        "reimport pack"
+    ];
+
+    private static readonly string[] UiRollbackPackPrefixes =
+    [
+        "rollback extension pack",
+        "rollback pack",
+        "restore extension pack",
+        "restore pack"
+    ];
+
+    private static readonly string[] UiRefreshPacksPrefixes =
+    [
+        "refresh packs",
+        "reload packs"
+    ];
+
+    private static readonly string[] UiOpenPacksFolderPrefixes =
+    [
+        "open packs folder",
+        "show packs folder"
+    ];
+
+    private static readonly string[] UiEnableSelectedPackPrefixes =
+    [
+        "enable selected pack",
+        "turn on selected pack"
+    ];
+
+    private static readonly string[] UiDisableSelectedPackPrefixes =
+    [
+        "disable selected pack",
+        "turn off selected pack"
+    ];
+
+    private static readonly string[] UiRemoveSelectedPackPrefixes =
+    [
+        "remove selected pack",
+        "delete selected pack"
     ];
 
     private static readonly string[] UiBrowserPrefixes =
@@ -6082,13 +8942,22 @@ public static class AlphaCommandRouter
 
     private static readonly string[] UiFilesPrefixes =
     [
+        "files",
         "open files",
         "show files",
         "go to files",
         "switch to files",
+        "file search",
+        "open file search",
+        "show file search",
+        "go to file search",
+        "switch to file search",
         "files tab",
+        "file search tab",
         "open files tab",
-        "show files tab"
+        "show files tab",
+        "open file search tab",
+        "show file search tab"
     ];
 
     private static readonly string[] UiSystemPrefixes =
@@ -6119,14 +8988,18 @@ public static class AlphaCommandRouter
         "switch to previous tab",
         "move to previous tab",
         "back tab",
-        "go back",
         "previous page",
         "show previous tab"
     ];
 
     private const string UiActionActivateLabelPrefix = "ui-activate-label:";
     private const string UiActionDoubleClickLabelPrefix = "ui-double-click-label:";
+    private const string UiActionTripleClickLabelPrefix = "ui-triple-click-label:";
     private const string UiActionRightClickLabelPrefix = "ui-right-click-label:";
+    private const string UiActionToggleLabelPrefix = "ui-toggle-label:";
+    private const string UiActionExpandLabelPrefix = "ui-expand-label:";
+    private const string UiActionCollapseLabelPrefix = "ui-collapse-label:";
+    private const string UiActionMoveSliderPrefix = "ui-move-slider:";
     public const string DictationInsertTextActionPrefix = "dictation-insert-text:";
 
     private static readonly string[] VisibleControlLabelLeadingWords =
@@ -6197,5 +9070,19 @@ public static class AlphaCommandRouter
         "panes",
         "pane",
         "listbox"
+    ];
+
+    private static readonly string[] VisibleFieldLabelSuffixes =
+    [
+        "field",
+        "form field",
+        "text box",
+        "textbox",
+        "edit box",
+        "editbox",
+        "combo box",
+        "combo",
+        "drop down",
+        "dropdown"
     ];
 }

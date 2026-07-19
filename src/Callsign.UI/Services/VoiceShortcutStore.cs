@@ -95,14 +95,17 @@ public sealed class VoiceShortcutStore
             CreatedUtc: DateTimeOffset.UtcNow,
             UpdatedUtc: DateTimeOffset.UtcNow);
 
-    public VoiceShortcutSaveResult Save(VoiceShortcutDefinition shortcut)
+    public VoiceShortcutSaveResult Save(VoiceShortcutDefinition shortcut, Func<string, bool>? commandValidator = null)
     {
         var shortcuts = GetShortcuts().ToList();
         var normalized = Normalize(shortcut);
         if (normalized == null)
             return new VoiceShortcutSaveResult(false, "The shortcut could not be normalized.");
 
-        var validation = Validate(normalized, shortcuts.Where(existing => !string.Equals(existing.ShortcutId, normalized.ShortcutId, StringComparison.OrdinalIgnoreCase)));
+        var validation = Validate(
+            normalized,
+            shortcuts.Where(existing => !string.Equals(existing.ShortcutId, normalized.ShortcutId, StringComparison.OrdinalIgnoreCase)),
+            commandValidator);
         if (!validation.Succeeded)
             return validation;
 
@@ -172,7 +175,10 @@ public sealed class VoiceShortcutStore
         return true;
     }
 
-    public static VoiceShortcutSaveResult Validate(VoiceShortcutDefinition shortcut, IEnumerable<VoiceShortcutDefinition>? otherShortcuts = null)
+    public static VoiceShortcutSaveResult Validate(
+        VoiceShortcutDefinition shortcut,
+        IEnumerable<VoiceShortcutDefinition>? otherShortcuts = null,
+        Func<string, bool>? commandValidator = null)
     {
         if (string.IsNullOrWhiteSpace(shortcut.Title))
             return new VoiceShortcutSaveResult(false, "Shortcut title is required.");
@@ -197,6 +203,10 @@ public sealed class VoiceShortcutStore
                 case VoiceShortcutActionKind.Command:
                     if (string.IsNullOrWhiteSpace(action.Value))
                         return new VoiceShortcutSaveResult(false, "Each command action needs a spoken command.");
+                    if (string.Equals(AlphaVoiceTranscriptParser.NormalizeSpeechText(action.Value), normalizedPhrase, StringComparison.OrdinalIgnoreCase))
+                        return new VoiceShortcutSaveResult(false, "A voice shortcut cannot run itself as a command step.");
+                    if (commandValidator != null && !commandValidator(action.Value))
+                        return new VoiceShortcutSaveResult(false, $"Shortcut command step could not be resolved by Callsign: '{action.Value}'.");
                     break;
                 case VoiceShortcutActionKind.Wait:
                     if (action.DurationMilliseconds < VoiceShortcutConstants.MinWaitMilliseconds
@@ -212,14 +222,87 @@ public sealed class VoiceShortcutStore
 
         if (otherShortcuts != null)
         {
-            foreach (var other in otherShortcuts)
+            var otherShortcutList = otherShortcuts.ToArray();
+            foreach (var other in otherShortcutList)
             {
                 if (string.Equals(AlphaVoiceTranscriptParser.NormalizeSpeechText(other.WhenISay), normalizedPhrase, StringComparison.OrdinalIgnoreCase))
                     return new VoiceShortcutSaveResult(false, "Another voice shortcut already uses that spoken phrase.");
             }
+
+            if (HasShortcutCycle(shortcut, otherShortcutList))
+                return new VoiceShortcutSaveResult(false, "Voice shortcuts cannot call each other in a loop.");
         }
 
         return new VoiceShortcutSaveResult(true, "Voice shortcut is valid.", shortcut);
+    }
+
+    private static bool HasShortcutCycle(VoiceShortcutDefinition shortcut, IReadOnlyCollection<VoiceShortcutDefinition> otherShortcuts)
+    {
+        var allShortcuts = otherShortcuts
+            .Append(shortcut)
+            .Select(Normalize)
+            .Where(candidate => candidate != null)
+            .Cast<VoiceShortcutDefinition>()
+            .ToArray();
+        var startId = shortcut.ShortcutId;
+        if (string.IsNullOrWhiteSpace(startId))
+            return false;
+
+        var phraseToShortcutId = allShortcuts
+            .Select(candidate => new
+            {
+                candidate.ShortcutId,
+                Phrase = AlphaVoiceTranscriptParser.NormalizeSpeechText(candidate.WhenISay)
+            })
+            .Where(candidate => !string.IsNullOrWhiteSpace(candidate.ShortcutId) && !string.IsNullOrWhiteSpace(candidate.Phrase))
+            .GroupBy(candidate => candidate.Phrase, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Select(candidate => candidate.ShortcutId).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+                StringComparer.OrdinalIgnoreCase);
+
+        var commandEdges = allShortcuts.ToDictionary(
+            candidate => candidate.ShortcutId,
+            candidate => candidate.Actions
+                .Where(action => action.Kind == VoiceShortcutActionKind.Command)
+                .Select(action => AlphaVoiceTranscriptParser.NormalizeSpeechText(action.Value))
+                .Where(command => !string.IsNullOrWhiteSpace(command))
+                .ToArray(),
+            StringComparer.OrdinalIgnoreCase);
+
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var active = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        return VisitsStart(startId);
+
+        bool VisitsStart(string shortcutId)
+        {
+            if (!visited.Add(shortcutId))
+                return false;
+
+            active.Add(shortcutId);
+            if (commandEdges.TryGetValue(shortcutId, out var commands))
+            {
+                foreach (var command in commands)
+                {
+                    if (!phraseToShortcutId.TryGetValue(command, out var nextShortcutIds))
+                        continue;
+
+                    foreach (var nextShortcutId in nextShortcutIds)
+                    {
+                        if (string.Equals(nextShortcutId, startId, StringComparison.OrdinalIgnoreCase))
+                            return true;
+                        if (active.Contains(nextShortcutId))
+                            return true;
+                        if (VisitsStart(nextShortcutId))
+                            return true;
+                    }
+                }
+            }
+
+            active.Remove(shortcutId);
+            return false;
+        }
     }
 
     private void Persist(IEnumerable<VoiceShortcutDefinition> shortcuts)
@@ -275,9 +358,12 @@ public sealed class VoiceShortcutCommandPack : ICallsignCommandPack
 
     public VoiceShortcutCommandPack(IEnumerable<VoiceShortcutDefinition> shortcuts)
     {
-        _shortcuts = shortcuts
+        var shortcutList = shortcuts.ToArray();
+        _shortcuts = shortcutList
             .Where(shortcut => shortcut.Enabled)
-            .Select(shortcut => VoiceShortcutStore.Validate(shortcut).Shortcut ?? shortcut)
+            .Where(shortcut => VoiceShortcutStore.Validate(
+                shortcut,
+                shortcutList.Where(other => !string.Equals(other.ShortcutId, shortcut.ShortcutId, StringComparison.OrdinalIgnoreCase))).Succeeded)
             .ToDictionary(shortcut => shortcut.ShortcutId, StringComparer.OrdinalIgnoreCase);
     }
 

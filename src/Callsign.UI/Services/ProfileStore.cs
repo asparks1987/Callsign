@@ -109,6 +109,7 @@ public sealed class ProfileStore
             UpgradeWakeDefaults(profile.Settings);
             UpgradeSpeechTimingDefaults(profile.Settings);
             profile.Callsign = NormalizeCallsign(Path.GetFileName(Path.GetDirectoryName(profileFile)));
+            EnsureUpdateDeviceId(profile);
             return profile;
         }
         catch
@@ -176,5 +177,14 @@ public sealed class ProfileStore
             return;
 
         settings.VoiceSilenceMilliseconds = 200;
+    }
+
+    private void EnsureUpdateDeviceId(UserProfile profile)
+    {
+        if (!string.IsNullOrWhiteSpace(profile.Settings.UpdateDeviceId))
+            return;
+
+        profile.Settings.UpdateDeviceId = $"callsign-{Guid.NewGuid():N}";
+        Save(profile);
     }
 }

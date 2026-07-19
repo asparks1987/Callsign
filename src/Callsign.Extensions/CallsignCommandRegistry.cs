@@ -5,29 +5,102 @@ using System.Text.Json;
 
 namespace Callsign.Extensions;
 
-public sealed class CallsignCommandRegistry
+public sealed class CallsignCommandRegistry : IDisposable
 {
     private const string DefaultPackFolderName = "Packs";
     private const string InstalledPackFolderName = "Installed";
     private const string PackStateFileName = "packs-state.json";
+    private static readonly HashSet<string> ReservedWindowsFileNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        "COM1",
+        "COM2",
+        "COM3",
+        "COM4",
+        "COM5",
+        "COM6",
+        "COM7",
+        "COM8",
+        "COM9",
+        "LPT1",
+        "LPT2",
+        "LPT3",
+        "LPT4",
+        "LPT5",
+        "LPT6",
+        "LPT7",
+        "LPT8",
+        "LPT9"
+    };
 
     private readonly object _gate = new();
     private readonly Dictionary<string, PackRegistration> _packs = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<CommandRegistration> _commands = new();
+    private readonly List<RegisteredModule> _registeredModules = new();
     private readonly string _packRoot;
     private readonly string _statePath;
-    private readonly CallsignEntitlementState _entitlements;
+    private CallsignEntitlementState _entitlements;
+    private readonly FileSystemWatcher? _watcher;
+    private readonly System.Threading.Timer? _refreshTimer;
+    private int _watcherRefreshPending;
+    private bool _disposed;
+
+    public event EventHandler? Changed;
 
     public CallsignCommandRegistry(string? packRoot = null, CallsignEntitlementState? entitlements = null)
     {
         _packRoot = packRoot ?? GetDefaultPackRoot();
         _statePath = Path.Combine(_packRoot, PackStateFileName);
         _entitlements = entitlements ?? CallsignEntitlementState.FreeOnly;
+        Directory.CreateDirectory(_packRoot);
+        _refreshTimer = new System.Threading.Timer(_ =>
+        {
+            if (_disposed)
+                return;
+
+            Interlocked.Exchange(ref _watcherRefreshPending, 0);
+            try
+            {
+                Refresh();
+                OnChanged();
+            }
+            catch
+            {
+            }
+        }, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        _watcher = new FileSystemWatcher(_packRoot)
+        {
+            IncludeSubdirectories = true,
+            Filter = "*.dll",
+            NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.CreationTime,
+            EnableRaisingEvents = true
+        };
+        _watcher.Changed += OnPackFolderChanged;
+        _watcher.Created += OnPackFolderChanged;
+        _watcher.Deleted += OnPackFolderChanged;
+        _watcher.Renamed += OnPackFolderChanged;
     }
 
     public static CallsignCommandRegistry Shared { get; } = new();
 
+    public CallsignEntitlementState Entitlements => _entitlements;
+
+    public void SetEntitlements(CallsignEntitlementState? entitlements)
+    {
+        _entitlements = entitlements ?? CallsignEntitlementState.FreeOnly;
+        Refresh();
+    }
+
     public string PackRoot => _packRoot;
+
+    public bool IsWatchingPackRoot => _watcher?.EnableRaisingEvents == true;
+
+    public string WatchStatusText => IsWatchingPackRoot
+        ? $"Watched folder active: {_packRoot}"
+        : $"Watched folder unavailable: {_packRoot}";
 
     public static IReadOnlyList<string> ExpandImportablePackPaths(IEnumerable<string> sourcePaths)
     {
@@ -42,7 +115,9 @@ public sealed class CallsignCommandRegistry
 
             if (File.Exists(rawPath) && Path.GetExtension(rawPath).Equals(".dll", StringComparison.OrdinalIgnoreCase))
             {
-                normalized.Add(Path.GetFullPath(rawPath));
+                var fullPath = Path.GetFullPath(rawPath);
+                if (IsSafePackFileName(Path.GetFileName(fullPath)))
+                    normalized.Add(fullPath);
                 continue;
             }
 
@@ -50,7 +125,11 @@ public sealed class CallsignCommandRegistry
                 continue;
 
             foreach (var dll in Directory.EnumerateFiles(rawPath, "*.dll", SearchOption.AllDirectories))
-                normalized.Add(Path.GetFullPath(dll));
+            {
+                var fullPath = Path.GetFullPath(dll);
+                if (IsSafePackFileName(Path.GetFileName(fullPath)))
+                    normalized.Add(fullPath);
+            }
         }
 
         return normalized.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToArray();
@@ -101,6 +180,9 @@ public sealed class CallsignCommandRegistry
 
             foreach (var pack in discovered)
                 AddPackLocked(pack.Module, pack.Info.AssemblyPath, pack.Info, pack.Commands, pack.Disabled);
+
+            foreach (var registration in _registeredModules)
+                AddRegisteredModuleLocked(registration.Module, registration.AssemblyPath);
         }
     }
 
@@ -116,10 +198,34 @@ public sealed class CallsignCommandRegistry
         if (!File.Exists(sourceFullPath))
             return new CallsignPackImportResult(false, "The selected command pack DLL was not found.", SourcePath: sourceFullPath);
 
+        var sourceFileName = Path.GetFileName(sourceFullPath);
+        if (!IsSafePackFileName(sourceFileName))
+            return new CallsignPackImportResult(false, "Community command pack file names must be normal Windows .dll file names.", SourcePath: sourceFullPath);
+
         Directory.CreateDirectory(_packRoot);
-        var installedPath = Path.Combine(_packRoot, Path.GetFileName(sourceFullPath));
+        var installedPath = Path.Combine(_packRoot, sourceFileName);
+        if (enableImmediately && TryReadPackId(sourceFullPath, out var sourcePackId))
+        {
+            CallsignPackInfo? existingPack;
+            lock (_gate)
+            {
+                _packs.TryGetValue(sourcePackId, out var existingRegistration);
+                existingPack = existingRegistration?.Info;
+            }
+
+            if (existingPack != null
+                && IsManagedAssemblyPath(existingPack.AssemblyPath)
+                && !string.Equals(Path.GetFullPath(existingPack.AssemblyPath), sourceFullPath, StringComparison.OrdinalIgnoreCase))
+            {
+                RemovePack(sourcePackId, out _, deleteAssemblyFile: true);
+            }
+        }
+
         if (File.Exists(installedPath) && !allowOverwrite && !string.Equals(sourceFullPath, Path.GetFullPath(installedPath), StringComparison.OrdinalIgnoreCase))
             return new CallsignPackImportResult(false, "A command pack with that file name is already installed. Remove it or choose a different pack file.", sourceFullPath, installedPath);
+
+        if (allowOverwrite && File.Exists(installedPath) && !string.Equals(sourceFullPath, Path.GetFullPath(installedPath), StringComparison.OrdinalIgnoreCase))
+            CreatePackBackup(installedPath);
 
         if (!string.Equals(sourceFullPath, Path.GetFullPath(installedPath), StringComparison.OrdinalIgnoreCase))
             File.Copy(sourceFullPath, installedPath, overwrite: allowOverwrite);
@@ -127,7 +233,17 @@ public sealed class CallsignCommandRegistry
         Refresh();
 
         var packId = NormalizeKey(Path.GetFileNameWithoutExtension(installedPath));
-        if (!enableImmediately)
+        if (enableImmediately)
+        {
+            var importedPack = GetPacks()
+                .FirstOrDefault(pack => string.Equals(Path.GetFullPath(pack.AssemblyPath), installedPath, StringComparison.OrdinalIgnoreCase));
+            if (importedPack != null && !string.IsNullOrWhiteSpace(importedPack.PackId))
+            {
+                packId = importedPack.PackId;
+                EnablePack(packId);
+            }
+        }
+        else
         {
             var importedPack = GetPacks()
                 .FirstOrDefault(pack => string.Equals(Path.GetFullPath(pack.AssemblyPath), installedPath, StringComparison.OrdinalIgnoreCase));
@@ -167,59 +283,35 @@ public sealed class CallsignCommandRegistry
             finalStatus);
     }
 
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+
+        if (_watcher != null)
+        {
+            _watcher.Changed -= OnPackFolderChanged;
+            _watcher.Created -= OnPackFolderChanged;
+            _watcher.Deleted -= OnPackFolderChanged;
+            _watcher.Renamed -= OnPackFolderChanged;
+            _watcher.Dispose();
+        }
+
+        _refreshTimer?.Dispose();
+    }
+
     public void RegisterPack(ICallsignCommandPack module, string assemblyPath = "<in-memory>")
     {
         lock (_gate)
         {
-            var descriptor = module.Descriptor;
-            var packId = NormalizeKey(descriptor.PackId);
-            var commandDefinitions = module.Commands ?? Array.Empty<CallsignCommandDefinition>();
-            if (!TryValidatePackMetadata(descriptor, commandDefinitions, out var validationMessage))
-            {
-                var invalidInfo = new CallsignPackInfo(
-                    PackId: string.IsNullOrWhiteSpace(packId) ? NormalizeKey(descriptor.DisplayName) : packId,
-                    DisplayName: string.IsNullOrWhiteSpace(descriptor.DisplayName) ? "Invalid command pack" : descriptor.DisplayName,
-                    Version: string.IsNullOrWhiteSpace(descriptor.Version) ? "0.0.0" : descriptor.Version,
-                    Tier: descriptor.Tier,
-                    LoadStatus: CallsignPackLoadStatus.InvalidPack,
-                    AssemblyPath: assemblyPath,
-                    CommandCount: commandDefinitions.Count,
-                    Message: validationMessage,
-                    LoadedUtc: DateTimeOffset.UtcNow,
-                    IsCommunity: descriptor.IsCommunity,
-                    SignatureStatus: descriptor.SignatureStatus,
-                    RequiresSignature: descriptor.RequiresSignature);
-                AddPackLocked(module, assemblyPath, invalidInfo, Array.Empty<CommandRegistration>(), disabled: true);
-                return;
-            }
-
-            var loadStatus = GetGatedLoadStatus(descriptor.Tier, descriptor.RequiresSignature, descriptor.SignatureStatus);
-            var commands = commandDefinitions
-                .Select(command => new CommandRegistration(
-                    packId,
-                    descriptor.DisplayName,
-                    descriptor.Version,
-                    descriptor.Tier,
-                    assemblyPath,
-                    module,
-                    command))
-                .ToArray();
-
-            var info = new CallsignPackInfo(
-                PackId: packId,
-                DisplayName: descriptor.DisplayName,
-                Version: descriptor.Version,
-                Tier: descriptor.Tier,
-                LoadStatus: loadStatus,
-                AssemblyPath: assemblyPath,
-                CommandCount: commands.Length,
-                Message: FormatLoadStatusMessage(loadStatus, descriptor.Tier),
-                LoadedUtc: DateTimeOffset.UtcNow,
-                IsCommunity: descriptor.IsCommunity,
-                SignatureStatus: descriptor.SignatureStatus,
-                RequiresSignature: descriptor.RequiresSignature);
-
-            AddPackLocked(module, assemblyPath, info, commands, disabled: loadStatus != CallsignPackLoadStatus.Loaded);
+            var packId = NormalizeKey(module.Descriptor.PackId);
+            _registeredModules.RemoveAll(registration =>
+                string.Equals(NormalizeKey(registration.Module.Descriptor.PackId), packId, StringComparison.OrdinalIgnoreCase)
+                || ReferenceEquals(registration.Module, module));
+            _registeredModules.Add(new RegisteredModule(module, assemblyPath));
+            AddRegisteredModuleLocked(module, assemblyPath);
         }
     }
 
@@ -279,7 +371,8 @@ public sealed class CallsignCommandRegistry
                 AuditEvent: $"command_blocked:{resolution.PackId}:{resolution.CommandId}",
                 PolicyDecision: policy.Decision,
                 PolicyApprovalRequirement: policy.ApprovalRequirement,
-                PolicyRiskTier: policy.RiskTier);
+                PolicyRiskTier: policy.RiskTier,
+                PolicyVisibleActionRequired: policy.VisibleActionRequired);
             return true;
         }
 
@@ -291,7 +384,8 @@ public sealed class CallsignCommandRegistry
                 AuditEvent: $"fresh_identity_required:{resolution.PackId}:{resolution.CommandId}",
                 PolicyDecision: policy.Decision,
                 PolicyApprovalRequirement: policy.ApprovalRequirement,
-                PolicyRiskTier: policy.RiskTier);
+                PolicyRiskTier: policy.RiskTier,
+                PolicyVisibleActionRequired: policy.VisibleActionRequired);
             return true;
         }
 
@@ -303,7 +397,8 @@ public sealed class CallsignCommandRegistry
                 AuditEvent: $"approval_required:{resolution.PackId}:{resolution.CommandId}",
                 PolicyDecision: policy.Decision,
                 PolicyApprovalRequirement: policy.ApprovalRequirement,
-                PolicyRiskTier: policy.RiskTier);
+                PolicyRiskTier: policy.RiskTier,
+                PolicyVisibleActionRequired: policy.VisibleActionRequired);
             return true;
         }
 
@@ -420,6 +515,22 @@ public sealed class CallsignCommandRegistry
         }
     }
 
+    public bool HasRollbackBackup(string packId)
+    {
+        packId = NormalizeKey(packId);
+        if (string.IsNullOrWhiteSpace(packId))
+            return false;
+
+        lock (_gate)
+        {
+            if (!_packs.TryGetValue(packId, out var pack))
+                return false;
+
+            var backupPath = GetLatestPackBackupPath(pack.Info.AssemblyPath);
+            return !string.IsNullOrWhiteSpace(backupPath) && File.Exists(backupPath);
+        }
+    }
+
     public bool RemovePack(string packId, out string? message, bool deleteAssemblyFile = true)
     {
         packId = NormalizeKey(packId);
@@ -441,12 +552,21 @@ public sealed class CallsignCommandRegistry
 
             var assemblyPath = pack.Info.AssemblyPath;
             var loadContext = pack.LoadContext;
+            var keepManagedAssemblyDisabled = !deleteAssemblyFile && IsManagedAssemblyPath(assemblyPath);
+            if (keepManagedAssemblyDisabled)
+            {
+                pack.Disabled = true;
+                pack.Info = pack.Info with { LoadStatus = CallsignPackLoadStatus.Disabled, Message = "Removed from the active registry; kept disabled on disk." };
+                PersistState();
+            }
+
             pack.Module = null;
             pack.Commands = Array.Empty<CommandRegistration>();
             pack.LoadContext = null;
             _packs.Remove(packId);
             _commands.RemoveAll(command => string.Equals(command.PackId, packId, StringComparison.OrdinalIgnoreCase));
-            PersistState();
+            if (!keepManagedAssemblyDisabled)
+                PersistState();
 
             if (loadContext != null)
             {
@@ -471,12 +591,104 @@ public sealed class CallsignCommandRegistry
         return true;
     }
 
+    public bool RollbackPack(string packId, out string? message)
+    {
+        packId = NormalizeKey(packId);
+        message = null;
+
+        if (string.IsNullOrWhiteSpace(packId))
+        {
+            message = "No pack identifier was provided.";
+            return false;
+        }
+
+        string? assemblyPath;
+        string? backupPath;
+        bool wasDisabled = false;
+
+        lock (_gate)
+        {
+            if (!_packs.TryGetValue(packId, out var pack))
+            {
+                message = "The selected pack is not currently known to Callsign.";
+                return false;
+            }
+
+            assemblyPath = pack.Info.AssemblyPath;
+            wasDisabled = pack.Disabled;
+            backupPath = GetLatestPackBackupPath(assemblyPath);
+        }
+
+        if (string.IsNullOrWhiteSpace(assemblyPath))
+        {
+            message = "The selected pack does not have a local assembly path.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(backupPath) || !File.Exists(backupPath))
+        {
+            message = "No previous pack version is available to roll back to.";
+            return false;
+        }
+
+        if (!RemovePack(packId, out var removeMessage, deleteAssemblyFile: false))
+        {
+            message = removeMessage;
+            return false;
+        }
+
+        try
+        {
+            if (!TryCopyFileWithRetry(backupPath, assemblyPath, out var copyMessage))
+            {
+                message = copyMessage;
+                return false;
+            }
+
+            Refresh();
+            if (wasDisabled)
+                DisablePack(packId);
+            else
+                EnablePack(packId);
+
+            message = "Pack rolled back to the previous version.";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            message = $"Unable to restore the previous pack version: {ex.Message}";
+            return false;
+        }
+    }
+
     private static string GetDefaultPackRoot() =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Callsign",
             DefaultPackFolderName,
             InstalledPackFolderName);
+
+    private void OnPackFolderChanged(object sender, FileSystemEventArgs e)
+    {
+        if (_disposed)
+            return;
+
+        if (!e.FullPath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        ScheduleWatcherRefresh();
+    }
+
+    private void ScheduleWatcherRefresh()
+    {
+        if (_disposed || _refreshTimer == null)
+            return;
+
+        Interlocked.Exchange(ref _watcherRefreshPending, 1);
+        _refreshTimer.Change(TimeSpan.FromMilliseconds(250), Timeout.InfiniteTimeSpan);
+    }
+
+    private void OnChanged() => Changed?.Invoke(this, EventArgs.Empty);
 
     private CallsignPackState LoadPackState()
     {
@@ -531,10 +743,28 @@ public sealed class CallsignCommandRegistry
         var registrations = new List<PackRegistration>();
         foreach (var assemblyPath in Directory.EnumerateFiles(packRoot, "*.dll", SearchOption.AllDirectories))
         {
+            if (IsBackupAssemblyPath(packRoot, assemblyPath))
+                continue;
+
             var assemblyToken = NormalizeAssemblyPath(packRoot, assemblyPath);
             var pack = TryLoadPack(assemblyPath, out var info, out var module, out var commands, out var loadContext);
             if (pack == null || module == null || info == null || commands == null)
             {
+                if (info != null)
+                {
+                    registrations.Add(new PackRegistration(
+                        module,
+                        info with
+                        {
+                            LoadStatus = info.LoadStatus,
+                            Message = info.Message
+                        },
+                        commands ?? Array.Empty<CommandRegistration>(),
+                        disabled: true,
+                        loadContext));
+                    continue;
+                }
+
                 if (disabledAssemblyPaths.Contains(assemblyToken))
                 {
                     registrations.Add(new PackRegistration(
@@ -593,7 +823,7 @@ public sealed class CallsignCommandRegistry
         try
         {
             loadContext = new CallsignPackAssemblyLoadContext(assemblyPath);
-            var assembly = loadContext.LoadFromAssemblyPath(Path.GetFullPath(assemblyPath));
+            var assembly = loadContext.LoadMainAssembly();
             var packType = assembly.GetTypes().FirstOrDefault(type =>
                 !type.IsAbstract
                 && typeof(ICallsignCommandPack).IsAssignableFrom(type)
@@ -610,7 +840,8 @@ public sealed class CallsignCommandRegistry
                     AssemblyPath: assemblyPath,
                     CommandCount: 0,
                     Message: "No ICallsignCommandPack implementation was found in the assembly.",
-                    LoadedUtc: DateTimeOffset.UtcNow);
+                    LoadedUtc: DateTimeOffset.UtcNow,
+                    WasImported: true);
                 return null;
             }
 
@@ -626,7 +857,8 @@ public sealed class CallsignCommandRegistry
                     AssemblyPath: assemblyPath,
                     CommandCount: 0,
                     Message: "Pack type could not be created.",
-                    LoadedUtc: DateTimeOffset.UtcNow);
+                    LoadedUtc: DateTimeOffset.UtcNow,
+                    WasImported: true);
                 return null;
             }
 
@@ -646,6 +878,7 @@ public sealed class CallsignCommandRegistry
                     Message: validationMessage,
                     LoadedUtc: DateTimeOffset.UtcNow,
                     IsCommunity: descriptor.IsCommunity,
+                    WasImported: true,
                     SignatureStatus: descriptor.SignatureStatus,
                     RequiresSignature: descriptor.RequiresSignature);
                 commands = Array.Empty<CommandRegistration>();
@@ -675,6 +908,7 @@ public sealed class CallsignCommandRegistry
                 Message: "Loaded.",
                 LoadedUtc: DateTimeOffset.UtcNow,
                 IsCommunity: descriptor.IsCommunity,
+                WasImported: true,
                 SignatureStatus: descriptor.SignatureStatus,
                 RequiresSignature: descriptor.RequiresSignature);
             return new PackModule(module);
@@ -691,7 +925,8 @@ public sealed class CallsignCommandRegistry
                 AssemblyPath: assemblyPath,
                 CommandCount: 0,
                 Message: ex.Message,
-                LoadedUtc: DateTimeOffset.UtcNow);
+                LoadedUtc: DateTimeOffset.UtcNow,
+                WasImported: true);
             return null;
         }
     }
@@ -874,6 +1109,10 @@ public sealed class CallsignCommandRegistry
         public CallsignPackAssemblyLoadContext? LoadContext { get; set; }
     }
 
+    private sealed record RegisteredModule(
+        ICallsignCommandPack Module,
+        string AssemblyPath);
+
     private sealed record CommandRegistration(
         string PackId,
         string PackDisplayName,
@@ -893,6 +1132,7 @@ public sealed class CallsignCommandRegistry
                 PackVersion,
                 Definition.Tier,
                 loadStatus,
+                Module?.Descriptor.IsCommunity ?? false,
                 Definition.CommandId,
                 Definition.DisplayName,
                 argumentText,
@@ -932,6 +1172,59 @@ public sealed class CallsignCommandRegistry
             RequiresSignature: false);
     }
 
+    private void AddRegisteredModuleLocked(ICallsignCommandPack module, string assemblyPath)
+    {
+        var descriptor = module.Descriptor;
+        var packId = NormalizeKey(descriptor.PackId);
+        var commandDefinitions = module.Commands ?? Array.Empty<CallsignCommandDefinition>();
+        if (!TryValidatePackMetadata(descriptor, commandDefinitions, out var validationMessage))
+        {
+            var invalidInfo = new CallsignPackInfo(
+                PackId: string.IsNullOrWhiteSpace(packId) ? NormalizeKey(descriptor.DisplayName) : packId,
+                DisplayName: string.IsNullOrWhiteSpace(descriptor.DisplayName) ? "Invalid command pack" : descriptor.DisplayName,
+                Version: string.IsNullOrWhiteSpace(descriptor.Version) ? "0.0.0" : descriptor.Version,
+                Tier: descriptor.Tier,
+                LoadStatus: CallsignPackLoadStatus.InvalidPack,
+                AssemblyPath: assemblyPath,
+                CommandCount: commandDefinitions.Count,
+                Message: validationMessage,
+                LoadedUtc: DateTimeOffset.UtcNow,
+                IsCommunity: descriptor.IsCommunity,
+                SignatureStatus: descriptor.SignatureStatus,
+                RequiresSignature: descriptor.RequiresSignature);
+            AddPackLocked(module, assemblyPath, invalidInfo, Array.Empty<CommandRegistration>(), disabled: true);
+            return;
+        }
+
+        var loadStatus = GetGatedLoadStatus(descriptor.Tier, descriptor.RequiresSignature, descriptor.SignatureStatus);
+        var commands = commandDefinitions
+            .Select(command => new CommandRegistration(
+                packId,
+                descriptor.DisplayName,
+                descriptor.Version,
+                descriptor.Tier,
+                assemblyPath,
+                module,
+                command))
+            .ToArray();
+
+        var info = new CallsignPackInfo(
+            PackId: packId,
+            DisplayName: descriptor.DisplayName,
+            Version: descriptor.Version,
+            Tier: descriptor.Tier,
+            LoadStatus: loadStatus,
+            AssemblyPath: assemblyPath,
+            CommandCount: commands.Length,
+            Message: FormatLoadStatusMessage(loadStatus, descriptor.Tier),
+            LoadedUtc: DateTimeOffset.UtcNow,
+            IsCommunity: descriptor.IsCommunity,
+            SignatureStatus: descriptor.SignatureStatus,
+            RequiresSignature: descriptor.RequiresSignature);
+
+        AddPackLocked(module, assemblyPath, info, commands, disabled: loadStatus != CallsignPackLoadStatus.Loaded);
+    }
+
     private bool IsTierEntitled(CallsignPackTier tier) => _entitlements.Allows(tier);
 
     private CallsignPackLoadStatus GetGatedLoadStatus(CallsignPackTier tier, bool requiresSignature, string? signatureStatus)
@@ -969,6 +1262,45 @@ public sealed class CallsignCommandRegistry
         && !assemblyPath.StartsWith("<", StringComparison.Ordinal)
         && assemblyPath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsBackupAssemblyPath(string packRoot, string assemblyPath)
+    {
+        try
+        {
+            var fullPackRoot = Path.GetFullPath(packRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            var fullAssemblyPath = Path.GetFullPath(assemblyPath);
+            var relativePath = Path.GetRelativePath(fullPackRoot, fullAssemblyPath);
+            return relativePath.StartsWith($"Backups{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)
+                   || relativePath.StartsWith($"Backups{Path.AltDirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private string CreatePackBackup(string installedPath)
+    {
+        var packFolder = Path.GetFileNameWithoutExtension(installedPath);
+        var backupFolder = Path.Combine(_packRoot, "Backups", packFolder);
+        Directory.CreateDirectory(backupFolder);
+        var backupFileName = $"{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}-{Path.GetFileName(installedPath)}";
+        var backupPath = Path.Combine(backupFolder, backupFileName);
+        File.Copy(installedPath, backupPath, overwrite: false);
+        return backupPath;
+    }
+
+    private string? GetLatestPackBackupPath(string assemblyPath)
+    {
+        var packFolder = Path.GetFileNameWithoutExtension(assemblyPath);
+        var backupFolder = Path.Combine(_packRoot, "Backups", packFolder);
+        if (!Directory.Exists(backupFolder))
+            return null;
+
+        return Directory.EnumerateFiles(backupFolder, "*.dll", SearchOption.TopDirectoryOnly)
+            .OrderByDescending(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+    }
+
     private static bool TryDeleteFileWithRetry(string path, out string? message)
     {
         message = null;
@@ -986,6 +1318,30 @@ public sealed class CallsignCommandRegistry
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 message = $"Unable to delete pack file '{path}': {ex.Message}";
+                Thread.Sleep(250);
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryCopyFileWithRetry(string sourcePath, string destinationPath, out string? message)
+    {
+        message = null;
+
+        for (var attempt = 1; attempt <= 20; attempt++)
+        {
+            try
+            {
+                File.Copy(sourcePath, destinationPath, overwrite: true);
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                message = $"Unable to restore pack file '{destinationPath}' from backup '{sourcePath}': {ex.Message}";
                 Thread.Sleep(250);
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
@@ -1031,5 +1387,48 @@ public sealed class CallsignCommandRegistry
         }
 
         return NormalizeAssemblyPath(Path.GetFileName(assemblyPath));
+    }
+
+    private static bool TryReadPackId(string assemblyPath, out string packId)
+    {
+        packId = string.Empty;
+        var pack = TryLoadPack(assemblyPath, out var info, out _, out _, out var loadContext);
+        try
+        {
+            var candidate = pack?.Module.Descriptor.PackId ?? info?.PackId;
+            packId = NormalizeKey(candidate ?? string.Empty);
+            return !string.IsNullOrWhiteSpace(packId);
+        }
+        finally
+        {
+            loadContext?.Unload();
+        }
+    }
+
+    private static bool IsSafePackFileName(string? fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+            return false;
+
+        if (!string.Equals(Path.GetExtension(fileName), ".dll", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (!string.Equals(fileName, Path.GetFileName(fileName), StringComparison.Ordinal))
+            return false;
+
+        if (fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            return false;
+
+        if (fileName.Any(char.IsControl))
+            return false;
+
+        if (fileName.EndsWith(".", StringComparison.Ordinal) || fileName.EndsWith(" ", StringComparison.Ordinal))
+            return false;
+
+        var baseName = Path.GetFileNameWithoutExtension(fileName);
+        if (string.IsNullOrWhiteSpace(baseName))
+            return false;
+
+        return !ReservedWindowsFileNames.Contains(baseName.TrimEnd('.', ' '));
     }
 }

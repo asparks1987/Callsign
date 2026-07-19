@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+
 namespace Callsign.UI.Services;
 
 public static class RuntimeControlFiles
@@ -72,7 +74,7 @@ public static class RuntimeControlFiles
     {
         Directory.CreateDirectory(RuntimeDir);
         File.WriteAllText(ScriptedTranscriptRequestPath, transcript);
-        WriteControlLog($"Configuration manager queued scripted transcript request: {transcript}");
+        WriteControlLog($"Configuration manager queued scripted transcript request: {FormatTranscriptForControlLog(transcript)}");
     }
 
     public static bool TryConsumeScriptedTranscriptRequest(out string transcript)
@@ -91,7 +93,7 @@ public static class RuntimeControlFiles
                 return false;
             }
 
-            WriteControlLog($"User-runtime consumed scripted transcript request: {transcript}");
+            WriteControlLog($"User-runtime consumed scripted transcript request: {FormatTranscriptForControlLog(transcript)}");
             return true;
         }
         catch
@@ -150,6 +152,16 @@ public static class RuntimeControlFiles
             WriteControlLog("User-runtime could not consume transcript history clear request cleanly.");
             return false;
         }
+    }
+
+    public static string FormatTranscriptForControlLog(string? transcript)
+    {
+        if (string.IsNullOrWhiteSpace(transcript))
+            return "redacted transcript length=0 hash=EMPTY";
+
+        var normalized = transcript.Trim();
+        var hash = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(normalized)));
+        return $"redacted transcript length={normalized.Length} hash={hash[..12]}";
     }
 
     private static void WriteControlLog(string message)

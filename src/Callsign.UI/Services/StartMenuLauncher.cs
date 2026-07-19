@@ -703,6 +703,7 @@ public sealed class StartMenuLauncher
             || normalized.Contains("powershell")
             || normalized.Contains("command line")
             || normalized.Contains("command shell")
+            || ContainsUnsafeLaunchPhrase(normalized)
             || normalized is "cmd"
                 or "command"
                 or "command prompt"
@@ -710,14 +711,38 @@ public sealed class StartMenuLauncher
                 or "windows terminal"
                 or "shell"
                 or "bash"
-                or "wsl")
+                or "wsl"
+                or "regedit"
+                or "registry editor"
+                or "event viewer"
+                or "services"
+                or "service manager"
+                or "device manager"
+                or "task scheduler"
+                or "computer management"
+                or "disk management"
+                or "administrative tools"
+                or "admin tools"
+                or "run as administrator")
         {
-            message = "That request is outside the alpha free launch scope. Try a plain installed app name like Notepad or Calculator.";
+            message = "Administrative and elevated tools are outside the alpha free launch scope. Try a plain installed app name like Notepad or Calculator.";
             return false;
         }
 
         message = string.Empty;
         return true;
+    }
+
+    private static bool ContainsUnsafeLaunchPhrase(string normalized)
+    {
+        var compact = $" {normalized} ";
+        foreach (var phrase in UnsafeLaunchPhrases)
+        {
+            if (compact.Contains($" {phrase} ", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 
     private static string NormalizeAppName(string value) =>
@@ -738,6 +763,36 @@ public sealed class StartMenuLauncher
 
     private static string CompactAppName(string value) =>
         string.Concat(value.Where(char.IsLetterOrDigit)).ToLowerInvariant();
+
+    private static readonly string[] UnsafeLaunchPhrases =
+    [
+        "run as administrator",
+        "run as admin",
+        "administrator",
+        "elevated",
+        "install",
+        "installer",
+        "setup",
+        "uninstall",
+        "uninstaller",
+        "remove program",
+        "remove programs",
+        "add remove programs",
+        "programs and features",
+        "security settings",
+        "windows security",
+        "virus threat protection",
+        "firewall",
+        "defender",
+        "credential manager",
+        "bitlocker",
+        "user account control",
+        "uac",
+        "local security policy",
+        "group policy",
+        "gpedit",
+        "secpol"
+    ];
 
     private static double ScoreAppNameMatch(string input, string candidate)
     {

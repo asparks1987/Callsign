@@ -11,7 +11,8 @@ public sealed record CallsignUpdateManifest(
     IReadOnlyList<CallsignUpdateCommandChange>? RemovedCommands = null,
     IReadOnlyList<CallsignUpdateExtensionChange>? ExtensionPackChanges = null,
     string? SplashSummary = null,
-    DateTimeOffset? PublishedUtc = null);
+    DateTimeOffset? PublishedUtc = null,
+    IReadOnlyList<CallsignUpdateFeatureChange>? FeatureHighlights = null);
 
 public sealed record CallsignUpdateCommandChange(
     string CommandId,
@@ -26,4 +27,11 @@ public sealed record CallsignUpdateExtensionChange(
     string Version,
     CallsignPackTier Tier,
     string Summary,
-    string? SignatureStatus = null);
+    string? SignatureStatus = null,
+    bool IsCommunity = false);
+
+public sealed record CallsignUpdateFeatureChange(
+    string FeatureId,
+    string DisplayName,
+    string Category,
+    string Summary);

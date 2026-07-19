@@ -10,14 +10,20 @@ DOCS = ROOT / "docs"
 REF = DOCS / "reference"
 PAGES = DOCS / "pages"
 ASSETS = DOCS / "assets"
+DOWNLOADS = DOCS / "downloads"
 ASSET_VERSION = "20260619b"
 SOURCE_REPO_URL = "https://github.com/asparks1987/Callsign"
 PAGES.mkdir(parents=True, exist_ok=True)
 ASSETS.mkdir(parents=True, exist_ok=True)
+DOWNLOADS.mkdir(parents=True, exist_ok=True)
 
 GIF_SOURCE = ROOT / "callsign.gif"
 if GIF_SOURCE.exists():
     shutil.copy2(GIF_SOURCE, ASSETS / "callsign.gif")
+
+INSTALLER_SOURCE = ROOT / "Callsign-Setup.exe"
+if INSTALLER_SOURCE.exists():
+    shutil.copy2(INSTALLER_SOURCE, DOWNLOADS / "Callsign-Setup.exe")
 
 def write_text_retry(path: Path, text: str) -> None:
     last_error: Exception | None = None

@@ -12,6 +12,13 @@ public sealed class MouseGridOverlayForm : Form
     private readonly Panel _headerPanel;
     private readonly Label _titleLabel;
     private readonly Button _closeButton;
+    private readonly Label _contractLabel;
+    private readonly FlowLayoutPanel _statusStrip;
+    private readonly Label _statusStopBadge;
+    private readonly Label _statusScopeBadge;
+    private readonly Label _statusFocusBadge;
+    private readonly Label _statusMarkedBadge;
+    private readonly Label _statusSafetyBadge;
     private readonly Label _cueLabel;
     private readonly Label _safetyLabel;
     private readonly Stack<MouseGridState> _history = new();
@@ -79,6 +86,45 @@ public sealed class MouseGridOverlayForm : Form
         _headerPanel.Controls.Add(_closeButton);
         _closeButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
 
+        _contractLabel = new Label
+        {
+            AutoSize = false,
+            Dock = DockStyle.Top,
+            Height = 28,
+            BackColor = Color.FromArgb(236, 242, 252),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            TextAlign = ContentAlignment.MiddleCenter,
+            Font = new Font("Segoe UI Semibold", 8.6f, FontStyle.Bold),
+            Padding = new Padding(8, 0, 8, 0),
+            Text = "Contract: choose grid -> refine target -> click or drag visibly.",
+            AccessibleName = "Mouse grid contract",
+            AccessibleDescription = "Summarizes the visible mouse-grid flow from coarse targeting through refinement and visible pointer action."
+        };
+        Controls.Add(_contractLabel);
+
+        _statusStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            Height = 30,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            Padding = new Padding(8, 3, 8, 3),
+            BackColor = Color.FromArgb(242, 247, 253),
+            AccessibleName = "Mouse grid status strip",
+            AccessibleDescription = "Shows the current stop state, grid scope, focus, marked drag state, and safety boundary in compact badges."
+        };
+        _statusStopBadge = CreateStatusBadge("STOP", "Shows that stop, cancel, and hide grid remain visible while targeting the mouse grid.", Color.FromArgb(255, 238, 235), Color.FromArgb(153, 27, 27));
+        _statusScopeBadge = CreateStatusBadge("Scope: current view", "Shows what surface the grid is numbering.", Color.FromArgb(239, 246, 255), Color.FromArgb(30, 64, 175));
+        _statusFocusBadge = CreateStatusBadge("Focus: root", "Shows the currently focused grid state.", Color.FromArgb(243, 244, 246), Color.FromArgb(51, 65, 85));
+        _statusMarkedBadge = CreateStatusBadge("Mark: none", "Shows whether a drag start has been marked.", Color.FromArgb(236, 253, 245), Color.FromArgb(6, 95, 70));
+        _statusSafetyBadge = CreateStatusBadge("Safety: visible pointer only", "Shows the visible-pointer safety boundary.", Color.FromArgb(250, 245, 255), Color.FromArgb(109, 40, 217));
+        _statusStrip.Controls.Add(_statusStopBadge);
+        _statusStrip.Controls.Add(_statusScopeBadge);
+        _statusStrip.Controls.Add(_statusFocusBadge);
+        _statusStrip.Controls.Add(_statusMarkedBadge);
+        _statusStrip.Controls.Add(_statusSafetyBadge);
+        Controls.Add(_statusStrip);
+
         _safetyLabel = new Label
         {
             AutoSize = false,
@@ -123,6 +169,17 @@ public sealed class MouseGridOverlayForm : Form
     public string OverlayAccessibleDescription => AccessibleDescription ?? string.Empty;
     public string CueAccessibleName => _cueLabel.AccessibleName ?? string.Empty;
     public string CueAccessibleDescription => _cueLabel.AccessibleDescription ?? string.Empty;
+    public string ContractText => _contractLabel.Text;
+    public string ContractAccessibleName => _contractLabel.AccessibleName ?? string.Empty;
+    public string ContractAccessibleDescription => _contractLabel.AccessibleDescription ?? string.Empty;
+    public string StatusStripAccessibleName => _statusStrip.AccessibleName ?? string.Empty;
+    public string StatusStripAccessibleDescription => _statusStrip.AccessibleDescription ?? string.Empty;
+    public string StatusStripTexts => string.Join(" ", _statusStrip.Controls.OfType<Control>().Select(control => control.Text));
+    public string StatusStopBadgeText => _statusStopBadge.Text;
+    public string StatusScopeBadgeText => _statusScopeBadge.Text;
+    public string StatusFocusBadgeText => _statusFocusBadge.Text;
+    public string StatusMarkedBadgeText => _statusMarkedBadge.Text;
+    public string StatusSafetyBadgeText => _statusSafetyBadge.Text;
     public string SafetyText => _safetyLabel.Text;
     public string SafetyAccessibleName => _safetyLabel.AccessibleName ?? string.Empty;
     public string SafetyAccessibleDescription => _safetyLabel.AccessibleDescription ?? string.Empty;
@@ -189,6 +246,7 @@ public sealed class MouseGridOverlayForm : Form
         _history.Push(CaptureState());
         ApplyState(new MouseGridState(displayBounds, null, normalizedIdentifier, _displayRegions.ToArray()));
         Bounds = displayBounds;
+        UpdateStatusStrip();
         return displayBounds;
     }
 
@@ -200,6 +258,7 @@ public sealed class MouseGridOverlayForm : Form
             _history.Push(CaptureState());
             ApplyState(new MouseGridState(cell, cellNumber, _focusedDisplayIdentifier, _displayRegions.ToArray()));
             Bounds = cell;
+            UpdateStatusStrip();
         }
 
         return cell;
@@ -212,6 +271,7 @@ public sealed class MouseGridOverlayForm : Form
 
         ApplyState(_history.Pop());
         Bounds = _gridBounds;
+        UpdateStatusStrip();
         return true;
     }
 
@@ -220,12 +280,14 @@ public sealed class MouseGridOverlayForm : Form
         _history.Clear();
         ApplyState(_rootState);
         Bounds = _gridBounds;
+        UpdateStatusStrip();
     }
 
     public void SetMarkedPoint(Point markedPoint)
     {
         _markedPoint = markedPoint;
         UpdateCueFromState();
+        UpdateStatusStrip();
         Invalidate();
     }
 
@@ -236,6 +298,7 @@ public sealed class MouseGridOverlayForm : Form
 
         _markedPoint = null;
         UpdateCueFromState();
+        UpdateStatusStrip();
         Invalidate();
     }
 
@@ -372,7 +435,7 @@ public sealed class MouseGridOverlayForm : Form
         base.OnPaint(e);
 
         var clientBounds = ClientRectangle;
-        var topChromeHeight = _headerPanel.Height + _cueLabel.Height + _safetyLabel.Height;
+        var topChromeHeight = _headerPanel.Height + _contractLabel.Height + _statusStrip.Height + _cueLabel.Height + _safetyLabel.Height;
         clientBounds.Y += topChromeHeight;
         clientBounds.Height -= topChromeHeight;
         if (clientBounds.Width <= 0 || clientBounds.Height <= 0)
@@ -524,6 +587,7 @@ public sealed class MouseGridOverlayForm : Form
         _focusedDisplayIdentifier = state.FocusedDisplayIdentifier;
         _displayRegions = state.DisplayRegions;
         UpdateCueFromState();
+        UpdateStatusStrip();
         UpdateCueRegion();
         Invalidate();
     }
@@ -556,6 +620,44 @@ public sealed class MouseGridOverlayForm : Form
             : "Shows the current mouse grid targeting command options before a cell is refined.";
     }
 
+    private void UpdateStatusStrip()
+    {
+        if (_statusStrip == null || _statusScopeBadge == null || _statusFocusBadge == null || _statusMarkedBadge == null || _statusSafetyBadge == null)
+            return;
+
+        _statusStopBadge.Text = "STOP";
+        _statusStopBadge.ForeColor = Color.FromArgb(153, 27, 27);
+        _statusScopeBadge.Text = string.IsNullOrWhiteSpace(_focusedDisplayIdentifier)
+            ? "Scope: current view"
+            : $"Scope: display {_focusedDisplayIdentifier}";
+        _statusFocusBadge.Text = _focusedCellNumber.HasValue
+            ? $"Focus: cell {_focusedCellNumber.Value}"
+            : string.IsNullOrWhiteSpace(_focusedDisplayIdentifier)
+                ? "Focus: root"
+                : $"Focus: display {_focusedDisplayIdentifier}";
+        _statusMarkedBadge.Text = _markedPoint.HasValue
+            ? $"Mark: set at {_markedPoint.Value.X}, {_markedPoint.Value.Y}"
+            : "Mark: none";
+        _statusSafetyBadge.Text = "Safety: visible pointer only";
+    }
+
+    private static Label CreateStatusBadge(string text, string description, Color backColor, Color foreColor)
+    {
+        return new Label
+        {
+            AutoSize = true,
+            Margin = new Padding(0, 0, 6, 0),
+            Padding = new Padding(8, 3, 8, 3),
+            BackColor = backColor,
+            ForeColor = foreColor,
+            BorderStyle = BorderStyle.FixedSingle,
+            Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+            Text = text,
+            AccessibleName = text,
+            AccessibleDescription = description
+        };
+    }
+
     private readonly record struct MouseGridState(
         Rectangle Bounds,
         int? FocusedCellNumber,
@@ -572,6 +674,13 @@ public sealed class MouseGridOverlayForm : Form
             _closeButton.Dispose();
             _titleLabel.Dispose();
             _headerPanel.Dispose();
+            _contractLabel.Dispose();
+            _statusStrip.Dispose();
+            _statusStopBadge.Dispose();
+            _statusScopeBadge.Dispose();
+            _statusFocusBadge.Dispose();
+            _statusMarkedBadge.Dispose();
+            _statusSafetyBadge.Dispose();
             _cueLabel.Dispose();
             _safetyLabel.Dispose();
         }

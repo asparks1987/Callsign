@@ -20,7 +20,7 @@ Callsign solves for that by combining:
 - callsign identity verification,
 - animated wake overlay with live readout,
 - visible action execution,
-- and a strict boundary for future paid extension libraries.
+- and a strict boundary for paid extension libraries.
 
 ## Current alpha boundary
 
@@ -56,7 +56,7 @@ Alpha versioning starts at `0.0.3a` and uses two tracks:
 | `v1.1 alpha` | Dictation with visible review before insertion, copy, paste, or other text action. |
 | `v1.2 alpha` | Browser control for visible open, search, navigation, and bounded browser workflows. |
 | `v1.3 alpha` | System control for Windows, WSL, and Linux, including file search results shown or opened through Explorer. |
-| `v1.4 alpha` | Voice Access parity hardening, command discovery, update splash, manual walkthroughs, and release-candidate installer/site verification. |
+| `v1.4 alpha` | Voice Access parity hardening, command discovery, update splash, import splash replay, manual walkthroughs, and release-candidate installer/site verification. |
 
 The 100% parity target for `VOICE_ACCESS_PARITY_MATRIX.md` is the release gating criterion for `1.0.0a`; all earlier versions keep the flow intentionally additive.
 
@@ -77,7 +77,7 @@ It must:
 
 Future Pro and Advanced capabilities may be delivered as closed-source extension libraries.
 
-The planned shape is:
+The shape is:
 
 - Pro: deeper Windows, browser, WSL, Linux, workflow, and system control.
 - Advanced: specialized command catalogs, recipes, diagnostics, and power-user automation.

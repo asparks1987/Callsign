@@ -7,8 +7,13 @@ public sealed class DictationCorrectionForm : Form
 {
     private readonly Panel _surface;
     private readonly Label _titleLabel;
+    private readonly Label _contractLabel;
     private readonly Label _subtitleLabel;
     private readonly Label _summaryLabel;
+    private readonly FlowLayoutPanel _statusStrip;
+    private readonly Label _scopeBadge;
+    private readonly Label _choiceBadge;
+    private readonly Label _safetyBadge;
     private readonly Label _cueLabel;
     private readonly Label _safetyLabel;
     private readonly Button _closeButton;
@@ -46,14 +51,16 @@ public sealed class DictationCorrectionForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 7,
+            RowCount = 9,
             BackColor = Color.Transparent
         };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         _surface.Controls.Add(layout);
@@ -67,6 +74,20 @@ public sealed class DictationCorrectionForm : Form
             TextAlign = ContentAlignment.MiddleLeft,
             AccessibleName = "Dictation correction title",
             AccessibleDescription = "Names the correction alternatives surface."
+        };
+
+        _contractLabel = new Label
+        {
+            Dock = DockStyle.Fill,
+            Text = "Contract: review text -> choose alternative -> accept or cancel.",
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            ForeColor = Color.FromArgb(37, 99, 235),
+            BackColor = Color.FromArgb(233, 241, 255),
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(10, 0, 10, 0),
+            AutoEllipsis = true,
+            AccessibleName = "Dictation correction contract",
+            AccessibleDescription = "Summarizes the visible correction workflow from review to choice, accept, or cancel."
         };
 
         _closeButton = new Button
@@ -101,6 +122,7 @@ public sealed class DictationCorrectionForm : Form
         headerRow.Controls.Add(_closeButton, 1, 0);
 
         layout.Controls.Add(headerRow, 0, 0);
+        layout.Controls.Add(_contractLabel, 0, 1);
 
         _subtitleLabel = new Label
         {
@@ -112,7 +134,7 @@ public sealed class DictationCorrectionForm : Form
             AccessibleName = "Dictation correction scope",
             AccessibleDescription = "Shows the reviewed text scope and spoken correction navigation commands."
         };
-        layout.Controls.Add(_subtitleLabel, 0, 1);
+        layout.Controls.Add(_subtitleLabel, 0, 2);
 
         _summaryLabel = new Label
         {
@@ -124,12 +146,31 @@ public sealed class DictationCorrectionForm : Form
             AccessibleName = "Dictation correction summary",
             AccessibleDescription = "Summarizes available correction choices and the selected alternative."
         };
-        layout.Controls.Add(_summaryLabel, 0, 2);
+        layout.Controls.Add(_summaryLabel, 0, 3);
+
+        _statusStrip = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            AutoSize = true,
+            Margin = new Padding(0, 0, 0, 2),
+            Padding = Padding.Empty,
+            AccessibleName = "Correction status strip",
+            AccessibleDescription = "Shows the reviewed text scope, the selected correction number, and the safety state at a glance."
+        };
+        _scopeBadge = CreateBadge("Scope: none", "Shows the reviewed text scope.");
+        _choiceBadge = CreateBadge("Choice: none", "Shows the currently selected correction number.");
+        _safetyBadge = CreateBadge("Safety: close leaves text unchanged", "Shows that closing or cancelling leaves the reviewed text unchanged.");
+        _statusStrip.Controls.Add(_scopeBadge);
+        _statusStrip.Controls.Add(_choiceBadge);
+        _statusStrip.Controls.Add(_safetyBadge);
+        layout.Controls.Add(_statusStrip, 0, 4);
 
         _cueLabel = new Label
         {
             Dock = DockStyle.Fill,
-            Text = "Choose by voice: next correction | previous correction | accept correction | choose correction 1 | close correction",
+            Text = BuildCueText("Choose by voice: next correction | previous correction | accept correction | choose correction 1 | close correction", choicesCount: 0, scopeText: "Scope: none", selectedChoiceText: string.Empty),
             Font = new Font("Segoe UI Semibold", 9.1f, FontStyle.Bold),
             ForeColor = Color.FromArgb(29, 78, 216),
             BackColor = Color.FromArgb(235, 242, 255),
@@ -139,7 +180,7 @@ public sealed class DictationCorrectionForm : Form
             AccessibleName = "Dictation correction voice cue",
             AccessibleDescription = "Lists spoken commands for moving through, choosing, accepting, or closing correction alternatives."
         };
-        layout.Controls.Add(_cueLabel, 0, 3);
+        layout.Controls.Add(_cueLabel, 0, 5);
 
         _safetyLabel = new Label
         {
@@ -154,7 +195,7 @@ public sealed class DictationCorrectionForm : Form
             AccessibleName = "Dictation correction safety",
             AccessibleDescription = "Explains that choosing or accepting applies a replacement, while closing or cancelling leaves the reviewed dictation text unchanged."
         };
-        layout.Controls.Add(_safetyLabel, 0, 4);
+        layout.Controls.Add(_safetyLabel, 0, 6);
 
         _choicesList = new ListView
         {
@@ -175,7 +216,7 @@ public sealed class DictationCorrectionForm : Form
         _choicesList.Columns.Add("Kind", 150);
         _choicesList.SelectedIndexChanged += (_, _) => UpdateSummaryFromSelection();
         _choicesList.KeyDown += ChoicesListOnKeyDown;
-        layout.Controls.Add(_choicesList, 0, 5);
+        layout.Controls.Add(_choicesList, 0, 7);
 
         ApplyRoundedRegion();
     }
@@ -193,6 +234,9 @@ public sealed class DictationCorrectionForm : Form
     public string SurfaceAccessibleDescription => AccessibleDescription ?? string.Empty;
     public string PanelAccessibleName => _surface.AccessibleName ?? string.Empty;
     public string TitleAccessibleName => _titleLabel.AccessibleName ?? string.Empty;
+    public string ContractText => _contractLabel.Text;
+    public string ContractAccessibleName => _contractLabel.AccessibleName ?? string.Empty;
+    public string ContractAccessibleDescription => _contractLabel.AccessibleDescription ?? string.Empty;
     public string CloseButtonAccessibleName => _closeButton.AccessibleName ?? string.Empty;
     public string CloseButtonText => _closeButton.Text;
     public string ScopeAccessibleName => _subtitleLabel.AccessibleName ?? string.Empty;
@@ -201,18 +245,30 @@ public sealed class DictationCorrectionForm : Form
     public string CueAccessibleDescription => _cueLabel.AccessibleDescription ?? string.Empty;
     public string SafetyAccessibleName => _safetyLabel.AccessibleName ?? string.Empty;
     public string SafetyAccessibleDescription => _safetyLabel.AccessibleDescription ?? string.Empty;
+    public string StatusStripAccessibleName => _statusStrip.AccessibleName ?? string.Empty;
+    public string StatusStripAccessibleDescription => _statusStrip.AccessibleDescription ?? string.Empty;
+    public string StatusStripTexts => string.Join(" ", _statusStrip.Controls.OfType<Control>().Select(control => control.Text));
+    public string ScopeBadgeText => _scopeBadge.Text;
+    public string ChoiceBadgeText => _choiceBadge.Text;
+    public string SafetyBadgeText => _safetyBadge.Text;
     public string ChoicesAccessibleName => _choicesList.AccessibleName ?? string.Empty;
     public string ChoicesAccessibleDescription => _choicesList.AccessibleDescription ?? string.Empty;
 
     public void ShowCorrections(IWin32Window owner, IReadOnlyList<DictationCorrectionChoice> choices, DictationReplacementScope scope)
     {
-        _subtitleLabel.Text = $"Scope: {FormatScope(scope)}. Say next correction, previous correction, accept correction, choose correction 1, or close correction.";
+        var scopeText = $"Scope: {FormatScope(scope)}.";
+        _subtitleLabel.Text = $"{scopeText} Say next correction, previous correction, accept correction, choose correction 1, or close correction.";
         _summaryLabel.Text = choices.Count == 0
             ? "No alternatives are available for this span."
             : $"Showing {choices.Count} correction alternative{(choices.Count == 1 ? string.Empty : "s")} for the reviewed text.";
-        _cueLabel.Text = choices.Count == 0
-            ? "No replacement will run until alternatives are available."
-            : $"Choose by voice: next correction | previous correction | accept correction | choose correction 1-{choices.Count} | close correction";
+        _cueLabel.Text = BuildCueText(
+            choices.Count == 0
+                ? "No replacement will run until alternatives are available."
+                : $"Choose by voice: next correction | previous correction | accept correction | choose correction 1-{choices.Count} | close correction",
+            choices.Count,
+            scopeText,
+            string.Empty);
+        UpdateStatusStrip(scope, choices.Count);
         _choicesList.BeginUpdate();
         try
         {
@@ -304,8 +360,13 @@ public sealed class DictationCorrectionForm : Form
         {
             _summaryLabel.Dispose();
             _titleLabel.Dispose();
+            _contractLabel.Dispose();
             _closeButton.Dispose();
             _subtitleLabel.Dispose();
+            _statusStrip.Dispose();
+            _scopeBadge.Dispose();
+            _choiceBadge.Dispose();
+            _safetyBadge.Dispose();
             _cueLabel.Dispose();
             _safetyLabel.Dispose();
             _choicesList.Dispose();
@@ -326,6 +387,25 @@ public sealed class DictationCorrectionForm : Form
             return;
 
         _summaryLabel.Text = $"Selected {item.SubItems[0].Text}: {item.SubItems[1].Text} ({item.SubItems[2].Text}).";
+        _choiceBadge.Text = $"Choice: {item.SubItems[0].Text} of {_choicesList.Items.Count}";
+        _cueLabel.Text = BuildCueText(
+            $"Choose by voice: next correction | previous correction | accept correction | choose correction {item.SubItems[0].Text} | close correction",
+            _choicesList.Items.Count,
+            _subtitleLabel.Text,
+            _summaryLabel.Text);
+    }
+
+    private static string BuildCueText(string prefix, int choicesCount, string scopeText, string selectedChoiceText)
+    {
+        var choiceSummary = choicesCount == 0
+            ? "No alternatives available."
+            : choicesCount == 1
+                ? "1 alternative available."
+                : $"{choicesCount} alternatives available.";
+        var selectionSummary = string.IsNullOrWhiteSpace(selectedChoiceText)
+            ? "No choice selected."
+            : $"Selected choice: {selectedChoiceText}";
+        return $"{prefix} {choiceSummary} {selectionSummary} {scopeText} Choose or accept replaces reviewed text; close or cancel leaves the review buffer unchanged.";
     }
 
     private void ChoicesListOnKeyDown(object? sender, KeyEventArgs e)
@@ -381,6 +461,13 @@ public sealed class DictationCorrectionForm : Form
         UpdateSummaryFromSelection();
     }
 
+    private void UpdateStatusStrip(DictationReplacementScope scope, int choiceCount)
+    {
+        _scopeBadge.Text = $"Scope: {FormatScope(scope)}";
+        _choiceBadge.Text = choiceCount > 0 ? $"Choice: 1 of {choiceCount}" : "Choice: none";
+        _safetyBadge.Text = "Safety: close leaves text unchanged";
+    }
+
     private void ApplyRoundedRegion()
     {
         if (Width <= 0 || Height <= 0)
@@ -415,4 +502,21 @@ public sealed class DictationCorrectionForm : Form
             DictationReplacementScope.AllText => "all dictated text",
             _ => "previous word"
         };
+
+    private static Label CreateBadge(string text, string description)
+    {
+        return new Label
+        {
+            AutoSize = true,
+            Margin = new Padding(0, 0, 8, 0),
+            Padding = new Padding(10, 4, 10, 4),
+            BackColor = Color.FromArgb(237, 242, 255),
+            ForeColor = Color.FromArgb(30, 64, 175),
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            Text = text,
+            TextAlign = ContentAlignment.MiddleLeft,
+            AccessibleName = text,
+            AccessibleDescription = description
+        };
+    }
 }

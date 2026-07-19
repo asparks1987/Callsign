@@ -42,7 +42,14 @@ public sealed record VoiceEnrollmentSampleMetadata(
     long ByteLength,
     DateTime LastWriteUtc,
     double AgeSeconds,
-    string Sha256);
+    string Sha256,
+    string QualityState,
+    string QualityMessage,
+    double Peak,
+    double Rms,
+    double DurationSeconds,
+    double ClippingRatio,
+    double ZeroCrossingRate);
 
 public sealed record VoiceEnrollmentSampleProof(
     DateTime UpdatedUtc,
@@ -524,6 +531,13 @@ public sealed class VoiceBiometricVerificationService : IVoiceBiometricVerifier
             return error;
         }
 
+        var quality = VoiceSampleQualityAnalyzer.Analyze(samplePath);
+        if (!quality.Accepted)
+        {
+            error = quality.Message;
+            return error;
+        }
+
         return null;
     }
 
@@ -578,13 +592,21 @@ public sealed class VoiceBiometricVerificationService : IVoiceBiometricVerifier
             var info = new FileInfo(samplePath);
             var lastWriteUtc = info.LastWriteTimeUtc;
             var ageSeconds = Math.Max(0, (DateTime.UtcNow - lastWriteUtc).TotalSeconds);
+            var quality = VoiceSampleQualityAnalyzer.Analyze(samplePath);
             samples.Add(new VoiceEnrollmentSampleMetadata(
                 Path.GetFullPath(samplePath),
                 info.Name,
                 info.Length,
                 lastWriteUtc,
                 ageSeconds,
-                ComputeSha256(samplePath)));
+                ComputeSha256(samplePath),
+                quality.State,
+                quality.Message,
+                quality.Peak,
+                quality.Rms,
+                quality.DurationSeconds,
+                quality.ClippingRatio,
+                quality.ZeroCrossingRate));
         }
 
         var distinctHashCount = samples
@@ -681,14 +703,14 @@ public sealed class VoiceBiometricVerificationService : IVoiceBiometricVerifier
         var pythonPath = GetPyannotePythonPath();
         if (!File.Exists(pythonPath))
         {
-            error = "pyannote runtime not ready. Use Train Voice Identity, then Repair Identity Runtime if prompted.";
+            error = "pyannote runtime not ready. Next: choose Train Voice Identity, then Repair Identity Runtime if prompted.";
             return false;
         }
 
         var modelCachePath = GetPyannoteModelCachePath();
         if (!PyannoteModelCacheLooksReady(modelCachePath))
         {
-            error = "pyannote model cache is missing or incomplete. Use Repair Identity Runtime or reinstall Callsign.";
+            error = "pyannote model cache is missing or incomplete. Next: choose Repair Identity Runtime or reinstall Callsign.";
             return false;
         }
 
@@ -724,7 +746,7 @@ public sealed class VoiceBiometricVerificationService : IVoiceBiometricVerifier
             if (!process.WaitForExit(120000))
             {
                 TryKillProcessTree(process);
-                error = "pyannote embedding timed out after 120 seconds. Repair Identity Runtime, then try enrollment again.";
+                error = "pyannote embedding timed out after 120 seconds. Next: Repair Identity Runtime, then try enrollment again.";
                 return false;
             }
 

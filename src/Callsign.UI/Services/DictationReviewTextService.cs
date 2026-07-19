@@ -6,6 +6,10 @@ namespace Callsign.UI.Services;
 
 public static partial class DictationReviewTextService
 {
+    public const int MaxReviewCharacters = 12000;
+    public const int MaxServiceDictationSegments = 128;
+    public const int MaxCaptureSeconds = 600;
+
     [GeneratedRegex(@"\b(?:asshole|bastard|bitch|bullshit|damn|fuck|fucking|hell|shit)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 100)]
     private static partial Regex ProfanityRegex();
     [GeneratedRegex(@"\b(?:um|uh|er|ah)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 100)]
@@ -21,9 +25,29 @@ public static partial class DictationReviewTextService
         DictationCasingMode casingMode,
         bool fluidDictationEnabled,
         bool automaticPunctuationEnabled,
-        bool profanityFilterEnabled)
+        bool profanityFilterEnabled) =>
+        AppendReviewedTextWithBounds(
+            existingText,
+            transcript,
+            casingMode,
+            fluidDictationEnabled,
+            automaticPunctuationEnabled,
+            profanityFilterEnabled).Text;
+
+    public static DictationReviewAppendResult AppendReviewedTextWithBounds(
+        string? existingText,
+        string transcript,
+        DictationCasingMode casingMode,
+        bool fluidDictationEnabled,
+        bool automaticPunctuationEnabled,
+        bool profanityFilterEnabled,
+        int maxCharacters = MaxReviewCharacters)
     {
+        maxCharacters = Math.Max(1, maxCharacters);
         var reviewedText = existingText ?? string.Empty;
+        if (reviewedText.Length >= maxCharacters)
+            return new DictationReviewAppendResult(reviewedText[..maxCharacters], WasTruncated: true, maxCharacters);
+
         var displaySegment = FormatReviewedSegment(
             transcript,
             casingMode,
@@ -32,14 +56,17 @@ public static partial class DictationReviewTextService
             profanityFilterEnabled,
             ShouldTreatNextSegmentAsSentenceStart(reviewedText));
         if (string.IsNullOrWhiteSpace(displaySegment))
-            return reviewedText;
+            return new DictationReviewAppendResult(reviewedText, WasTruncated: false, maxCharacters);
 
         var builder = new StringBuilder(reviewedText);
         if (builder.Length > 0 && NeedsSeparator(builder))
             builder.Append(' ');
 
         builder.Append(displaySegment);
-        return builder.ToString();
+        if (builder.Length <= maxCharacters)
+            return new DictationReviewAppendResult(builder.ToString(), WasTruncated: false, maxCharacters);
+
+        return new DictationReviewAppendResult(builder.ToString()[..maxCharacters], WasTruncated: true, maxCharacters);
     }
 
     public static string BuildReviewedText(
@@ -55,13 +82,16 @@ public static partial class DictationReviewTextService
         var reviewedText = string.Empty;
         foreach (var transcript in transcripts)
         {
-            reviewedText = AppendReviewedText(
+            var appendResult = AppendReviewedTextWithBounds(
                 reviewedText,
                 transcript,
                 casingMode,
                 fluidDictationEnabled,
                 automaticPunctuationEnabled,
                 profanityFilterEnabled);
+            reviewedText = appendResult.Text;
+            if (appendResult.WasTruncated)
+                break;
         }
 
         return reviewedText;
@@ -214,3 +244,5 @@ public static partial class DictationReviewTextService
         return value[0] + new string('*', value.Length - 2) + value[^1];
     }
 }
+
+public sealed record DictationReviewAppendResult(string Text, bool WasTruncated, int MaxCharacters);

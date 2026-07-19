@@ -14,6 +14,7 @@ public sealed class BrowserLaunchService
     private const string DefaultSearchBase = "https://www.bing.com/search?q=";
     private const string BrowserFindTextActionPrefix = "browser-find-text:";
     private const string BrowserAddressTextActionPrefix = "browser-address-text:";
+    private const string BrowserSelectTabActionPrefix = "browser-select-tab:";
     private readonly bool _dryRun;
     private readonly object _scrollSync = new();
     private System.Threading.Timer? _continuousScrollTimer;
@@ -91,6 +92,32 @@ public sealed class BrowserLaunchService
                 return true;
             }
 
+            if (TryParsePageScrollAction(normalizedAction, "browser-scroll-up-pages:", out var upPageCount))
+            {
+                StopContinuousScroll();
+                SendRepeatedKeyIfNeeded(VK_PRIOR, upPageCount);
+                message = $"Browser scroll up {upPageCount} pages requested.";
+                return true;
+            }
+
+            if (TryParsePageScrollAction(normalizedAction, "browser-scroll-down-pages:", out var downPageCount))
+            {
+                StopContinuousScroll();
+                SendRepeatedKeyIfNeeded(VK_NEXT, downPageCount);
+                message = $"Browser scroll down {downPageCount} pages requested.";
+                return true;
+            }
+
+            if (TryParseSelectTabAction(normalizedAction, out var tabNumber))
+            {
+                StopContinuousScroll();
+                SendKeyChordIfNeeded(VK_CONTROL, GetDigitVirtualKey(tabNumber));
+                message = tabNumber == 9
+                    ? "Browser last tab requested."
+                    : $"Browser tab {tabNumber} requested.";
+                return true;
+            }
+
             switch (normalizedAction.ToLowerInvariant())
             {
                 case "browser-back":
@@ -107,6 +134,11 @@ public sealed class BrowserLaunchService
                     StopContinuousScroll();
                     SendKeyChordIfNeeded(VK_CONTROL, VK_R);
                     message = "Browser refresh requested.";
+                    return true;
+                case "browser-stop-loading":
+                    StopContinuousScroll();
+                    SendKeyIfNeeded(VK_ESCAPE);
+                    message = "Browser stop loading requested.";
                     return true;
                 case "browser-new-tab":
                     StopContinuousScroll();
@@ -153,6 +185,16 @@ public sealed class BrowserLaunchService
                     SendKeyChordIfNeeded(VK_CONTROL, VK_SHIFT, VK_TAB);
                     message = "Browser previous tab requested.";
                     return true;
+                case "browser-move-tab-left":
+                    StopContinuousScroll();
+                    SendKeyChordIfNeeded(VK_CONTROL, VK_SHIFT, VK_PRIOR);
+                    message = "Browser move tab left requested.";
+                    return true;
+                case "browser-move-tab-right":
+                    StopContinuousScroll();
+                    SendKeyChordIfNeeded(VK_CONTROL, VK_SHIFT, VK_NEXT);
+                    message = "Browser move tab right requested.";
+                    return true;
                 case "browser-close-tab":
                     StopContinuousScroll();
                     SendKeyChordIfNeeded(VK_CONTROL, VK_W);
@@ -162,6 +204,20 @@ public sealed class BrowserLaunchService
                     StopContinuousScroll();
                     SendKeyChordIfNeeded(VK_CONTROL, VK_SHIFT, VK_T);
                     message = "Browser reopen closed tab requested.";
+                    return true;
+                case "browser-duplicate-tab":
+                    StopContinuousScroll();
+                    SendKeyChordIfNeeded(VK_CONTROL, VK_L);
+                    PauseInputIfNeeded(100);
+                    SendKeyChordIfNeeded(VK_MENU, VK_RETURN);
+                    message = "Browser duplicate tab requested.";
+                    return true;
+                case "browser-copy-address":
+                    StopContinuousScroll();
+                    SendKeyChordIfNeeded(VK_CONTROL, VK_L);
+                    PauseInputIfNeeded(100);
+                    SendKeyChordIfNeeded(VK_CONTROL, VK_C);
+                    message = "Browser page address copied from the visible address bar.";
                     return true;
                 case "browser-focus-address-bar":
                     StopContinuousScroll();
@@ -352,6 +408,33 @@ public sealed class BrowserLaunchService
             && !addressText.Contains('\n');
     }
 
+    public static bool TryParsePageScrollAction(string action, string prefix, out int pageCount)
+    {
+        pageCount = 0;
+        if (string.IsNullOrWhiteSpace(action)
+            || string.IsNullOrWhiteSpace(prefix)
+            || !action.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var countText = action[prefix.Length..].Trim();
+        return int.TryParse(countText, out pageCount) && pageCount is >= 2 and <= 5;
+    }
+
+    public static bool TryParseSelectTabAction(string action, out int tabNumber)
+    {
+        tabNumber = 0;
+        if (string.IsNullOrWhiteSpace(action)
+            || !action.StartsWith(BrowserSelectTabActionPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var tabText = action[BrowserSelectTabActionPrefix.Length..].Trim();
+        return int.TryParse(tabText, out tabNumber) && tabNumber is >= 1 and <= 9;
+    }
+
     public bool TryOpen(string input, out string message, out Uri? targetUri, bool forceSearch = false, BrowserOpenTarget browserTarget = BrowserOpenTarget.Default)
     {
         targetUri = null;
@@ -422,6 +505,12 @@ public sealed class BrowserLaunchService
         {
             if (IsAllowedWebScheme(directUri.Scheme))
             {
+                if (HasCredentialUserInfo(directUri))
+                {
+                    reason = "Browser mode blocks credential-bearing web addresses. Remove usernames, passwords, or tokens before opening the target visibly.";
+                    return false;
+                }
+
                 targetUri = directUri;
                 return true;
             }
@@ -443,6 +532,12 @@ public sealed class BrowserLaunchService
         {
             if (Uri.TryCreate($"https://{trimmed}", UriKind.Absolute, out var wwwUri))
             {
+                if (HasCredentialUserInfo(wwwUri))
+                {
+                    reason = "Browser mode blocks credential-bearing web addresses. Remove usernames, passwords, or tokens before opening the target visibly.";
+                    return false;
+                }
+
                 targetUri = wwwUri;
                 return true;
             }
@@ -452,6 +547,12 @@ public sealed class BrowserLaunchService
         {
             if (Uri.TryCreate($"https://{trimmed}", UriKind.Absolute, out var domainUri))
             {
+                if (HasCredentialUserInfo(domainUri))
+                {
+                    reason = "Browser mode blocks credential-bearing web addresses. Remove usernames, passwords, or tokens before opening the target visibly.";
+                    return false;
+                }
+
                 targetUri = domainUri;
                 return true;
             }
@@ -502,6 +603,9 @@ public sealed class BrowserLaunchService
         string.Equals(scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
         || string.Equals(scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
 
+    private static bool HasCredentialUserInfo(Uri uri) =>
+        !string.IsNullOrWhiteSpace(uri.UserInfo);
+
     private static void AddCandidate(List<string> candidates, string root, params string[] segments)
     {
         if (string.IsNullOrWhiteSpace(root))
@@ -529,6 +633,18 @@ public sealed class BrowserLaunchService
         SendKey(virtualKey);
     }
 
+    private void SendRepeatedKeyIfNeeded(ushort virtualKey, int count)
+    {
+        if (_dryRun)
+            return;
+
+        for (var index = 0; index < count; index++)
+        {
+            SendKey(virtualKey);
+            PauseInputIfNeeded(40);
+        }
+    }
+
     private void SendKeyChordIfNeeded(ushort modifierKey, ushort key)
     {
         if (_dryRun)
@@ -552,6 +668,20 @@ public sealed class BrowserLaunchService
 
         Thread.Sleep(milliseconds);
     }
+
+    private static ushort GetDigitVirtualKey(int digit) => digit switch
+    {
+        1 => VK_1,
+        2 => VK_2,
+        3 => VK_3,
+        4 => VK_4,
+        5 => VK_5,
+        6 => VK_6,
+        7 => VK_7,
+        8 => VK_8,
+        9 => VK_9,
+        _ => throw new ArgumentOutOfRangeException(nameof(digit), digit, "Browser tab numbers must be between 1 and 9.")
+    };
 
     private static void SendText(string text)
     {
@@ -626,6 +756,7 @@ public sealed class BrowserLaunchService
     private const ushort VK_PRIOR = 0x21;
     private const ushort VK_NEXT = 0x22;
     private const ushort VK_TAB = 0x09;
+    private const ushort VK_C = 0x43;
     private const ushort VK_F = 0x46;
     private const ushort VK_H = 0x48;
     private const ushort VK_J = 0x4A;
@@ -639,11 +770,21 @@ public sealed class BrowserLaunchService
     private const ushort VK_T = 0x54;
     private const ushort VK_W = 0x57;
     private const ushort VK_0 = 0x30;
+    private const ushort VK_1 = 0x31;
+    private const ushort VK_2 = 0x32;
+    private const ushort VK_3 = 0x33;
+    private const ushort VK_4 = 0x34;
+    private const ushort VK_5 = 0x35;
+    private const ushort VK_6 = 0x36;
+    private const ushort VK_7 = 0x37;
+    private const ushort VK_8 = 0x38;
+    private const ushort VK_9 = 0x39;
     private const ushort VK_OEM_MINUS = 0xBD;
     private const ushort VK_OEM_PLUS = 0xBB;
     private const ushort VK_F3 = 0x72;
     private const ushort VK_F11 = 0x7A;
     private const ushort VK_RETURN = 0x0D;
+    private const ushort VK_ESCAPE = 0x1B;
     private const uint KeyEventKeyUp = 0x0002;
     private const uint KeyEventUnicode = 0x0004;
     private static readonly TimeSpan BrowserScrollTickInterval = TimeSpan.FromMilliseconds(150);

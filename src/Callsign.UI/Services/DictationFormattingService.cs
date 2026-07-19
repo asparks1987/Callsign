@@ -12,7 +12,7 @@ public static class DictationFormattingService
     public static bool TryApply(string text, DictationFormatCommand command, out DictationFormatResult result)
     {
         result = new DictationFormatResult(text, 0, 0);
-        var (start, length) = GetSpan(text, command.Scope);
+        var (start, length) = GetSpan(text, command);
         if (length <= 0 || start < 0 || start + length > text.Length)
             return false;
 
@@ -37,7 +37,9 @@ public static class DictationFormattingService
             _ => "format"
         };
 
-        var scope = command.Scope switch
+        var scope = !string.IsNullOrWhiteSpace(command.TargetText)
+            ? $"'{command.TargetText}'"
+            : command.Scope switch
         {
             DictationReplacementScope.PreviousSentence => "the previous sentence",
             DictationReplacementScope.PreviousParagraph => "the previous paragraph",
@@ -72,14 +74,23 @@ public static class DictationFormattingService
         return lower;
     }
 
-    private static (int Start, int Length) GetSpan(string text, DictationReplacementScope scope) =>
-        scope switch
+    private static (int Start, int Length) GetSpan(string text, DictationFormatCommand command)
+    {
+        if (!string.IsNullOrWhiteSpace(command.TargetText))
+        {
+            return DictationTargetTextService.TryFindPhraseSpan(text, command.TargetText, out var start, out var length)
+                ? (start, length)
+                : (0, 0);
+        }
+
+        return command.Scope switch
         {
             DictationReplacementScope.PreviousSentence => GetLastSentenceSpan(text),
             DictationReplacementScope.PreviousParagraph => GetCurrentParagraphSpan(text),
             DictationReplacementScope.AllText => string.IsNullOrWhiteSpace(text) ? (0, 0) : (0, text.TrimEnd().Length),
             _ => GetLastWordSpan(text)
         };
+    }
 
     private static (int Start, int Length) GetLastWordSpan(string text)
     {
